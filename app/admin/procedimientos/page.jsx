@@ -1,0 +1,27 @@
+'use client';
+import {useCallback,useEffect,useState} from 'react';
+import {refreshStoredSession} from '../../../lib/client/session';
+const input='w-full rounded-xl border border-[#e5d5e5] p-3 text-sm outline-none focus:border-[#8f2a85]';
+export default function Procedimientos(){
+ const [rows,setRows]=useState([]),[selected,setSelected]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[info,setInfo]=useState(''),[confirmation,setConfirmation]=useState(false);
+ const request=useCallback(async (options={})=>{
+  let token=sessionStorage.getItem('gdpsoft_access_token')||await refreshStoredSession();
+  const make=t=>fetch('/api/admin/procedimientos',{...options,cache:'no-store',headers:{Authorization:`Bearer ${t}`,'Content-Type':'application/json'}});
+  let r=await make(token);if(r.status===401)r=await make(await refreshStoredSession());
+  const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||'Error');return j;
+ },[]);
+ const load=useCallback(async()=>{try{const j=await request();setRows(j.procedures||[]);setError('');}catch(e){setError(e.message);}},[request]);
+ useEffect(()=>{load();},[load]);
+ const start=(p)=>{setSelected({...p});setConfirmation(false);setInfo('');};
+ async function change(action){if(!selected)return;setBusy(true);setError('');setInfo('');try{
+  if(action==='approve'&&!confirmation)throw new Error('Confirmá que el responsable verificó el procedimiento.');
+  if(action==='archive'&&!confirm('¿Archivar este procedimiento? El bot dejará de mostrarlo.'))return;
+  await request({method:'PATCH',body:JSON.stringify({id:selected.id,action,question:selected.question,answer:selected.answer,review_notes:selected.review_notes,confirmation:confirmation?'REVISADO':null})});
+  await load();setInfo(action==='approve'?'Procedimiento aprobado: el bot puede consultarlo permanentemente.':action==='edit'?'Cambios guardados.':'Procedimiento archivado.');setSelected(null);
+ }catch(e){setError(e.message);}finally{setBusy(false);}}
+ return <div className="mx-auto max-w-[1250px] space-y-5"><div><p className="text-xs font-bold uppercase tracking-widest text-[#8f2a85]">Control de calidad</p><h1 className="mt-1 text-2xl font-black">Procedimientos internos del bot</h1><p className="text-sm text-zinc-500">Las guías aprobadas están siempre disponibles por consulta, aunque no exista una incidencia activa. Las excepciones requieren autorización particular.</p></div>
+ {error&&<div role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</div>}{info&&<div className="rounded-xl border border-green-300 bg-green-50 p-3 text-sm text-green-800">{info}</div>}
+ <div className="grid gap-3 md:grid-cols-[1fr_1.3fr]"><div className="max-h-[75vh] overflow-y-auto space-y-2 rounded-2xl border bg-white p-4"><p className="text-sm font-semibold">{rows.length} procedimientos</p>{rows.map(p=><button key={p.id} onClick={()=>start(p)} className={`block w-full rounded-xl border p-3 text-left hover:border-[#8f2a85] ${selected?.id===p.id?'border-[#8f2a85] bg-[#faf1fa]':'border-zinc-200'}`}><div className="flex justify-between gap-2"><strong className="text-sm">{p.title}</strong><span className="shrink-0 text-xs">{p.status}</span></div><p className="mt-1 text-xs text-zinc-500">{p.code} · {p.scope} · {p.source_pages||'sin página'}</p></button>)}</div>
+ <section className="space-y-3 rounded-2xl border bg-white p-5">{selected? <><div><h2 className="text-lg font-semibold">{selected.title}</h2><p className="text-xs text-zinc-500">{selected.source_document} · {selected.source_pages}</p></div><label className="block text-sm font-medium">Pregunta<textarea rows={2} disabled={selected.status!=='DRAFT'} className={`${input} mt-1`} value={selected.question} onChange={e=>setSelected({...selected,question:e.target.value})}/></label><label className="block text-sm font-medium">Respuesta<textarea rows={9} disabled={selected.status!=='DRAFT'} className={`${input} mt-1`} value={selected.answer} onChange={e=>setSelected({...selected,answer:e.target.value})}/></label><label className="block text-sm font-medium">Notas de revisión<textarea rows={3} disabled={selected.status!=='DRAFT'} className={`${input} mt-1`} value={selected.review_notes||''} onChange={e=>setSelected({...selected,review_notes:e.target.value})}/></label>{selected.status==='DRAFT'&&<><label className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm"><input type="checkbox" checked={confirmation} onChange={e=>setConfirmation(e.target.checked)}/><span>Confirmo que el área responsable verificó la fuente, los circuitos, la vigencia y las excepciones antes de aprobar esta respuesta.</span></label><div className="flex flex-wrap gap-2"><button disabled={busy} onClick={()=>change('edit')} className="rounded-lg border px-4 py-2 text-sm">Guardar borrador</button><button disabled={busy||!confirmation} onClick={()=>change('approve')} className="rounded-lg bg-[#8f2a85] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Aprobar para el bot</button></div></>}{selected.status==='APPROVED'&&<button disabled={busy} onClick={()=>change('archive')} className="rounded-lg border border-red-300 px-4 py-2 text-sm text-red-700">Archivar / dejar de mostrar</button>}</> : <p className="text-sm text-zinc-500">Seleccioná un procedimiento para editarlo o aprobarlo. Los que todavía no tienen una respuesta acordada no se cargaron.</p>}</section></div>
+ </div>;
+}

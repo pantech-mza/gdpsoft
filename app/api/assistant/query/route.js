@@ -1,0 +1,7708 @@
+import OpenAI from "openai";
+
+import {
+  resolveOperation,
+} from "../../../../lib/operations/resolve-operation";
+
+import {
+  supabaseAdmin,
+} from "../../../../lib/supabase/admin";
+
+import {
+  normalizeQuestion,
+} from "../../../../lib/assistant/normalize-question";
+
+import {
+  buildSocialWorkDictionary,
+  detectSocialWorks,
+} from "../../../../lib/assistant/socialWorkDetection";
+
+import { resolveInternalProcedure } from "../../../../lib/assistant/internal-procedures";
+
+export const runtime =
+  "nodejs";
+
+export const dynamic =
+  "force-dynamic";
+
+export const maxDuration =
+  60;
+
+
+
+const openai = new OpenAI({
+
+  apiKey: process.env.OPENAI_API_KEY,
+
+});
+
+
+
+// =========================================================
+
+// LOG DE CONSULTAS
+
+// =========================================================
+
+
+
+async function logAssistantQuery({
+
+  branchId = null,
+
+  socialWorkId,
+
+  question,
+
+  answer = null,
+
+  source = null,
+
+  route = null,
+
+  normativeId = null,
+
+  found = null,
+
+  usage = null,
+
+  elapsedMs = null,
+
+  openaiResponseId = null,
+
+}) {
+
+  try {
+
+    const normalizedQuestion =
+
+      normalizeQuestion(question);
+
+
+
+    const { error } =
+
+      await supabaseAdmin
+
+        .from("assistant_query_log")
+
+        .insert({
+
+          branch_id: branchId,
+
+
+
+          social_work_id:
+
+            socialWorkId,
+
+
+
+          question,
+
+
+
+          normalized_question:
+
+            normalizedQuestion,
+
+
+
+          answer,
+
+
+
+          source,
+
+
+
+          route,
+
+
+
+          normative_id:
+
+            normativeId,
+
+
+
+          found,
+
+
+
+          input_tokens:
+
+            usage?.input_tokens ?? 0,
+
+
+
+          output_tokens:
+
+            usage?.output_tokens ?? 0,
+
+
+
+          total_tokens:
+
+            usage?.total_tokens ?? 0,
+
+
+
+          elapsed_ms:
+
+            elapsedMs,
+
+
+
+          openai_response_id:
+
+            openaiResponseId,
+
+        });
+
+
+
+    if (error) {
+
+      console.error(
+
+        "assistant_query_log error:",
+
+        error.message
+
+      );
+
+    }
+
+  } catch (error) {
+
+    /**
+
+ * IMPORTANTE:
+
+ * nunca rompemos el bot porque
+
+ * haya fallado el logging.
+
+ */
+
+
+
+    console.error(
+
+      "assistant_query_log exception:",
+
+      error
+
+    );
+
+  }
+
+}
+
+
+
+async function getCachedAnswer({
+
+  branchId,
+
+  socialWorkId,
+
+  question,
+
+}) {
+
+  const normalizedQuestion =
+
+    normalizeQuestion(question);
+
+
+
+  const { data, error } =
+
+    await supabaseAdmin
+
+      .from("assistant_answer_cache")
+
+      .select(`
+
+        id,
+
+        answer,
+
+        source,
+
+        route,
+
+        normative_id,
+
+        hit_count
+
+      `)
+
+      .eq(
+
+        "branch_id",
+
+        branchId
+
+      )
+
+      .eq(
+
+        "social_work_id",
+
+        socialWorkId
+
+      )
+
+      .eq(
+
+        "normalized_question",
+
+        normalizedQuestion
+
+      )
+
+      .eq(
+
+        "active",
+
+        true
+
+      )
+
+      .maybeSingle();
+
+
+
+  if (error) {
+
+    console.error(
+
+      "assistant_answer_cache lookup error:",
+
+      error.message
+
+    );
+
+
+
+    return null;
+
+  }
+
+
+
+  if (!data) {
+
+    return null;
+
+  }
+
+
+
+  await supabaseAdmin
+
+    .from("assistant_answer_cache")
+
+    .update({
+
+      hit_count:
+
+        (data.hit_count || 0) + 1,
+
+
+
+      last_used_at:
+
+        new Date().toISOString(),
+
+
+
+      updated_at:
+
+        new Date().toISOString(),
+
+    })
+
+    .eq(
+
+      "id",
+
+      data.id
+
+    );
+
+
+
+  return data;
+
+}
+
+
+
+async function saveCachedAnswer({
+
+  branchId,
+
+  socialWorkId,
+
+  question,
+
+  answer,
+
+  source,
+
+  route,
+
+  normativeId = null,
+
+  openaiResponseId = null,
+
+  usage = null,
+
+}) {
+
+  if (
+
+    !branchId ||
+
+    !socialWorkId ||
+
+    !question ||
+
+    !answer
+
+  ) {
+
+    return;
+
+  }
+
+
+
+  const normalizedQuestion =
+
+    normalizeQuestion(question);
+
+
+
+  const { error } =
+
+    await supabaseAdmin
+
+      .from("assistant_answer_cache")
+
+      .upsert(
+
+        {
+
+          branch_id:
+
+            branchId,
+
+
+
+          social_work_id:
+
+            socialWorkId,
+
+
+
+          normalized_question:
+
+            normalizedQuestion,
+
+
+
+          original_question:
+
+            question,
+
+
+
+          answer,
+
+
+
+          source,
+
+
+
+          route,
+
+
+
+          normative_id:
+
+            normativeId,
+
+
+
+          openai_response_id:
+
+            openaiResponseId,
+
+
+
+          input_tokens:
+
+            usage?.input_tokens ?? 0,
+
+
+
+          output_tokens:
+
+            usage?.output_tokens ?? 0,
+
+
+
+          total_tokens:
+
+            usage?.total_tokens ?? 0,
+
+
+
+          active:
+
+            true,
+
+
+
+          updated_at:
+
+            new Date().toISOString(),
+
+        },
+
+        {
+
+          onConflict:
+
+            "branch_id,social_work_id,normalized_question",
+
+        }
+
+      );
+
+
+
+  if (error) {
+
+    console.error(
+
+      "assistant_answer_cache save error:",
+
+      error.message
+
+    );
+
+  }
+
+}
+
+
+
+async function maybeSuggestFaq({
+
+  branchId,
+
+  socialWorkId,
+
+  question,
+
+  answer,
+
+  normativeId = null,
+
+  sourceType = null,
+
+}) {
+
+  /**
+
+ * Para sugerir FAQ necesitamos:
+
+ * - sucursal
+
+ * - obra social
+
+ * - pregunta
+
+ * - respuesta válida
+
+ */
+
+
+
+  if (
+
+    !branchId ||
+
+    !socialWorkId ||
+
+    !question ||
+
+    !answer
+
+  ) {
+
+    return;
+
+  }
+
+
+
+  try {
+
+    const normalizedQuestion =
+
+      normalizeQuestion(question);
+
+
+
+    /**
+
+ * Ventana de análisis:
+
+ * últimos 7 días.
+
+ */
+
+
+
+    const since =
+
+      new Date(
+
+        Date.now() -
+
+          7 * 24 * 60 * 60 * 1000
+
+      ).toISOString();
+
+
+
+    /**
+
+ * Contamos cuántas veces se hizo
+
+ * esta misma pregunta en la misma
+
+ * sucursal y OOSS.
+
+ */
+
+
+
+    const {
+
+      count,
+
+      error: countError,
+
+    } =
+
+      await supabaseAdmin
+
+        .from("assistant_query_log")
+
+        .select(
+
+          "id",
+
+          {
+
+            count: "exact",
+
+            head: true,
+
+          }
+
+        )
+
+        .eq(
+
+          "branch_id",
+
+          branchId
+
+        )
+
+        .eq(
+
+          "social_work_id",
+
+          socialWorkId
+
+        )
+
+        .eq(
+
+          "normalized_question",
+
+          normalizedQuestion
+
+        )
+
+        .eq(
+
+          "found",
+
+          true
+
+        )
+
+        .gte(
+
+          "created_at",
+
+          since
+
+        );
+
+
+
+    if (countError) {
+
+      console.error(
+
+        "FAQ detection count error:",
+
+        countError.message
+
+      );
+
+
+
+      return;
+
+    }
+
+
+
+    /**
+
+ * Por ahora el umbral es 3.
+
+
+
+ * Después lo podremos llevar
+
+ * a configuración del sistema.
+
+ */
+
+
+
+    const FAQ_THRESHOLD = 3;
+
+
+
+    if (
+
+      !count ||
+
+      count < FAQ_THRESHOLD
+
+    ) {
+
+      return;
+
+    }
+
+
+
+    /**
+
+ * Revisamos si ya existe
+
+ * una sugerencia / FAQ para
+
+ * esta misma combinación.
+
+ */
+
+
+
+    const {
+
+      data: existingFaq,
+
+      error: existingError,
+
+    } =
+
+      await supabaseAdmin
+
+        .from("social_work_faqs")
+
+        .select(`
+
+          id,
+
+          status,
+
+          detected_count
+
+        `)
+
+        .eq(
+
+          "social_work_id",
+
+          socialWorkId
+
+        )
+
+        .eq(
+
+          "branch_id",
+
+          branchId
+
+        )
+
+        .eq(
+
+          "normalized_question",
+
+          normalizedQuestion
+
+        )
+
+        .neq(
+
+          "status",
+
+          "ARCHIVED"
+
+        )
+
+        .order(
+
+          "id",
+
+          {
+
+            ascending: false,
+
+          }
+
+        )
+
+        .limit(1)
+
+        .maybeSingle();
+
+
+
+    if (existingError) {
+
+      console.error(
+
+        "FAQ detection lookup error:",
+
+        existingError.message
+
+      );
+
+
+
+      return;
+
+    }
+
+
+
+    /**
+
+ * Si ya existe, actualizamos
+
+ * la cantidad detectada.
+
+
+
+ * No modificamos automáticamente
+
+ * una respuesta APPROVED.
+
+ */
+
+
+
+    if (existingFaq) {
+
+      const updateData = {
+
+        detected_count:
+
+          count,
+
+
+
+        last_detected_at:
+
+          new Date().toISOString(),
+
+
+
+        updated_at:
+
+          new Date().toISOString(),
+
+      };
+
+
+
+      /**
+
+ * Si sigue siendo una sugerencia,
+
+ * podemos refrescar la respuesta
+
+ * sugerida.
+
+
+
+ * Si ya fue aprobada, no.
+
+ */
+
+
+
+      if (
+
+        existingFaq.status ===
+
+        "SUGGESTED"
+
+      ) {
+
+        updateData.answer =
+
+          answer;
+
+
+
+        updateData.source_type =
+
+          sourceType;
+
+
+
+        updateData.source_normative_id =
+
+          normativeId;
+
+      }
+
+
+
+      const { error } =
+
+        await supabaseAdmin
+
+          .from("social_work_faqs")
+
+          .update(
+
+            updateData
+
+          )
+
+          .eq(
+
+            "id",
+
+            existingFaq.id
+
+          );
+
+
+
+      if (error) {
+
+        console.error(
+
+          "FAQ detection update error:",
+
+          error.message
+
+        );
+
+      }
+
+
+
+      return;
+
+    }
+
+
+
+    /**
+
+ * Si todavía no existe,
+
+ * creamos la sugerencia.
+
+ */
+
+
+
+    const { error } =
+
+      await supabaseAdmin
+
+        .from("social_work_faqs")
+
+        .insert({
+
+          social_work_id:
+
+            socialWorkId,
+
+
+
+          branch_id:
+
+            branchId,
+
+
+
+          question,
+
+
+
+          normalized_question:
+
+            normalizedQuestion,
+
+
+
+          answer,
+
+
+
+          status:
+
+            "SUGGESTED",
+
+
+
+          source_type:
+
+            sourceType,
+
+
+
+          source_normative_id:
+
+            normativeId,
+
+
+
+          detected_count:
+
+            count,
+
+
+
+          first_detected_at:
+
+            new Date().toISOString(),
+
+
+
+          last_detected_at:
+
+            new Date().toISOString(),
+
+
+
+          active:
+
+            true,
+
+        });
+
+
+
+    if (error) {
+
+      console.error(
+
+        "FAQ detection insert error:",
+
+        error.message
+
+      );
+
+    }
+
+  } catch (error) {
+
+    /**
+
+ * Igual que el log:
+
+ * nunca romper el bot porque
+
+ * falle el sistema de sugerencias.
+
+ */
+
+
+
+    console.error(
+
+      "FAQ detection exception:",
+
+      error
+
+    );
+
+  }
+
+}
+
+
+
+async function getApprovedFaq({
+
+  branchId,
+
+  socialWorkId,
+
+  question,
+
+}) {
+
+  const normalizedQuestion =
+
+    normalizeQuestion(question);
+
+
+
+  try {
+
+    /**
+
+ * 1. Primero buscamos una FAQ
+
+ * específica para la sucursal.
+
+ */
+
+
+
+    if (branchId) {
+
+      const {
+
+        data: branchFaq,
+
+        error: branchError,
+
+      } =
+
+        await supabaseAdmin
+
+          .from("social_work_faqs")
+
+      .select(`
+
+  id,
+
+  social_work_id,
+
+  branch_id,
+
+  question,
+
+  answer,
+
+  source_type,
+
+  source_normative_id,
+
+  detected_count,
+
+  usage_count
+
+`)
+
+          .eq(
+
+            "social_work_id",
+
+            socialWorkId
+
+          )
+
+          .eq(
+
+            "branch_id",
+
+            branchId
+
+          )
+
+          .eq(
+
+            "normalized_question",
+
+            normalizedQuestion
+
+          )
+
+          .eq(
+
+            "status",
+
+            "APPROVED"
+
+          )
+
+          .eq(
+
+            "active",
+
+            true
+
+          )
+
+          .order(
+
+            "id",
+
+            {
+
+              ascending: false,
+
+            }
+
+          )
+
+          .limit(1)
+
+          .maybeSingle();
+
+
+
+      if (branchError) {
+
+        console.error(
+
+          "FAQ branch lookup error:",
+
+          branchError.message
+
+        );
+
+      }
+
+
+
+      if (branchFaq) {
+
+        return {
+
+          ...branchFaq,
+
+          scope: "BRANCH",
+
+        };
+
+      }
+
+    }
+
+
+
+    /**
+
+ * 2. Si no hay FAQ específica,
+
+ * buscamos una FAQ GLOBAL
+
+ * para esa obra social.
+
+ */
+
+
+
+    const {
+
+      data: globalFaq,
+
+      error: globalError,
+
+    } =
+
+      await supabaseAdmin
+
+        .from("social_work_faqs")
+
+      .select(`
+
+  id,
+
+  social_work_id,
+
+  branch_id,
+
+  question,
+
+  answer,
+
+  source_type,
+
+  source_normative_id,
+
+  detected_count,
+
+  usage_count
+
+`)
+
+        .eq(
+
+          "social_work_id",
+
+          socialWorkId
+
+        )
+
+        .is(
+
+          "branch_id",
+
+          null
+
+        )
+
+        .eq(
+
+          "normalized_question",
+
+          normalizedQuestion
+
+        )
+
+        .eq(
+
+          "status",
+
+          "APPROVED"
+
+        )
+
+        .eq(
+
+          "active",
+
+          true
+
+        )
+
+        .order(
+
+          "id",
+
+          {
+
+            ascending: false,
+
+          }
+
+        )
+
+        .limit(1)
+
+        .maybeSingle();
+
+
+
+    if (globalError) {
+
+      console.error(
+
+        "FAQ global lookup error:",
+
+        globalError.message
+
+      );
+
+
+
+      return null;
+
+    }
+
+
+
+    if (globalFaq) {
+
+      return {
+
+        ...globalFaq,
+
+        scope: "GLOBAL",
+
+      };
+
+    }
+
+
+
+    return null;
+
+  } catch (error) {
+
+    console.error(
+
+      "FAQ lookup exception:",
+
+      error
+
+    );
+
+
+
+    return null;
+
+  }
+
+}
+
+// =========================================================
+
+// UTILIDADES
+
+// =========================================================
+
+
+
+function normalize(value = "") {
+
+  return String(value)
+
+    .normalize("NFD")
+
+    .replace(
+
+      /[\u0300-\u036f]/g,
+
+      ""
+
+    )
+
+    .toLowerCase()
+
+    .replace(
+
+      /\s+/g,
+
+      " "
+
+    )
+
+    .trim();
+
+}
+
+
+
+function containsAny(
+
+  text,
+
+  values
+
+) {
+
+  return values.some(
+
+    (value) =>
+
+      text.includes(value)
+
+  );
+
+}
+
+
+
+function wantsDetailedAnswer(
+
+  question
+
+) {
+
+  const q =
+
+    normalize(question);
+
+
+
+  return containsAny(
+
+    q,
+
+    [
+
+      "requisitos",
+
+      "requisito",
+
+      "detalle",
+
+      "detalles",
+
+      "explica",
+
+      "explicame",
+
+      "completo",
+
+      "completa",
+
+      "todos",
+
+      "todas",
+
+      "paso a paso",
+
+      "que necesito",
+
+      "que debe tener",
+
+    ]
+
+  );
+
+}
+
+
+
+// =========================================================
+
+// FORMATEAR RESPUESTA OPERATIVA
+
+// =========================================================
+
+
+
+function formatOperationAnswer(
+
+  result,
+
+  operationType
+
+) {
+
+  const operation =
+
+    result.operation;
+
+
+
+  if (!operation) {
+
+    return null;
+
+  }
+
+
+
+  // =====================================================
+
+  // RECEPCIÓN
+
+  // =====================================================
+
+
+
+  if (
+
+    operationType ===
+
+    "RECEPTION"
+
+  ) {
+
+    if (
+
+      operation.canReceive ===
+
+      false
+
+    ) {
+
+      return "No, esta sucursal no puede recibirla.";
+
+    }
+
+
+
+    if (
+
+      operation.reception
+
+        ?.allDay === true
+
+    ) {
+
+      return "Sí. Esta sucursal puede recibirla durante todo el día.";
+
+    }
+
+
+
+    if (
+
+      operation.reception
+
+        ?.until
+
+    ) {
+
+      const time =
+
+        operation.reception.until.slice(
+
+          0,
+
+          5
+
+        );
+
+
+
+      return `Sí. Esta sucursal puede recibirla hasta las ${time}.`;
+
+    }
+
+
+
+    if (
+
+      operation.canReceive ===
+
+      true
+
+    ) {
+
+      return "Sí. Esta sucursal puede recibirla.";
+
+    }
+
+  }
+
+
+
+  // =====================================================
+
+  // VALIDACIÓN
+
+  // =====================================================
+
+
+
+  if (
+
+    operationType ===
+
+    "VALIDATION"
+
+  ) {
+
+    if (
+
+      operation.mode ===
+
+        "EXTERNAL_VALIDATOR" &&
+
+      operation.validation
+
+        ?.validatorBranch?.name
+
+    ) {
+
+      return `Validá directamente con el validador de ${operation.validation.validatorBranch.name}.`;
+
+    }
+
+
+
+    if (
+
+      operation.mode ===
+
+      "CAMARA_COLEGIO"
+
+    ) {
+
+      if (
+
+        operation.validation
+
+          ?.branchType
+
+      ) {
+
+        return `Requiere circuito Cámara-Colegio hacia una sucursal ${operation.validation.branchType}.`;
+
+      }
+
+
+
+      return "Requiere circuito Cámara-Colegio.";
+
+    }
+
+
+
+if (
+
+  operation.mode ===
+
+  "DIRECT"
+
+) {
+
+  if (
+
+    operation.validation?.instructions
+
+  ) {
+
+    return operation.validation.instructions;
+
+  }
+
+
+
+  if (
+
+    operation.summary &&
+
+    operation.instructions
+
+  ) {
+
+    return `${operation.summary} ${operation.instructions}`;
+
+  }
+
+
+
+  return (
+
+    operation.summary ||
+
+    operation.instructions ||
+
+    "Se opera de forma directa."
+
+  );
+
+}
+
+    return (
+
+      operation.validation
+
+        ?.instructions ||
+
+      operation.summary
+
+    );
+
+  }
+
+
+
+  // =====================================================
+
+  // PRESENTACIÓN
+
+  // =====================================================
+
+
+
+  if (
+
+    operationType ===
+
+    "PRESENTATION"
+
+  ) {
+
+    if (
+
+      operation.presentation
+
+        ?.branch?.name
+
+    ) {
+
+      return `La presentación debe realizarse en ${operation.presentation.branch.name}.`;
+
+    }
+
+
+
+    if (
+
+      operation.presentation
+
+        ?.branchType
+
+    ) {
+
+      return `La presentación debe canalizarse por una sucursal ${operation.presentation.branchType}.`;
+
+    }
+
+
+
+    if (
+
+      operation.mode ===
+
+      "CAMARA_COLEGIO"
+
+    ) {
+
+      return "La presentación se realiza mediante el circuito Cámara-Colegio.";
+
+    }
+
+
+
+    return (
+
+      operation.presentation
+
+        ?.instructions ||
+
+      operation.summary
+
+    );
+
+  }
+
+
+
+  // =====================================================
+
+  // CIRCUITO
+
+  // =====================================================
+
+
+
+  if (
+
+    operationType ===
+
+    "CIRCUIT"
+
+  ) {
+
+    if (
+
+      operation.mode ===
+
+      "CAMARA_COLEGIO"
+
+    ) {
+
+      return "Sí. Esta sucursal debe utilizar el circuito Cámara-Colegio.";
+
+    }
+
+
+
+    if (
+
+      operation.mode ===
+
+        "EXTERNAL_VALIDATOR" &&
+
+      operation.validation
+
+        ?.validatorBranch?.name
+
+    ) {
+
+      return `No. Se opera directamente utilizando el validador de ${operation.validation.validatorBranch.name}.`;
+
+    }
+
+
+
+    if (
+
+      operation.mode ===
+
+      "DIRECT"
+
+    ) {
+
+      return "No. Esta sucursal la opera de forma directa.";
+
+    }
+
+
+
+    return operation.summary;
+
+  }
+
+
+
+  return (
+
+    operation.summary ||
+
+    operation.instructions
+
+  );
+
+}
+
+
+
+// =========================================================
+
+// OPERACIÓN POR SUCURSAL
+
+// =========================================================
+
+
+
+function detectOperationIntent(
+
+  question
+
+) {
+
+  const q =
+
+    normalize(question);
+
+
+
+  // -------------------------------------------------------
+
+  // RECEPCIÓN
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    containsAny(
+
+      q,
+
+      [
+
+        "la recibimos",
+
+        "lo recibimos",
+
+        "se recibe",
+
+        "puedo recibir",
+
+        "podemos recibir",
+
+        "recibimos aca",
+
+        "recibir aca",
+
+        "hasta que hora",
+
+        "hasta qué hora",
+
+        "todo el dia",
+
+        "todo el día",
+
+        "horario de recepcion",
+
+        "horario de recepción",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "OPERATION",
+
+
+
+      operationType:
+
+        "RECEPTION",
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // PRESENTACIÓN
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    containsAny(
+
+      q,
+
+      [
+
+        "donde presento",
+
+        "dónde presento",
+
+        "por donde presento",
+
+        "por dónde presento",
+
+        "donde se presenta",
+
+        "dónde se presenta",
+
+        "donde mando",
+
+        "dónde mando",
+
+        "a donde mando",
+
+        "a dónde mando",
+
+        "donde envio",
+
+        "dónde envío",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "OPERATION",
+
+
+
+      operationType:
+
+        "PRESENTATION",
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // CÁMARA / COLEGIO / CIRCUITO
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    containsAny(
+
+      q,
+
+      [
+
+        "camara colegio",
+
+        "camara-colegio",
+
+        "camara – colegio",
+
+        "cámara colegio",
+
+        "cámara-colegio",
+
+        "circuito",
+
+        "va por camara",
+
+        "va por cámara",
+
+        "va por colegio",
+
+        "es directa",
+
+        "es directo",
+
+        "recibe directa",
+
+        "recibe directo",
+
+
+
+        "como opera",
+
+        "cómo opera",
+
+        "como funciona",
+
+        "cómo funciona",
+
+        "como se maneja",
+
+        "cómo se maneja",
+
+        "como se trabaja",
+
+        "cómo se trabaja",
+
+        "cual es el circuito",
+
+        "cuál es el circuito",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "OPERATION",
+
+
+
+      operationType:
+
+        "CIRCUIT",
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // VALIDACIÓN
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    containsAny(
+
+      q,
+
+      [
+
+        "como valido",
+
+        "cómo valido",
+
+        "donde valido",
+
+        "dónde valido",
+
+        "por donde valido",
+
+        "por dónde valido",
+
+        "que validador",
+
+        "qué validador",
+
+        "cual validador",
+
+        "cuál validador",
+
+        "donde se valida",
+
+        "dónde se valida",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "OPERATION",
+
+
+
+      operationType:
+
+        "VALIDATION",
+
+    };
+
+  }
+
+
+
+  return null;
+
+}
+
+
+
+// =========================================================
+
+// CONTACTOS
+
+// =========================================================
+
+
+
+function detectContactIntent(
+
+  question
+
+) {
+
+  const q =
+
+    normalize(question);
+
+
+
+  const hasContactCue =
+
+    containsAny(
+
+      q,
+
+      [
+
+        "telefono",
+
+        "telefonos",
+
+        "tel ",
+
+        // "numero" por sí solo NO implica contacto:
+        // puede ser número de afiliado, receta, autorización, matrícula, etc.
+        "contacto",
+
+
+
+        "llamar",
+
+        "llamo",
+
+        "llame",
+
+        "llamada",
+
+
+
+        "donde llamo",
+
+        "a donde llamo",
+
+        "a quien llamo",
+
+
+
+        "comunicar",
+
+        "comunicarme",
+
+
+
+        "mesa de ayuda",
+
+        "central de autorizaciones",
+
+
+
+        "farmalink",
+
+        "imed",
+
+        "cue",
+
+      ]
+
+    );
+
+
+
+  // -------------------------------------------------------
+
+  // ATENCIÓN AL AFILIADO
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    containsAny(
+
+      q,
+
+      [
+
+        "atencion al afiliado",
+
+        "atencion afiliado",
+
+        "telefono del afiliado",
+
+        "telefono para afiliados",
+
+        "contacto del afiliado",
+
+        "contacto para afiliados",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "CONTACT",
+
+
+
+      contactType:
+
+        "AFFILIATE_SERVICE",
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // FUERA DE HORARIO
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    hasContactCue &&
+
+    containsAny(
+
+      q,
+
+      [
+
+        "fuera de horario",
+
+        "fuera del horario",
+
+        "fuera de hora",
+
+        "activo o pasivo",
+
+        "cue",
+
+        "urgencias y emergencias",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "CONTACT",
+
+
+
+      contactType:
+
+        "OUT_OF_HOURS_VALIDATION",
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // PROBLEMAS DE VALIDACIÓN
+
+  // -------------------------------------------------------
+
+
+
+  const hasValidationProblem =
+
+    containsAny(
+
+      q,
+
+      [
+
+        "problema para validar",
+
+        "problemas para validar",
+
+
+
+        "problema al validar",
+
+        "problemas al validar",
+
+
+
+        "problema con la validacion",
+
+        "problemas con la validacion",
+
+
+
+        "inconveniente con la validacion",
+
+        "inconvenientes con la validacion",
+
+
+
+        "no puedo validar",
+
+        "no podemos validar",
+
+
+
+        "no me deja validar",
+
+        "no nos deja validar",
+
+
+
+        "error de validacion",
+
+        "error al validar",
+
+
+
+        "falla la validacion",
+
+        "falla al validar",
+
+
+
+        "no funciona la validacion",
+
+      ]
+
+    );
+
+
+
+  const mentionsValidation =
+
+    containsAny(
+
+      q,
+
+      [
+
+        "validacion",
+
+        "validar",
+
+        "imed",
+
+        "mesa de ayuda",
+
+      ]
+
+    );
+
+
+
+  if (
+
+    hasValidationProblem ||
+
+    (
+
+      hasContactCue &&
+
+      mentionsValidation
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "CONTACT",
+
+
+
+      contactType:
+
+        "VALIDATION_SUPPORT",
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // SOPORTE DE NORMATIVA
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    hasContactCue &&
+
+    containsAny(
+
+      q,
+
+      [
+
+        "normativa",
+
+        "norma operativa",
+
+        "consulta normativa",
+
+        "consultas normativa",
+
+        "farmalink",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "CONTACT",
+
+
+
+      contactType:
+
+        "NORMATIVE_SUPPORT",
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // AUTORIZACIONES
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    hasContactCue &&
+
+    containsAny(
+
+      q,
+
+      [
+
+        "autorizacion",
+
+        "autorizaciones",
+
+        "autorizar",
+
+        "codigo de autorizacion",
+
+        "codigos de autorizacion",
+
+        "cat",
+
+        "fuera de padron",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "CONTACT",
+
+
+
+      contactType:
+
+        "AUTHORIZATION",
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // CONTACTO GENÉRICO
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    hasContactCue
+
+  ) {
+
+    return {
+
+      domain:
+
+        "CONTACT",
+
+
+
+      contactType:
+
+        null,
+
+    };
+
+  }
+
+
+
+  return null;
+
+}
+
+// =========================================================
+// ACLARACIONES DE ALCANCE
+// =========================================================
+
+function detectScopeClarificationIntent(
+  question
+) {
+  const q =
+    normalize(question);
+
+  // Consultas demasiado amplias:
+  // no conviene responder "no encuentro";
+  // pedimos el dato que falta.
+
+  const asksGenericCoverage =
+    containsAny(
+      q,
+      [
+        "que cobertura tiene",
+        "qué cobertura tiene",
+        "cobertura general",
+        "porcentaje de cobertura",
+        "porcentajes de cobertura",
+      ]
+    ) &&
+    !containsAny(
+      q,
+      [
+        "cronico",
+        "crónico",
+        "cronicos",
+        "crónicos",
+        "pmi",
+        "materno infantil",
+        "discapacidad",
+        "anticoncept",
+        "diabetes",
+        "vacuna",
+      ]
+    );
+
+  if (
+    asksGenericCoverage
+  ) {
+    return {
+      domain:
+        "CLARIFICATION",
+
+      clarificationType:
+        "COVERAGE",
+
+      answer:
+        "La cobertura depende del plan o la prestación. ¿Qué plan o prestación querés consultar?",
+    };
+  }
+
+  const asksGenericPlans =
+    containsAny(
+      q,
+      [
+        "que planes y porcentajes",
+        "qué planes y porcentajes",
+        "planes y porcentajes",
+        "que planes tiene",
+        "qué planes tiene",
+        "cuales son los planes",
+        "cuáles son los planes",
+      ]
+    );
+
+  if (
+    asksGenericPlans
+  ) {
+    return {
+      domain:
+        "CLARIFICATION",
+
+      clarificationType:
+        "PLANS",
+
+      answer:
+        "Hay distintos planes y coberturas. ¿Qué plan o prestación querés consultar?",
+    };
+  }
+
+  return null;
+}
+
+
+// =========================================================
+// REQUISITOS DE RECETA QUE NO ESTÁN EN LA FICHA ESTRUCTURADA
+// =========================================================
+
+function detectNormativeRequirementIntent(
+  question
+) {
+  const q =
+    normalize(question);
+
+  if (
+    containsAny(
+      q,
+      [
+        "numero de matricula",
+        "número de matrícula",
+        "matricula del profesional",
+        "matrícula del profesional",
+        "matricula medica",
+        "matrícula médica",
+        "requiere matricula",
+        "requiere matrícula",
+      ]
+    )
+  ) {
+    return {
+      key:
+        "DOCTOR_REGISTRATION_NUMBER",
+    };
+  }
+
+  if (
+    containsAny(
+      q,
+      [
+        "fecha de prescripcion",
+        "fecha de prescripción",
+        "exige fecha",
+        "requiere fecha",
+        "fecha en la receta",
+      ]
+    )
+  ) {
+    return {
+      key:
+        "PRESCRIPTION_DATE",
+    };
+  }
+
+  return null;
+}
+
+
+function buildNormativeRequirementFallbackQuestion({
+  intent,
+  socialWorkName,
+}) {
+  const name =
+    socialWorkName ||
+    "la obra social";
+
+  switch (
+    intent?.key
+  ) {
+    case "DOCTOR_REGISTRATION_NUMBER":
+      return (
+        `En los requisitos que debe contener una receta de ${name}, ` +
+        `¿debe figurar el número de matrícula del profesional? ` +
+        `Buscá específicamente los requisitos de firma, sello, aclaración y matrícula. ` +
+        `Respondé únicamente ese requisito.`
+      );
+
+    case "PRESCRIPTION_DATE":
+      return (
+        `En los requisitos que debe contener una receta de ${name}, ` +
+        `¿debe figurar la fecha de prescripción? ` +
+        `Buscá específicamente el apartado de datos obligatorios de la receta. ` +
+        `Respondé únicamente ese requisito.`
+      );
+
+    default:
+      return null;
+  }
+}
+
+
+async function getSocialWorkName(
+  socialWorkId
+) {
+  const {
+    data,
+    error,
+  } =
+    await supabaseAdmin
+      .from(
+        "social_works"
+      )
+      .select(
+        "id,name"
+      )
+      .eq(
+        "id",
+        socialWorkId
+      )
+      .maybeSingle();
+
+  if (
+    error
+  ) {
+    console.error(
+      "social work name lookup:",
+      error.message
+    );
+
+    return null;
+  }
+
+  return (
+    data?.name ||
+    null
+  );
+}
+
+
+// =========================================================
+// RECORDÁ / FICHA
+// =========================================================
+
+function detectSocialWorkProfileIntent(
+  question
+) {
+  const q =
+    normalize(question);
+
+  // =====================================================
+  // VIGENCIA DE RECETA
+  // =====================================================
+
+  const asksValidity =
+    containsAny(
+      q,
+      [
+        "vigencia",
+        "validez",
+        "vence",
+        "vencimiento",
+        "cuantos dias",
+        "cuánto dura",
+        "cuanto dura",
+        "hasta cuando",
+        "hasta cuándo",
+      ]
+    );
+
+  const asksHistoricalValidity =
+    containsAny(
+      q,
+      [
+        "vigencia de la normativa",
+        "vigencia normativa",
+        "desde cuando esta vigente",
+        "desde cuándo está vigente",
+        "normativa vigente desde",
+        "vigencia del convenio",
+        "convenio vigente desde",
+        "fecha de vigencia de la normativa",
+      ]
+    );
+
+  if (
+    asksValidity &&
+    !asksHistoricalValidity
+  ) {
+    return {
+      field:
+        "recipe_validity_days",
+
+      key:
+        "RECIPE_VALIDITY_DAYS",
+    };
+  }
+
+  // =====================================================
+  // TIPO DE RECETA
+  // =====================================================
+
+  if (
+    containsAny(
+      q,
+      [
+        "tipo de receta",
+        "que receta acepta",
+        "qué receta acepta",
+        "receta electronica",
+        "receta electrónica",
+        "receta digital",
+        "receta manuscrita",
+      ]
+    )
+  ) {
+    return {
+      field:
+        "recipe_type",
+
+      key:
+        "RECIPE_TYPE",
+    };
+  }
+
+  // =====================================================
+  // MEMBRETE
+  // =====================================================
+
+  if (
+    containsAny(
+      q,
+      [
+        "membrete",
+        "con membrete",
+        "sin membrete",
+        "necesita membrete",
+        "requiere membrete",
+      ]
+    )
+  ) {
+    return {
+      field:
+        "letterhead",
+
+      key:
+        "LETTERHEAD",
+    };
+  }
+
+  // =====================================================
+  // RP
+  // =====================================================
+
+  if (
+    /(^|\s)rp(\s|$)/.test(q) ||
+    containsAny(
+      q,
+      [
+        "cuantos rp",
+        "cuántos rp",
+        "cantidad de rp",
+        "rp permite",
+        "rp por receta",
+        "maximo de rp",
+        "máximo de rp",
+      ]
+    )
+  ) {
+    return {
+      field: "rp",
+      key: "RP",
+    };
+  }
+
+  // =====================================================
+  // DIAGNÓSTICO
+  // =====================================================
+
+  if (
+    containsAny(
+      q,
+      [
+        "diagnostico",
+        "diagnóstico",
+        "requiere diagnostico",
+        "requiere diagnóstico",
+        "necesita diagnostico",
+        "necesita diagnóstico",
+      ]
+    )
+  ) {
+    return {
+      field:
+        "diagnosis",
+
+      key:
+        "DIAGNOSIS",
+    };
+  }
+
+  // =====================================================
+  // MONODROGA
+  // =====================================================
+
+  if (
+    containsAny(
+      q,
+      [
+        "monodroga",
+        "nombre generico",
+        "nombre genérico",
+        "droga generica",
+        "droga genérica",
+      ]
+    )
+  ) {
+    return {
+      field:
+        "monodrug",
+
+      key:
+        "MONODRUG",
+    };
+  }
+
+  // =====================================================
+  // NOMBRE COMERCIAL
+  // =====================================================
+
+  if (
+    containsAny(
+      q,
+      [
+        "nombre comercial",
+        "marca comercial",
+        "puede llevar marca",
+        "puede poner marca",
+        "marca del medicamento",
+      ]
+    )
+  ) {
+    return {
+      field:
+        "commercial_name",
+
+      key:
+        "COMMERCIAL_NAME",
+    };
+  }
+
+  // =====================================================
+  // SUSTITUCIÓN
+  // =====================================================
+
+  if (
+    containsAny(
+      q,
+      [
+        "sustitucion",
+        "sustitución",
+        "sustituir",
+        "se puede sustituir",
+        "puedo sustituir",
+        "cambiar medicamento",
+        "cambiar marca",
+      ]
+    )
+  ) {
+    return {
+      field:
+        "substitution",
+
+      key:
+        "SUBSTITUTION",
+    };
+  }
+
+  // =====================================================
+  // TYS
+  // =====================================================
+
+  if (
+    containsAny(
+      q,
+      [
+        "codigo tys",
+        "código tys",
+        "codigo de tys",
+        "código de tys",
+      ]
+    )
+  ) {
+    return {
+      field:
+        "tys_code",
+
+      key:
+        "TYS_CODE",
+    };
+  }
+
+  // =====================================================
+  // OBSERVACIONES
+  // =====================================================
+
+  if (
+    containsAny(
+      q,
+      [
+        "observaciones",
+        "alguna observacion",
+        "alguna observación",
+        "que tengo que recordar",
+        "qué tengo que recordar",
+      ]
+    )
+  ) {
+    return {
+      field:
+        "observations",
+
+      key:
+        "OBSERVATIONS",
+    };
+  }
+
+  return null;
+}
+
+// =========================================================
+// FALLBACK DE FICHA HACIA NORMATIVA
+// =========================================================
+
+function buildProfileFallbackQuestion({
+  intent,
+  socialWorkName,
+}) {
+  const name =
+    socialWorkName ||
+    "la obra social";
+
+  switch (intent?.key) {
+    case "RECIPE_VALIDITY_DAYS":
+      return (
+        `¿Cuál es la vigencia de las recetas de ${name}? ` +
+        `Responder el plazo contado desde la fecha de prescripción. ` +
+        `No informar la fecha histórica de entrada en vigencia de la normativa o convenio.`
+      );
+
+    case "RECIPE_TYPE":
+      return (
+        `¿Qué tipos de receta acepta ${name}? ` +
+        `Responder únicamente los tipos de receta admitidos.`
+      );
+
+    case "LETTERHEAD":
+      return (
+        `¿${name} exige membrete en la receta? ` +
+        `Responder únicamente el requisito de membrete.`
+      );
+
+    case "RP":
+      return (
+        `¿Cuántos RP permite ${name} por receta? ` +
+        `Responder únicamente la cantidad de RP permitida.`
+      );
+
+    case "DIAGNOSIS":
+      return (
+        `¿${name} exige diagnóstico en la receta? ` +
+        `Responder únicamente si lo requiere, no lo requiere o es condicional.`
+      );
+
+    case "MONODRUG":
+      return (
+        `¿${name} exige monodroga o nombre genérico en la receta? ` +
+        `Responder únicamente ese requisito.`
+      );
+
+    case "COMMERCIAL_NAME":
+      return (
+        `¿Qué exige ${name} respecto del nombre o marca comercial en la receta? ` +
+        `Responder únicamente ese requisito.`
+      );
+
+    case "SUBSTITUTION":
+      return (
+        `¿Qué indica ${name} sobre sustitución o cambio de medicamento/marca? ` +
+        `Responder únicamente esa regla.`
+      );
+
+    case "TYS_CODE":
+      return (
+        `¿Cuál es el código TYS de ${name}? ` +
+        `Si la normativa no contiene ese dato, indicarlo.`
+      );
+
+    case "OBSERVATIONS":
+      return (
+        `¿Qué observaciones operativas importantes hay que recordar de ${name}?`
+      );
+
+    default:
+      return null;
+  }
+}
+
+async function querySocialWorkProfile({
+  socialWorkId,
+  intent,
+}) {
+  const { data, error } = await supabaseAdmin
+    .from("social_works")
+    .select(`
+      id,
+      name,
+      tys_code,
+      recipe_type,
+      recipe_validity_days,
+      letterhead,
+      rp,
+      diagnosis,
+      monodrug,
+      commercial_name,
+      substitution,
+      observations,
+      active
+    `)
+    .eq("id", socialWorkId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    return {
+      found: false,
+      answer: null,
+      data: null,
+    };
+  }
+
+  const value = data[intent.field];
+
+  if (
+    value === null ||
+    value === undefined ||
+    (typeof value === "string" && value.trim() === "")
+  ) {
+    return {
+      found: false,
+      answer: null,
+      data,
+    };
+  }
+
+  let answer = null;
+
+const cleanValue =
+  typeof value === "string"
+    ? value.trim().replace(/\.+$/, "")
+    : value;
+
+  switch (intent.key) {
+    case "RECIPE_VALIDITY_DAYS":
+      answer = `La receta tiene una vigencia de ${value} días.`;
+      break;
+
+   case "RECIPE_TYPE":
+  answer =
+    `Tipo de receta: ${String(value).trim().replace(/\.+$/, "")}.`;
+  break;
+
+    case "LETTERHEAD":
+      answer = `Membrete: ${value}.`;
+      break;
+
+    case "RP":
+      answer = `Permite ${value} RP por receta.`;
+      break;
+
+    case "DIAGNOSIS":
+      answer = `Diagnóstico: ${value}.`;
+      break;
+
+    case "MONODRUG":
+      answer = `Monodroga: ${value}.`;
+      break;
+
+    case "COMMERCIAL_NAME":
+      answer = `Nombre comercial: ${value}.`;
+      break;
+
+    case "SUBSTITUTION":
+      answer = `Sustitución: ${value}.`;
+      break;
+
+    case "TYS_CODE":
+      answer = `Código TYS: ${value}.`;
+      break;
+
+    case "OBSERVATIONS":
+      answer = String(value).trim();
+      break;
+
+    default:
+      return {
+        found: false,
+        answer: null,
+        data,
+      };
+  }
+
+  return {
+    found: true,
+    answer,
+    data: {
+      social_work_id: data.id,
+      social_work_name: data.name,
+      field: intent.field,
+      key: intent.key,
+      value,
+    },
+  };
+}
+
+function detectRuleIntent(
+
+  question
+
+) {
+
+  const q =
+
+    normalize(question);
+
+
+
+  // -------------------------------------------------------
+
+  // CRÓNICOS
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    containsAny(
+
+      q,
+
+      [
+
+        "cronicos",
+
+        "cronico",
+
+      ]
+
+    ) &&
+
+    containsAny(
+
+      q,
+
+      [
+
+        "cubre",
+
+        "cobertura",
+
+        "porcentaje",
+
+        "cuanto",
+
+        "%",
+
+        "descuento",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "RULE",
+
+
+
+      ruleKey:
+
+        "COVERAGE_CHRONIC",
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // PMI
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    containsAny(
+
+      q,
+
+      [
+
+        "pmi",
+
+        "materno infantil",
+
+        "plan maternal",
+
+        "plan infantil",
+
+      ]
+
+    ) &&
+
+    containsAny(
+
+      q,
+
+      [
+
+        "cubre",
+
+        "cobertura",
+
+        "porcentaje",
+
+        "cuanto",
+
+        "%",
+
+        "descuento",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "RULE",
+
+
+
+      ruleKey:
+
+        "COVERAGE_PMI",
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // CANTIDAD DE MEDICAMENTOS
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    containsAny(
+
+      q,
+
+      [
+
+        "medicamentos por receta",
+
+        "medicamento por receta",
+
+        "cuantos medicamentos",
+
+        "cantidad de medicamentos",
+
+        "maximo de medicamentos",
+
+        "maximo medicamentos",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "RULE",
+
+
+
+      ruleKey:
+
+        "MAX_MEDICATIONS_NORMAL",
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // ENVASES POR RENGLÓN
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    containsAny(
+
+      q,
+
+      [
+
+        "envases por renglon",
+
+        "envase por renglon",
+
+        "cuantos envases",
+
+        "cantidad de envases",
+
+        "maximo de envases",
+
+        "maximo envases",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "RULE",
+
+
+
+      ruleKey:
+
+        "MAX_PACKAGES_PER_LINE_NORMAL",
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // REFACTURACIÓN
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    containsAny(
+
+      q,
+
+      [
+
+        "refacturacion",
+
+        "refacturar",
+
+        "refacturo",
+
+      ]
+
+    ) &&
+
+    containsAny(
+
+      q,
+
+      [
+
+        "dias",
+
+        "vigencia",
+
+        "plazo",
+
+        "cuanto",
+
+        "tiempo",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "RULE",
+
+
+
+      ruleKey:
+
+        "REINVOICE_VALIDITY",
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // PRESENTACIÓN
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    containsAny(
+
+      q,
+
+      [
+
+        "presentacion",
+
+        "presentar",
+
+        "liquidacion",
+
+      ]
+
+    ) &&
+
+    containsAny(
+
+      q,
+
+      [
+
+        "dias",
+
+        "vigencia",
+
+        "plazo",
+
+        "cuanto",
+
+        "tiempo",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "RULE",
+
+
+
+      ruleKey:
+
+        "PRESENTATION_VALIDITY",
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // VIGENCIA DE RECETA
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    containsAny(
+
+      q,
+
+      [
+
+        "vigencia",
+
+        "vence",
+
+        "vencimiento",
+
+        "cuantos dias",
+
+        "cuanto dura",
+
+        "hasta cuando",
+
+        "validez",
+
+      ]
+
+    ) &&
+
+    containsAny(
+
+      q,
+
+      [
+
+        "receta",
+
+        "venta",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "RULE",
+
+
+
+      ruleKey:
+
+        "RECIPE_VALIDITY_SALE",
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // VALIDACIÓN ONLINE
+
+  // -------------------------------------------------------
+
+
+
+  /**
+
+ * Importante:
+
+
+
+ * "¿Cómo valido una receta?"
+
+ * NO entra acá.
+
+
+
+ * Eso es procedimiento y puede
+
+ * necesitar normativa / RAG.
+
+
+
+ * Sí entra:
+
+
+
+ * "¿Hay que validar online?"
+
+ * "¿La receta se valida online?"
+
+ */
+
+
+
+  if (
+
+    containsAny(
+
+      q,
+
+      [
+
+        "hay que validar online",
+
+        "debe validar online",
+
+        "debe validarse online",
+
+        "se valida online",
+
+        "validacion online obligatoria",
+
+        "es obligatoria la validacion online",
+
+        "validar online obligatorio",
+
+      ]
+
+    )
+
+  ) {
+
+    return {
+
+      domain:
+
+        "RULE",
+
+
+
+      ruleKey:
+
+        "ONLINE_VALIDATION",
+
+    };
+
+  }
+
+
+
+  return null;
+
+}
+
+
+
+// =========================================================
+
+// CONSULTAR CONTACTOS
+
+// =========================================================
+
+
+
+async function queryContacts({
+
+  socialWorkId,
+
+  contactType,
+
+}) {
+
+  let query =
+
+    supabaseAdmin
+
+      .from(
+
+        "social_work_contacts"
+
+      )
+
+      .select(`
+
+        id,
+
+        contact_code,
+
+        contact_type,
+
+        label,
+
+        phone,
+
+        hours,
+
+        purpose,
+
+        notes,
+
+        source_page,
+
+        normative_id
+
+      `)
+
+      .eq(
+
+        "social_work_id",
+
+        socialWorkId
+
+      )
+
+      .eq(
+
+        "is_current",
+
+        true
+
+      );
+
+
+
+  if (
+
+    contactType
+
+  ) {
+
+    query =
+
+      query.eq(
+
+        "contact_type",
+
+        contactType
+
+      );
+
+  }
+
+
+
+  const {
+
+    data,
+
+    error,
+
+  } =
+
+    await query.order(
+
+      "label",
+
+      {
+
+        ascending: true,
+
+      }
+
+    );
+
+
+
+  if (error) {
+
+    throw new Error(
+
+      error.message
+
+    );
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // ATENCIÓN AL AFILIADO
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    contactType ===
+
+      "AFFILIATE_SERVICE" &&
+
+    (
+
+      !data ||
+
+      data.length === 0
+
+    )
+
+  ) {
+
+    return {
+
+      answer:
+
+        "No encuentro un teléfono identificado específicamente como atención al afiliado.",
+
+
+
+      data: [],
+
+
+
+      found: false,
+
+    };
+
+  }
+
+
+
+  if (
+
+    !data ||
+
+    data.length === 0
+
+  ) {
+
+    // Si la consulta de contacto es genérica, no respondemos
+    // "no encuentro": primero pedimos qué circuito necesita.
+    if (
+      !contactType
+    ) {
+      return {
+        answer:
+          "¿Buscás un contacto para autorizaciones, validación o consultas de normativa?",
+
+        data: [],
+
+        found: true,
+
+      };
+    }
+
+    return {
+
+      answer:
+        "No encuentro un contacto con esa función en la normativa vigente.",
+
+      data: [],
+
+      found: false,
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // CONTACTO GENÉRICO
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    !contactType
+
+  ) {
+
+    return {
+
+      answer:
+
+        "Hay varios teléfonos con funciones distintas. ¿Necesitás autorizaciones, validación o consultas de normativa?",
+
+
+
+      data,
+
+
+
+      found: true,
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // UNA COINCIDENCIA
+
+  // -------------------------------------------------------
+
+
+
+  if (
+
+    data.length === 1
+
+  ) {
+
+    const contact =
+
+      data[0];
+
+
+
+    let answer =
+
+      `${contact.label}: ${contact.phone}.`;
+
+
+
+    if (
+
+      contact.hours
+
+    ) {
+
+      answer +=
+
+        ` ${contact.hours}.`;
+
+    }
+
+
+
+    return {
+
+      answer,
+
+
+
+      data,
+
+
+
+      found: true,
+
+    };
+
+  }
+
+
+
+  // -------------------------------------------------------
+
+  // VARIAS COINCIDENCIAS
+
+  // -------------------------------------------------------
+
+
+
+  const lines =
+
+    data.map(
+
+      (contact) =>
+
+        `- ${contact.label}: ${contact.phone}`
+
+    );
+
+
+
+  return {
+
+    answer:
+
+      lines.join("\n"),
+
+
+
+    data,
+
+
+
+    found: true,
+
+  };
+
+}
+
+
+
+// =========================================================
+
+// CONSULTAR REGLA
+
+// =========================================================
+
+
+
+async function queryRule({
+
+  socialWorkId,
+
+  ruleKey,
+
+}) {
+
+  const {
+
+    data,
+
+    error,
+
+  } =
+
+    await supabaseAdmin
+
+      .from(
+
+        "rules"
+
+      )
+
+      .select(`
+
+        id,
+
+        rule_key,
+
+        category,
+
+        content,
+
+        value_text,
+
+        value_json,
+
+        answer_short,
+
+        source_page,
+
+        normative_id,
+
+        billing_channel_id,
+
+        approved,
+
+        is_current,
+
+        priority
+
+      `)
+
+      .eq(
+
+        "social_work_id",
+
+        socialWorkId
+
+      )
+
+      .eq(
+
+        "rule_key",
+
+        ruleKey
+
+      )
+
+      .eq(
+
+        "approved",
+
+        true
+
+      )
+
+      .eq(
+
+        "is_current",
+
+        true
+
+      )
+
+      .eq(
+
+        "needs_review",
+
+        false
+
+      )
+
+      .order(
+
+        "priority",
+
+        {
+
+          ascending: true,
+
+        }
+
+      )
+
+      .limit(1)
+
+      .maybeSingle();
+
+
+
+  if (error) {
+
+    throw new Error(
+
+      error.message
+
+    );
+
+  }
+
+
+
+  if (!data) {
+
+    return {
+
+      found: false,
+
+      answer: null,
+
+      data: null,
+
+    };
+
+  }
+
+
+
+  return {
+
+    found: true,
+
+
+
+    answer:
+
+      data.answer_short ||
+
+      data.content,
+
+
+
+    data,
+
+  };
+
+}
+
+
+
+function isInsufficientAnswer(answer = "") {
+  const text = normalize(answer);
+
+  if (!text) {
+    return true;
+  }
+
+  const patterns = [
+    "no encuentro informacion",
+    "no encontre informacion",
+    "no se encuentra informacion",
+    "no aparece informacion",
+    "no figura informacion",
+    "no encuentro un dato",
+    "no encontre un dato",
+    "no encuentro ese dato",
+    "no encontre ese dato",
+    "no esta especificado",
+    "no esta indicado",
+    "no se especifica",
+    "no se indica",
+    "no consta",
+    "no puedo determinar",
+    "no puedo confirmar",
+  ];
+
+  return patterns.some((pattern) => text.includes(pattern));
+}
+
+// =========================================================
+
+// OPENAI FILE SEARCH
+
+// =========================================================
+
+
+
+async function queryFileSearch({
+
+  question,
+
+  socialWorkId,
+
+}) {
+
+  if (
+
+    !process.env
+
+      .OPENAI_VECTOR_STORE_ID
+
+  ) {
+
+    throw new Error(
+
+      "Falta OPENAI_VECTOR_STORE_ID"
+
+    );
+
+  }
+
+
+
+  const detailed =
+
+    wantsDetailedAnswer(
+
+      question
+
+    );
+
+  const normalizedQuestionForPrecision =
+    normalize(question);
+
+  const precisionRequirement =
+    containsAny(
+      normalizedQuestionForPrecision,
+      [
+        "firma",
+        "sello",
+        "matricula",
+        "membrete",
+        "diagnostico",
+        "monodroga",
+        "nombre comercial",
+        "sustitucion",
+        "afiliado",
+        "beneficiario",
+      ]
+    );
+
+
+
+const instructions =
+  detailed
+    ? `
+Sos el asistente interno de normativas de Farmacias del Plata.
+
+Respondé exclusivamente usando la normativa recuperada.
+
+El usuario pidió detalle, pero eso NO significa explicar todos los temas relacionados.
+
+OBJETIVO:
+
+Respondé exactamente sobre el tema solicitado.
+
+REGLAS OBLIGATORIAS:
+
+- No inventes información.
+- No cambies el significado de los datos.
+- Conservá exactamente porcentajes, cantidades, plazos y excepciones.
+- No agregues información que no esté respaldada por la normativa.
+- Evitá introducciones innecesarias.
+- Usá listas cuando ayuden a leer requisitos.
+- No mezcles temas diferentes aunque aparezcan juntos en el mismo documento.
+- No vuelvas a explicar información que ya pertenece claramente a otro apartado.
+
+REQUISITOS DE RECETA:
+
+- Si pregunta "requisitos receta", respondé solamente qué debe contener o cumplir la receta.
+- No agregues vigencia, cobertura, topes, presentación, validación, facturación, cierre o auditoría.
+- La vigencia es un tema separado y sólo debe mencionarse si pregunta por vigencia, validez, duración o vencimiento.
+
+PRESENTACIÓN DE RECETAS:
+
+- Si pregunta por presentación, respondé únicamente cómo debe prepararse, ordenarse, adherirse o enviarse la documentación.
+- No vuelvas a enumerar los requisitos generales que debe contener la receta.
+- No agregues nuevamente nombre, afiliado, diagnóstico, fecha, firma, sello, etc., salvo que sean indispensables para una regla específica de presentación.
+
+RECETAS ELECTRÓNICAS:
+
+- Si pregunta específicamente por recetas electrónicas, respondé solamente el circuito y los requisitos específicos para recetas electrónicas.
+- No repitas los requisitos generales de una receta.
+- Explicá únicamente lo que la normativa indique sobre impresión, tickets, troqueles, documentación, cierre, envío, auditoría o validación de recetas electrónicas.
+- Si la normativa indica que recetas electrónicas y manuscritas comparten un circuito, podés mencionarlo solamente cuando sea necesario.
+
+VALIDACIÓN:
+
+- Si pregunta cómo validar, respondé solamente sobre validación.
+- No agregues presentación, facturación o auditoría salvo que sean indispensables para entender la validación.
+
+COBERTURA Y TOPES:
+
+- Si pregunta cobertura, respondé solamente la cobertura solicitada.
+- Si pregunta topes, respondé solamente cantidades, renglones, envases o límites aplicables.
+- No mezcles cobertura con requisitos generales salvo que sea estrictamente necesario.
+
+AMPLIACIONES OPCIONALES:
+
+Si existe otro tema útil relacionado, podés ofrecerlo al final con UNA sola pregunta corta.
+
+Ejemplos:
+
+"¿Querés que te muestre también los requisitos para la presentación de las recetas?"
+
+"¿Querés que te detalle cómo se realiza la validación?"
+
+"¿Querés que te muestre los controles de auditoría de las recetas electrónicas?"
+
+"¿Querés que te muestre los topes y excepciones?"
+
+REGLAS PARA LAS AMPLIACIONES:
+
+- La ampliación debe ser sobre información nueva.
+- No vuelvas a ofrecer el tema que acabás de explicar.
+- No vuelvas a ofrecer el tema inmediatamente anterior.
+- No generes ciclos entre temas.
+- Si acabás de explicar presentación, no vuelvas a ofrecer presentación.
+- Si acabás de explicar recetas electrónicas, no vuelvas a ofrecer requisitos generales de receta.
+- Si acabás de explicar recetas electrónicas después de presentación, no vuelvas a ofrecer presentación.
+- Elegí únicamente una ampliación que avance hacia información nueva.
+- Si no existe una ampliación claramente útil, terminá la respuesta sin preguntar nada.
+
+SI NO ENCONTRÁS LA RESPUESTA:
+
+Respondé únicamente:
+
+"No encuentro esa información en la normativa vigente."
+
+No agregues preguntas opcionales en ese caso.
+`
+    : `
+Sos el asistente interno de normativas de Farmacias del Plata.
+
+Respondé exclusivamente usando la normativa recuperada.
+
+MODO RESPUESTA CORTA.
+
+REGLAS OBLIGATORIAS:
+
+- Respondé primero y únicamente lo que preguntó el usuario.
+- Máximo 25 palabras para la respuesta principal, salvo preguntas sobre requisitos puntuales (firma, sello, matrícula, membrete, diagnóstico, monodroga, nombre comercial, sustitución, afiliado o beneficiario): en esos casos podés usar hasta 45 palabras si hace falta para conservar una distinción importante.
+- Preferí una sola oración.
+- Si la normativa distingue receta física/manuscrita de digital/electrónica para el requisito preguntado, DEBÉS conservar esa diferencia en la respuesta.
+- No agregues requisitos distintos del que preguntó el usuario.
+- No enumeres requisitos salvo que el usuario los haya pedido.
+- No agregues datos relacionados si no fueron preguntados.
+- No expliques el procedimiento completo.
+- No repitas la pregunta.
+- No uses introducciones como "Para validar..." o "Según la normativa...".
+- No mezcles temas distintos.
+
+SEPARACIÓN DE TEMAS:
+
+- Requisitos de receta, vigencia, presentación, validación, cobertura, topes, facturación, auditoría y recetas electrónicas son temas diferentes.
+- Respondé solamente el tema solicitado.
+- No agregues información de otro tema sólo porque aparece cerca en la normativa.
+
+RECETAS ELECTRÓNICAS:
+
+- Si pregunta específicamente por recetas electrónicas, no repitas requisitos generales de receta.
+- Respondé solamente las reglas específicas de recetas electrónicas presentes en la normativa.
+
+INFORMACIÓN RELACIONADA:
+
+Si existe información adicional útil y diferente de lo preguntado, podés agregar UNA sola segunda línea ofreciendo mostrarla.
+
+La pregunta debe ser específica.
+
+Ejemplos:
+
+"¿Querés que te muestre los requisitos?"
+
+"¿Querés que te detalle la presentación?"
+
+"¿Querés que te muestre las excepciones?"
+
+REGLAS DE AMPLIACIÓN:
+
+- No vuelvas a ofrecer el mismo tema que acabás de responder.
+- No generes ciclos entre temas.
+- La oferta debe avanzar hacia información nueva.
+- Si no hay algo claramente útil para ampliar, no preguntes nada.
+
+SEGURIDAD:
+
+- No inventes información.
+- No cambies el significado de los datos.
+- Conservá exactamente porcentajes, cantidades, plazos y excepciones.
+- Si el dato no aparece en la normativa, indicá que no lo encontrás.
+- Si NO encontrás la respuesta solicitada, respondé únicamente:
+  "No encuentro esa información en la normativa vigente."
+- En ese caso NO hagas preguntas adicionales.
+`;
+
+
+  const response =
+
+    await openai.responses.create({
+
+      model:
+
+        process.env
+
+          .OPENAI_MODEL ||
+
+        "gpt-4.1-mini",
+
+
+
+      store: false,
+
+
+
+      max_output_tokens:
+
+        detailed
+
+          ? 600
+
+          : precisionRequirement
+
+            ? 180
+
+            : 100,
+
+
+
+      instructions,
+
+
+
+      input:
+
+        question,
+
+
+
+      tools: [
+
+        {
+
+          type:
+
+            "file_search",
+
+
+
+          vector_store_ids: [
+
+            process.env
+
+              .OPENAI_VECTOR_STORE_ID,
+
+          ],
+
+
+
+          max_num_results:
+
+            detailed
+
+              ? 4
+
+              : 3,
+
+
+
+          filters: {
+
+            type: "and",
+
+
+
+            filters: [
+
+              {
+
+                type: "or",
+
+
+
+                filters: [
+
+                  {
+
+                    type:
+
+                      "eq",
+
+
+
+                    key:
+
+                      "social_work_id",
+
+
+
+                    value:
+
+                      socialWorkId,
+
+                  },
+
+
+
+                  {
+
+                    type:
+
+                      "eq",
+
+
+
+                    key:
+
+                      "secondary_social_work_id",
+
+
+
+                    value:
+
+                      socialWorkId,
+
+                  },
+
+                ],
+
+              },
+
+
+
+              {
+
+                type:
+
+                  "eq",
+
+
+
+                key:
+
+                  "is_current",
+
+
+
+                value:
+
+                  true,
+
+              },
+
+            ],
+
+          },
+
+        },
+
+      ],
+
+
+
+      include: [
+
+        "file_search_call.results",
+
+      ],
+
+    });
+
+
+
+  const searchCall =
+
+    response.output?.find(
+
+      (item) =>
+
+        item.type ===
+
+        "file_search_call"
+
+    );
+
+
+
+  return {
+
+    answer:
+
+      response.output_text,
+
+
+
+    usage:
+
+      response.usage ||
+
+      null,
+
+
+
+    detailed,
+
+
+
+    search: {
+
+      queries:
+
+        searchCall
+
+          ?.queries ||
+
+        [],
+
+
+
+      results:
+
+        (
+
+          searchCall
+
+            ?.results ||
+
+          []
+
+        ).map(
+
+          (result) => ({
+
+            file_id:
+
+              result.file_id,
+
+
+
+            filename:
+
+              result.filename,
+
+
+
+            score:
+
+              result.score,
+
+
+
+            text:
+
+              result.text,
+
+
+
+            attributes:
+
+              result.attributes,
+
+          })
+
+        ),
+
+    },
+
+
+
+    response_id:
+
+      response.id,
+
+  };
+
+}
+
+// =========================================================
+// DETECCIÓN AUTOMÁTICA DE OBRA SOCIAL EN LA PREGUNTA
+// =========================================================
+
+
+function containsWholePhrase(text, phrase) {
+  if (!text || !phrase) {
+    return false;
+  }
+
+  const paddedText = ` ${text} `;
+  const paddedPhrase = ` ${phrase} `;
+
+  return paddedText.includes(paddedPhrase);
+}
+
+// =========================================================
+// DETECCIÓN AUTOMÁTICA DE OBRA SOCIAL
+// =========================================================
+
+async function detectSocialWorkFromQuestion(
+  question
+) {
+  const cleanQuestion =
+    String(
+      question || ""
+    ).trim();
+
+  if (!cleanQuestion) {
+    return {
+      found:
+        false,
+
+      multiple:
+        false,
+
+      socialWork:
+        null,
+
+      matches:
+        [],
+    };
+  }
+
+  // =====================================================
+  // OOSS ACTIVAS
+  // =====================================================
+
+  const {
+    data:
+      socialWorks,
+
+    error:
+      socialWorksError,
+  } =
+    await supabaseAdmin
+      .from(
+        "social_works"
+      )
+      .select(`
+        id,
+        name,
+        active
+      `)
+      .eq(
+        "active",
+        true
+      );
+
+  if (
+    socialWorksError
+  ) {
+    throw new Error(
+      socialWorksError
+        .message
+    );
+  }
+
+  // =====================================================
+  // ALIASES
+  // =====================================================
+
+  const {
+    data:
+      aliases,
+
+    error:
+      aliasesError,
+  } =
+    await supabaseAdmin
+      .from(
+        "social_work_aliases"
+      )
+      .select("*");
+
+  if (
+    aliasesError
+  ) {
+    console.error(
+      "assistant query aliases:",
+      aliasesError.message
+    );
+  }
+
+  // =====================================================
+  // DICCIONARIO CENTRALIZADO
+  // =====================================================
+
+  const dictionary =
+    buildSocialWorkDictionary({
+      socialWorks:
+        socialWorks ||
+        [],
+
+      aliases:
+        aliases ||
+        [],
+    });
+
+  const matches =
+    detectSocialWorks({
+      text:
+        cleanQuestion,
+
+      dictionary,
+    });
+
+  // =====================================================
+  // SIN OOSS DETECTADA
+  // =====================================================
+
+  if (
+    matches.length === 0
+  ) {
+    return {
+      found:
+        false,
+
+      multiple:
+        false,
+
+      socialWork:
+        null,
+
+      matches:
+        [],
+    };
+  }
+
+  // =====================================================
+  // MÁS DE UNA OOSS
+  // =====================================================
+
+  if (
+    matches.length > 1
+  ) {
+    return {
+      found:
+        false,
+
+      multiple:
+        true,
+
+      socialWork:
+        null,
+
+      matches,
+    };
+  }
+
+  // =====================================================
+  // UNA OOSS
+  // =====================================================
+
+  return {
+    found:
+      true,
+
+    multiple:
+      false,
+
+    socialWork:
+      matches[0],
+
+    matches,
+  };
+}
+// =========================================================
+
+// ENDPOINT PRINCIPAL
+
+// =========================================================
+
+
+
+export async function POST(request) {
+
+  const startedAt = Date.now();
+
+
+
+  try {
+
+    const body = await request.json();
+
+
+
+    // =====================================================
+
+    // INPUT
+
+    // =====================================================
+
+
+
+    const question = String(
+
+      body.question || ""
+
+    ).trim();
+
+
+
+    const conversationId = body.conversationId
+
+      ? String(body.conversationId).trim()
+
+      : null;
+
+
+
+    /**
+
+ * * Compatibilidad temporal.
+
+ * *
+
+ * * Mientras conectamos FloatingAssistant,
+
+ * * seguimos aceptando socialWorkId,
+
+ * * branchId y branchCode directamente.
+
+ * *
+
+ * * Si viene conversationId,
+
+ * * la conversación tiene prioridad absoluta.
+
+ */
+
+    let socialWorkId =
+
+      body.socialWorkId != null
+
+        ? Number(body.socialWorkId)
+
+        : null;
+
+
+
+    let branchId =
+
+      body.branchId != null
+
+        ? Number(body.branchId)
+
+        : null;
+
+
+
+    let branchCode = body.branchCode
+
+      ? String(body.branchCode).trim()
+
+      : null;
+
+
+
+    let deviceId = null;
+
+
+
+    let activeBillingChannelId = null;
+
+
+
+    let conversationUserId = null;
+
+
+
+    // =====================================================
+
+    // VALIDAR PREGUNTA
+
+    // =====================================================
+
+
+
+    if (!question) {
+
+      return Response.json(
+
+        {
+
+          ok: false,
+
+          error: "Falta question",
+
+          code: "QUESTION_REQUIRED",
+
+        },
+
+        {
+
+          status: 400,
+
+        }
+
+      );
+
+    }
+
+
+
+    // =====================================================
+
+    // CONTEXTO DE CONVERSACIÓN
+
+    // =====================================================
+
+
+
+    if (conversationId) {
+
+      const {
+
+        data: conversation,
+
+        error: conversationError,
+
+      } = await supabaseAdmin
+
+        .from("conversations")
+
+        .select(`
+
+          id,
+
+          user_id,
+
+          branch_id,
+
+          device_id,
+
+          active_social_work_id,
+
+          active_billing_channel_id,
+
+          created_at,
+
+          updated_at,
+
+          closed_at
+
+        `)
+
+        .eq("id", conversationId)
+
+        .maybeSingle();
+
+
+
+      if (conversationError) {
+
+        console.error(
+
+          "assistant conversation lookup error:",
+
+          conversationError.message
+
+        );
+
+
+
+        return Response.json(
+
+          {
+
+            ok: false,
+
+            error:
+
+              "No se pudo cargar la conversación",
+
+            code:
+
+              "CONVERSATION_LOOKUP_ERROR",
+
+          },
+
+          {
+
+            status: 500,
+
+          }
+
+        );
+
+      }
+
+
+
+      if (!conversation) {
+
+        return Response.json(
+
+          {
+
+            ok: false,
+
+            error:
+
+              "Conversación no encontrada",
+
+            code:
+
+              "CONVERSATION_NOT_FOUND",
+
+          },
+
+          {
+
+            status: 404,
+
+          }
+
+        );
+
+      }
+
+
+
+      if (conversation.closed_at) {
+
+        return Response.json(
+
+          {
+
+            ok: false,
+
+            error:
+
+              "La conversación está cerrada",
+
+            code:
+
+              "CONVERSATION_CLOSED",
+
+          },
+
+          {
+
+            status: 400,
+
+          }
+
+        );
+
+      }
+
+
+
+      /**
+
+ * * IMPORTANTE:
+
+ * *
+
+ * * A partir de acá NO confiamos en
+
+ * * branchId/socialWorkId enviados por frontend.
+
+ * *
+
+ * * El contexto real sale de conversations.
+
+ */
+
+      conversationUserId =
+
+        conversation.user_id;
+
+
+
+      branchId =
+
+        conversation.branch_id;
+
+
+
+      deviceId =
+
+        conversation.device_id;
+
+
+
+      socialWorkId =
+
+        conversation.active_social_work_id;
+
+
+
+      activeBillingChannelId =
+
+        conversation.active_billing_channel_id;
+
+
+
+      branchCode = null;
+
+
+
+      /**
+
+ * * Marcamos actividad.
+
+ * *
+
+ * * Si falla este UPDATE no frenamos
+
+ * * una consulta válida.
+
+ */
+
+      const {
+
+        error: touchConversationError,
+
+      } = await supabaseAdmin
+
+        .from("conversations")
+
+        .update({
+
+          updated_at:
+
+            new Date().toISOString(),
+
+        })
+
+        .eq(
+
+          "id",
+
+          conversationId
+
+        );
+
+
+
+      if (touchConversationError) {
+
+        console.error(
+
+          "assistant conversation touch error:",
+
+          touchConversationError.message
+
+        );
+
+      }
+
+    }
+
+// =====================================================
+// DETECTAR OOSS NOMBRADA EN LA PREGUNTA
+// =====================================================
+
+if (conversationId) {
+  const detectedSocialWork =
+    await detectSocialWorkFromQuestion(
+      question
+    );
+
+  // ---------------------------------------------------
+  // MÁS DE UNA OOSS EN LA MISMA CONSULTA
+  // ---------------------------------------------------
+
+  if (
+    detectedSocialWork.multiple
+  ) {
+    return Response.json(
+      {
+        ok: false,
+
+        error:
+          "Detecté más de una obra social en la consulta.",
+
+        code:
+          "MULTIPLE_SOCIAL_WORKS_DETECTED",
+
+        social_works:
+          detectedSocialWork.matches.map(
+            (item) => ({
+              id:
+                item.id,
+              name:
+                item.name,
+            })
+          ),
+      },
+      {
+        status: 400,
+      }
+    );
+  }
+
+  // ---------------------------------------------------
+  // CAMBIAR OOSS ACTIVA
+  // ---------------------------------------------------
+
+  if (
+    detectedSocialWork.found &&
+    detectedSocialWork.socialWork
+  ) {
+    const detectedId =
+      Number(
+        detectedSocialWork.socialWork.id
+      );
+
+    /*
+     * Sólo actualizamos si realmente cambió.
+     */
+    if (
+      detectedId !==
+      Number(socialWorkId)
+    ) {
+      const {
+        error:
+          updateSocialWorkError,
+      } = await supabaseAdmin
+        .from("conversations")
+        .update({
+          active_social_work_id:
+            detectedId,
+
+          /*
+           * Al cambiar de OOSS,
+           * limpiamos canal de facturación
+           * para evitar arrastrar contexto.
+           */
+          active_billing_channel_id:
+            null,
+
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq(
+          "id",
+          conversationId
+        );
+
+      if (
+        updateSocialWorkError
+      ) {
+        console.error(
+          "assistant auto social work update error:",
+          updateSocialWorkError.message
+        );
+
+        return Response.json(
+          {
+            ok: false,
+
+            error:
+              "No se pudo cambiar la obra social activa",
+
+            code:
+              "SOCIAL_WORK_CONTEXT_UPDATE_ERROR",
+          },
+          {
+            status: 500,
+          }
+        );
+      }
+    }
+
+    socialWorkId =
+      detectedId;
+
+    activeBillingChannelId =
+      null;
+  }
+}
+
+    // =====================================================
+
+    // VALIDAR OOSS ACTIVA
+
+    // =====================================================
+
+
+
+    if (
+
+      !Number.isInteger(
+
+        socialWorkId
+
+      ) ||
+
+      socialWorkId <= 0
+
+    ) {
+
+      return Response.json(
+
+        {
+
+          ok: false,
+
+
+
+          error:
+
+            conversationId
+            ? "Indicame la obra social que querés consultar."
+            : "socialWorkId inválido",
+
+
+
+          code:
+
+            conversationId
+
+              ? "SOCIAL_WORK_REQUIRED"
+
+              : "INVALID_SOCIAL_WORK",
+
+        },
+
+        {
+
+          status: 400,
+
+        }
+
+      );
+
+    }
+
+
+
+    // =====================================================
+
+    // CONTEXTO DE RESPUESTA
+
+    // =====================================================
+
+
+
+    /**
+
+ * * Lo incluimos por ahora para depuración.
+
+ * *
+
+ * * Después podemos ocultarlo en producción
+
+ * * si no queremos devolver contexto interno.
+
+ */
+
+    const responseContext = {
+
+      conversation_id:
+
+        conversationId,
+
+
+
+      branch_id:
+
+        branchId,
+
+
+
+      device_id:
+
+        deviceId,
+
+
+
+      social_work_id:
+
+        socialWorkId,
+
+
+
+      billing_channel_id:
+
+        activeBillingChannelId,
+
+
+
+      user_id:
+
+        conversationUserId,
+
+    };
+
+
+
+    // =====================================================
+
+    // PROCEDIMIENTO INTERNO APROBADO (PRIORITARIO ANTES DE FAQ Y CACHE)
+    // 4.5 PROCEDIMIENTOS INTERNOS GDP (solo aprobados y vigentes)
+    // Fallos operativos: OOSS, circuito y autorizaciones explícitas.
+    const internalProcedure = await resolveInternalProcedure({ question, socialWorkId, billingChannelId: activeBillingChannelId });
+    if (internalProcedure) {
+      const elapsedMs = Date.now() - startedAt;
+      await logAssistantQuery({
+        branchId, socialWorkId, question,
+        answer: internalProcedure.answer,
+        source: "GDP_INTERNAL_PROCEDURE",
+        route: "APPROVED_INTERNAL_PROCEDURE",
+        found: true, elapsedMs,
+        usage: {input_tokens:0,output_tokens:0,total_tokens:0},
+      });
+      return Response.json({
+        ok: true, question, answer: internalProcedure.answer,
+        source: "GDP_INTERNAL_PROCEDURE",
+        route: "APPROVED_INTERNAL_PROCEDURE",
+        procedure_id: internalProcedure.procedure_id,
+        procedure_code: internalProcedure.code,
+        source_reference: internalProcedure.source,
+        found: true, context: responseContext, elapsed_ms: elapsedMs,
+        usage: {input_tokens:0,output_tokens:0,total_tokens:0},
+      });
+    }
+
+
+
+    // =====================================================
+
+    // 1. OPERACIÓN POR SUCURSAL
+
+    // =====================================================
+
+
+
+    const operationIntent =
+
+      detectOperationIntent(
+
+        question
+
+      );
+
+
+
+    if (
+
+      operationIntent?.domain ===
+
+      "OPERATION"
+
+    ) {
+
+      /**
+
+ * * Para responder reglas específicas
+
+ * * necesitamos conocer la sucursal.
+
+ */
+
+      if (
+
+        branchId ||
+
+        branchCode
+
+      ) {
+
+        const operationResult =
+
+          await resolveOperation({
+
+            branchId,
+
+            branchCode,
+
+            socialWorkId,
+
+          });
+
+
+
+        if (
+
+          operationResult.ok &&
+
+          operationResult.resolved
+
+        ) {
+
+          const answer =
+
+            formatOperationAnswer(
+
+              operationResult,
+
+              operationIntent.operationType
+
+            );
+
+
+
+          const elapsedMs =
+
+            Date.now() -
+
+            startedAt;
+
+
+
+          await logAssistantQuery({
+
+            branchId,
+
+            socialWorkId,
+
+            question,
+
+            answer,
+
+
+
+            source:
+
+              "SUPABASE_OPERATION_RULE",
+
+
+
+            route:
+
+              "STRUCTURED_OPERATION",
+
+
+
+            found: true,
+
+
+
+            elapsedMs,
+
+
+
+            usage: {
+
+              input_tokens: 0,
+
+              output_tokens: 0,
+
+              total_tokens: 0,
+
+            },
+
+          });
+
+
+
+          return Response.json({
+
+            ok: true,
+
+
+
+            question,
+
+            answer,
+
+
+
+            source:
+
+              "SUPABASE_OPERATION_RULE",
+
+
+
+            route:
+
+              "STRUCTURED_OPERATION",
+
+
+
+            intent: {
+
+              domain:
+
+                "OPERATION",
+
+
+
+              operation_type:
+
+                operationIntent.operationType,
+
+            },
+
+
+
+            branch:
+
+              operationResult.branch,
+
+
+
+            social_work:
+
+              operationResult.socialWork,
+
+
+
+            operation:
+
+              operationResult.operation,
+
+
+
+            rule:
+
+              operationResult.rule,
+
+
+
+            resolution_source:
+
+              operationResult.source,
+
+
+
+            context:
+
+              responseContext,
+
+
+
+            elapsed_ms:
+
+              elapsedMs,
+
+
+
+            usage: {
+
+              input_tokens: 0,
+
+              output_tokens: 0,
+
+              total_tokens: 0,
+
+            },
+
+          });
+
+        }
+
+
+
+        /**
+
+ * * Si detectamos una consulta operativa
+
+ * * pero no existe regla aplicable,
+
+ * * seguimos hacia:
+
+ * *
+
+ * * contactos
+
+ * * reglas
+
+ * * FAQ
+
+ * * cache
+
+ * * File Search
+
+ */
+
+      }
+
+    }
+
+
+
+// =====================================================
+// 1.5 ACLARACIÓN DE ALCANCE
+// =====================================================
+
+const scopeClarificationIntent =
+  detectScopeClarificationIntent(
+    question
+  );
+
+if (
+  scopeClarificationIntent?.domain ===
+    "CLARIFICATION"
+) {
+  const elapsedMs =
+    Date.now() -
+    startedAt;
+
+  await logAssistantQuery({
+    branchId,
+    socialWorkId,
+    question,
+
+    answer:
+      scopeClarificationIntent.answer,
+
+    source:
+      "GDP_ROUTER",
+
+    route:
+      "STRUCTURED_CLARIFICATION",
+
+    found:
+      true,
+
+    elapsedMs,
+
+    usage: {
+      input_tokens: 0,
+      output_tokens: 0,
+      total_tokens: 0,
+    },
+  });
+
+  return Response.json({
+    ok: true,
+    question,
+
+    answer:
+      scopeClarificationIntent.answer,
+
+    source:
+      "GDP_ROUTER",
+
+    route:
+      "STRUCTURED_CLARIFICATION",
+
+    intent: {
+      domain:
+        "CLARIFICATION",
+
+      clarification_type:
+        scopeClarificationIntent.clarificationType,
+    },
+
+    found:
+      true,
+
+    context:
+      responseContext,
+
+    elapsed_ms:
+      elapsedMs,
+
+    usage: {
+      input_tokens: 0,
+      output_tokens: 0,
+      total_tokens: 0,
+    },
+  });
+}
+
+
+// =====================================================
+
+// 2. CONTACTOS
+
+// =====================================================
+
+
+
+const contactIntent =
+
+  detectContactIntent(
+
+    question
+
+  );
+
+
+
+if (
+
+  contactIntent?.domain ===
+
+  "CONTACT"
+
+) {
+
+  const result =
+
+    await queryContacts({
+
+      socialWorkId,
+
+
+
+      contactType:
+
+        contactIntent.contactType,
+
+    });
+
+
+
+  /**
+
+ * * Solamente respondemos inmediatamente
+
+ * * cuando encontramos información
+
+ * * estructurada.
+
+ * *
+
+ * * Si no existe contacto en Supabase,
+
+ * * dejamos continuar el router:
+
+ * *
+
+ * * RULE
+
+ * * FAQ
+
+ * * CACHE
+
+ * * FILE SEARCH
+
+ */
+
+  if (result.found) {
+
+    const elapsedMs =
+
+      Date.now() -
+
+      startedAt;
+
+
+
+    await logAssistantQuery({
+
+      branchId,
+
+      socialWorkId,
+
+      question,
+
+
+
+      answer:
+
+        result.answer,
+
+
+
+      source:
+
+        "SUPABASE",
+
+
+
+      route:
+
+        "STRUCTURED_CONTACT",
+
+
+
+      found:
+
+        true,
+
+
+
+      elapsedMs,
+
+
+
+      usage: {
+
+        input_tokens: 0,
+
+        output_tokens: 0,
+
+        total_tokens: 0,
+
+      },
+
+    });
+
+
+
+    return Response.json({
+
+      ok: true,
+
+
+
+      question,
+
+
+
+      answer:
+
+        result.answer,
+
+
+
+      source:
+
+        "SUPABASE",
+
+
+
+      route:
+
+        "STRUCTURED_CONTACT",
+
+
+
+      intent: {
+
+        domain:
+
+          "CONTACT",
+
+
+
+        contact_type:
+
+          contactIntent.contactType,
+
+      },
+
+
+
+      structured_data:
+
+        result.data,
+
+
+
+      found:
+
+        true,
+
+
+
+      context:
+
+        responseContext,
+
+
+
+      elapsed_ms:
+
+        elapsedMs,
+
+
+
+      usage: {
+
+        input_tokens: 0,
+
+        output_tokens: 0,
+
+        total_tokens: 0,
+
+      },
+
+    });
+
+  }
+
+}
+
+
+
+   // =====================================================
+// 3. RECORDÁ / FICHA
+// =====================================================
+
+let fileSearchQuestion =
+  question;
+
+let skipAnswerCache =
+  false;
+
+const profileIntent =
+  detectSocialWorkProfileIntent(
+    question
+  );
+
+if (
+  profileIntent
+) {
+  const result =
+    await querySocialWorkProfile({
+      socialWorkId,
+
+      intent:
+        profileIntent,
+    });
+
+  // =====================================================
+  // DATO ESTRUCTURADO DISPONIBLE
+  // =====================================================
+
+  if (
+    result.found
+  ) {
+    const elapsedMs =
+      Date.now() -
+      startedAt;
+
+    await logAssistantQuery({
+      branchId,
+      socialWorkId,
+      question,
+
+      answer:
+        result.answer,
+
+      source:
+        "SOCIAL_WORK_PROFILE",
+
+      route:
+        "STRUCTURED_PROFILE",
+
+      found:
+        true,
+
+      elapsedMs,
+
+      usage: {
+        input_tokens:
+          0,
+
+        output_tokens:
+          0,
+
+        total_tokens:
+          0,
+      },
+    });
+
+    return Response.json({
+      ok:
+        true,
+
+      question,
+
+      answer:
+        result.answer,
+
+      source:
+        "SOCIAL_WORK_PROFILE",
+
+      route:
+        "STRUCTURED_PROFILE",
+
+      intent: {
+        domain:
+          "SOCIAL_WORK_PROFILE",
+
+        key:
+          profileIntent.key,
+
+        field:
+          profileIntent.field,
+      },
+
+      structured_data:
+        result.data,
+
+      found:
+        true,
+
+      context:
+        responseContext,
+
+      elapsed_ms:
+        elapsedMs,
+
+      usage: {
+        input_tokens:
+          0,
+
+        output_tokens:
+          0,
+
+        total_tokens:
+          0,
+      },
+    });
+  }
+
+  // =====================================================
+  // NO EXISTE DATO ESTRUCTURADO
+  //
+  // Reformulamos la pregunta para evitar:
+  //
+  // "avalian vigencia"
+  //
+  // -> "vigente desde 2020"
+  //
+  // En cambio se busca:
+  //
+  // "vigencia de las recetas de AVALIAN"
+  // =====================================================
+
+  const {
+    data:
+      socialWorkData,
+
+    error:
+      socialWorkDataError,
+  } =
+    await supabaseAdmin
+      .from(
+        "social_works"
+      )
+      .select(`
+        id,
+        name
+      `)
+      .eq(
+        "id",
+        socialWorkId
+      )
+      .maybeSingle();
+
+  if (
+    socialWorkDataError
+  ) {
+    console.error(
+      "social work fallback lookup:",
+      socialWorkDataError.message
+    );
+  }
+
+  const fallbackQuestion =
+    buildProfileFallbackQuestion({
+      intent:
+        profileIntent,
+
+      socialWorkName:
+        socialWorkData
+          ?.name ||
+        null,
+    });
+
+  if (
+    fallbackQuestion
+  ) {
+    fileSearchQuestion =
+      fallbackQuestion;
+
+    /*
+     * No usar una respuesta vieja
+     * guardada con interpretación
+     * incorrecta.
+     */
+    skipAnswerCache =
+      true;
+  }
+}
+// =====================================================
+// 3.5 REQUISITOS NORMATIVOS ESPECÍFICOS
+// =====================================================
+
+const normativeRequirementIntent =
+  detectNormativeRequirementIntent(
+    question
+  );
+
+if (
+  normativeRequirementIntent
+) {
+  const socialWorkName =
+    await getSocialWorkName(
+      socialWorkId
+    );
+
+  const requirementFallbackQuestion =
+    buildNormativeRequirementFallbackQuestion({
+      intent:
+        normativeRequirementIntent,
+
+      socialWorkName,
+    });
+
+  if (
+    requirementFallbackQuestion
+  ) {
+    fileSearchQuestion =
+      requirementFallbackQuestion;
+
+    // Evitamos respuestas viejas como:
+    // "No encuentro esa información..."
+    skipAnswerCache =
+      true;
+  }
+}
+
+
+    // =====================================================
+    // 4. REGLAS ESTRUCTURADAS
+    // =====================================================
+
+
+
+    const ruleIntent =
+
+      detectRuleIntent(
+
+        question
+
+      );
+
+
+
+    if (
+
+      ruleIntent?.domain ===
+
+      "RULE"
+
+    ) {
+
+      const result =
+
+        await queryRule({
+
+          socialWorkId,
+
+
+
+          ruleKey:
+
+            ruleIntent.ruleKey,
+
+        });
+
+
+
+      /**
+
+ * * Solamente respondemos acá
+
+ * * si encontramos una regla aprobada.
+
+ * *
+
+ * * Si no existe, hacemos fallback
+
+ * * hacia FAQ / cache / OpenAI.
+
+ */
+
+      if (result.found) {
+
+        const elapsedMs =
+
+          Date.now() -
+
+          startedAt;
+
+
+
+        await logAssistantQuery({
+
+          branchId,
+
+          socialWorkId,
+
+          question,
+
+
+
+          answer:
+
+            result.answer,
+
+
+
+          source:
+
+            "SUPABASE",
+
+
+
+          route:
+
+            "STRUCTURED_RULE",
+
+
+
+          normativeId:
+
+            result.data
+
+              ?.normative_id ??
+
+            null,
+
+
+
+          found:
+
+            true,
+
+
+
+          elapsedMs,
+
+
+
+          usage: {
+
+            input_tokens: 0,
+
+            output_tokens: 0,
+
+            total_tokens: 0,
+
+          },
+
+        });
+
+
+
+        return Response.json({
+
+          ok: true,
+
+
+
+          question,
+
+
+
+          answer:
+
+            result.answer,
+
+
+
+          source:
+
+            "SUPABASE",
+
+
+
+          route:
+
+            "STRUCTURED_RULE",
+
+
+
+          intent: {
+
+            domain:
+
+              "RULE",
+
+
+
+            rule_key:
+
+              ruleIntent.ruleKey,
+
+          },
+
+
+
+          structured_data:
+
+            result.data,
+
+
+
+          found:
+
+            true,
+
+
+
+          context:
+
+            responseContext,
+
+
+
+          elapsed_ms:
+
+            elapsedMs,
+
+
+
+          usage: {
+
+            input_tokens: 0,
+
+            output_tokens: 0,
+
+            total_tokens: 0,
+
+          },
+
+        });
+
+      }
+
+    }
+
+
+
+    // =====================================================
+    // 5. FAQ APROBADA
+
+    // =====================================================
+
+
+
+    const approvedFaq =
+
+      await getApprovedFaq({
+
+        branchId,
+
+        socialWorkId,
+
+        question,
+
+      });
+
+
+
+    if (approvedFaq) {
+
+      const elapsedMs =
+
+        Date.now() -
+
+        startedAt;
+
+
+
+      /**
+
+ * * Actualizamos uso.
+
+ * *
+
+ * * Si falla, no rompemos la respuesta.
+
+ */
+
+      const {
+
+        error:
+
+          faqUsageError,
+
+      } =
+
+        await supabaseAdmin
+
+          .from(
+
+            "social_work_faqs"
+
+          )
+
+          .update({
+
+            usage_count:
+
+              (approvedFaq.usage_count ||
+
+                0) + 1,
+
+
+
+            last_used_at:
+
+              new Date().toISOString(),
+
+
+
+            updated_at:
+
+              new Date().toISOString(),
+
+          })
+
+          .eq(
+
+            "id",
+
+            approvedFaq.id
+
+          );
+
+
+
+      if (faqUsageError) {
+
+        console.error(
+
+          "FAQ usage update error:",
+
+          faqUsageError.message
+
+        );
+
+      }
+
+
+
+      await logAssistantQuery({
+
+        branchId,
+
+        socialWorkId,
+
+        question,
+
+
+
+        answer:
+
+          approvedFaq.answer,
+
+
+
+        source:
+
+          "FAQ",
+
+
+
+        route:
+
+          "APPROVED_FAQ",
+
+
+
+        normativeId:
+
+          approvedFaq
+
+            .source_normative_id,
+
+
+
+        found:
+
+          true,
+
+
+
+        elapsedMs,
+
+
+
+        usage: {
+
+          input_tokens: 0,
+
+          output_tokens: 0,
+
+          total_tokens: 0,
+
+        },
+
+      });
+
+
+
+      return Response.json({
+
+        ok: true,
+
+
+
+        question,
+
+
+
+        answer:
+
+          approvedFaq.answer,
+
+
+
+        source:
+
+          "FAQ",
+
+
+
+        route:
+
+          "APPROVED_FAQ",
+
+
+
+        found:
+
+          true,
+
+
+
+        faq: {
+
+          id:
+
+            approvedFaq.id,
+
+
+
+          scope:
+
+            approvedFaq.scope,
+
+
+
+          detected_count:
+
+            approvedFaq.detected_count,
+
+        },
+
+
+
+        normative_id:
+
+          approvedFaq
+
+            .source_normative_id,
+
+
+
+        context:
+
+          responseContext,
+
+
+
+        elapsed_ms:
+
+          elapsedMs,
+
+
+
+        usage: {
+
+          input_tokens: 0,
+
+          output_tokens: 0,
+
+          total_tokens: 0,
+
+        },
+
+      });
+
+    }
+
+
+
+    // =====================================================
+
+    // =====================================================
+
+    // 6. CACHE
+
+    // =====================================================
+
+
+
+    /**
+
+ * * La cache requiere sucursal porque
+
+ * * su clave actual es:
+
+ * *
+
+ * * branchId
+
+ * * + socialWorkId
+
+ * * + normalizedQuestion
+
+ */
+
+
+
+  const cachedAnswer =
+  (
+    branchId &&
+    !skipAnswerCache
+  )
+    ? await getCachedAnswer({
+        branchId,
+        socialWorkId,
+        question,
+      })
+    : null;
+
+
+
+    if (cachedAnswer) {
+
+      const elapsedMs =
+
+        Date.now() -
+
+        startedAt;
+
+
+
+      await logAssistantQuery({
+
+        branchId,
+
+        socialWorkId,
+
+        question,
+
+
+
+        answer:
+
+          cachedAnswer.answer,
+
+
+
+        source:
+
+          "CACHE",
+
+
+
+        route:
+
+          "CACHE",
+
+
+
+        normativeId:
+
+          cachedAnswer.normative_id,
+
+
+
+        found:
+
+          true,
+
+
+
+        elapsedMs,
+
+
+
+        usage: {
+
+          input_tokens: 0,
+
+          output_tokens: 0,
+
+          total_tokens: 0,
+
+        },
+
+      });
+
+
+
+      await maybeSuggestFaq({
+
+        branchId,
+
+        socialWorkId,
+
+        question,
+
+
+
+        answer:
+
+          cachedAnswer.answer,
+
+
+
+        normativeId:
+
+          cachedAnswer.normative_id,
+
+
+
+        sourceType:
+
+          "CACHE",
+
+      });
+
+
+
+      return Response.json({
+
+        ok: true,
+
+
+
+        question,
+
+
+
+        answer:
+
+          cachedAnswer.answer,
+
+
+
+        source:
+
+          "CACHE",
+
+
+
+        route:
+
+          "CACHE",
+
+
+
+        found:
+
+          true,
+
+
+
+        normative_id:
+
+          cachedAnswer.normative_id,
+
+
+
+        cache: {
+
+          hit: true,
+
+
+
+          cache_id:
+
+            cachedAnswer.id,
+
+        },
+
+
+
+        context:
+
+          responseContext,
+
+
+
+        elapsed_ms:
+
+          elapsedMs,
+
+
+
+        usage: {
+
+          input_tokens: 0,
+
+          output_tokens: 0,
+
+          total_tokens: 0,
+
+        },
+
+      });
+
+    }
+
+
+
+    // =====================================================
+
+    // 7. OPENAI FILE SEARCH
+
+    // =====================================================
+
+
+
+const result =
+  await queryFileSearch({
+    question:
+      fileSearchQuestion,
+
+    socialWorkId,
+  });
+
+
+
+    const elapsedMs =
+
+      Date.now() -
+
+      startedAt;
+
+
+
+    /**
+
+ * * Tomamos el primer resultado
+
+ * * como normativa principal.
+
+ */
+
+    const topResult =
+
+      result.search
+
+        ?.results?.[0] ??
+
+      null;
+
+
+
+    const retrievedNormativeId =
+
+      topResult
+
+        ?.attributes
+
+        ?.normative_id ??
+
+      null;
+
+
+
+    const hasSearchResults =
+
+      Boolean(
+
+        result.search
+
+          ?.results
+
+          ?.length > 0
+
+      );
+
+
+
+    const insufficientAnswer =
+
+      isInsufficientAnswer(
+
+        result.answer
+
+      );
+
+
+
+    const found =
+
+      Boolean(
+
+        result.answer &&
+
+        hasSearchResults &&
+
+        !insufficientAnswer
+
+      );
+
+
+
+    const normativeId =
+
+      found
+
+        ? retrievedNormativeId
+
+        : null;
+
+
+
+    // =====================================================
+
+    // RESPUESTA SEGURA SI NO HAY EVIDENCIA
+
+    // =====================================================
+
+
+
+    /**
+
+ * * No queremos devolver una respuesta
+
+ * * aparentemente válida si File Search
+
+ * * no recuperó documentación.
+
+ */
+
+    const finalAnswer =
+
+      found
+
+        ? result.answer
+
+        : "No encontré información suficiente en las normativas vigentes para responder con seguridad.";
+
+
+
+    // =====================================================
+
+    // GUARDAR RESPUESTA EN CACHE
+
+    // =====================================================
+
+
+
+    /**
+
+ * * Nunca cacheamos respuestas
+
+ * * sin respaldo documental.
+
+ */
+
+    if (
+
+      found &&
+
+      branchId
+
+    ) {
+
+      await saveCachedAnswer({
+
+        branchId,
+
+        socialWorkId,
+
+        question,
+
+
+
+        answer:
+
+          finalAnswer,
+
+
+
+        source:
+
+          "OPENAI_FILE_SEARCH",
+
+
+
+        route:
+
+          "SEMANTIC",
+
+
+
+        normativeId,
+
+
+
+        openaiResponseId:
+
+          result.response_id,
+
+
+
+        usage:
+
+          result.usage,
+
+      });
+
+    }
+
+
+
+    // =====================================================
+
+    // LOG OPENAI
+
+    // =====================================================
+
+
+
+    await logAssistantQuery({
+
+      branchId,
+
+      socialWorkId,
+
+      question,
+
+
+
+      answer:
+
+        finalAnswer,
+
+
+
+      source:
+
+        "OPENAI_FILE_SEARCH",
+
+
+
+      route:
+
+        "SEMANTIC",
+
+
+
+      normativeId,
+
+
+
+      found,
+
+
+
+      elapsedMs,
+
+
+
+      usage:
+
+        result.usage,
+
+
+
+      openaiResponseId:
+
+        result.response_id,
+
+    });
+
+
+
+    // =====================================================
+
+    // SUGERENCIA FAQ
+
+    // =====================================================
+
+
+
+    /**
+
+ * * Solo generamos candidatos FAQ
+
+ * * cuando encontramos evidencia real.
+
+ */
+
+    if (found) {
+
+      await maybeSuggestFaq({
+
+        branchId,
+
+        socialWorkId,
+
+        question,
+
+
+
+        answer:
+
+          finalAnswer,
+
+
+
+        normativeId,
+
+
+
+        sourceType:
+
+          "OPENAI_FILE_SEARCH",
+
+      });
+
+    }
+
+
+
+    // =====================================================
+
+    // RESPUESTA FINAL
+
+    // =====================================================
+
+
+
+    return Response.json({
+
+      ok: true,
+
+
+
+      question,
+
+
+
+      answer:
+
+        finalAnswer,
+
+
+
+      source:
+
+        "OPENAI_FILE_SEARCH",
+
+
+
+      route:
+
+        "SEMANTIC",
+
+
+
+      response_mode:
+
+        result.detailed
+
+          ? "DETAILED"
+
+          : "SHORT",
+
+
+
+      found,
+
+
+
+      normative_id:
+
+        normativeId,
+
+
+
+      cache: {
+
+        hit: false,
+
+      },
+
+
+
+      context:
+
+        responseContext,
+
+
+
+      elapsed_ms:
+
+        elapsedMs,
+
+
+
+      usage:
+
+        result.usage,
+
+
+
+      search:
+
+        result.search,
+
+
+
+      response_id:
+
+        result.response_id,
+
+    });
+
+  } catch (error) {
+
+    console.error(
+
+      "GDP query router error:",
+
+      error
+
+    );
+
+
+
+    /**
+
+ * * No exponemos el stack al frontend.
+
+ * *
+
+ * * Durante desarrollo dejamos el mensaje
+
+ * * para diagnosticar rápidamente.
+
+ */
+
+    return Response.json(
+
+      {
+
+        ok: false,
+
+
+
+        error:
+
+          process.env.NODE_ENV ===
+
+          "development"
+
+            ? error?.message ||
+
+              "Error desconocido"
+
+            : "No se pudo procesar la consulta.",
+
+
+
+        code:
+
+          "ASSISTANT_QUERY_ERROR",
+
+      },
+
+      {
+
+        status: 500,
+
+      }
+
+    );
+
+  }
+
+}

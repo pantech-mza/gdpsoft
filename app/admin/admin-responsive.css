@@ -1,0 +1,12 @@
+/* Navegación Admin GDPSoft: scroll integrado al menú */
+.gdp-sidebar-scroll { scrollbar-width: thin; scrollbar-color: rgba(175,140,202,.45) transparent; scrollbar-gutter: auto; overscroll-behavior: contain; }
+.gdp-sidebar-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+.gdp-sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+.gdp-sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(175,140,202,.45); border-radius: 999px; }
+.gdp-sidebar-scroll::-webkit-scrollbar-thumb:hover { background: rgba(175,140,202,.7); }
+.gdp-sidebar-scroll::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
+@media (hover: hover) { .gdp-sidebar-scroll:not(:hover)::-webkit-scrollbar-thumb { background: transparent; } }
+/* Contención responsiva del contenido sin achicar textos ni tablas indebidamente */
+.gdp-admin-shell { max-width: 100%; min-width: 0; }
+.gdp-admin-shell img, .gdp-admin-shell video { max-width: 100%; }
+@media (max-width: 767px) { .gdp-admin-shell { margin-left: 0 !important; } .gdp-admin-shell main { min-width: 0; } }

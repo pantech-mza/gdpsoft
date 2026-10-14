@@ -1,0 +1,35 @@
+[
+  {
+    "id": "IMG-001-OSPRERA",
+    "enabled": true,
+    "file": "IMG-001-OSPRERA.jpg",
+    "mime_type": "image/jpeg",
+    "question": "que obra social, prepaga, cobertura o entidad administradora aparece en esta receta?",
+    "expected": {
+      "visual_candidate": "OSPRERA",
+      "canonical_social_work": "OSPRERA"
+    }
+  },
+  {
+    "id": "IMG-002-ELEVAR-PANADEROS",
+    "enabled": true,
+    "file": "IMG-002-ELEVAR-PANADEROS.jpg",
+    "mime_type": "image/jpeg",
+    "question": "que obra social, prepaga, cobertura o entidad administradora aparece en esta receta?",
+    "expected": {
+      "visual_candidate": "ELEVAR",
+      "canonical_social_work": "PANADEROS"
+    }
+  },
+  {
+    "id": "IMG-003-OSDE",
+    "enabled": true,
+    "file": "IMG-003-OSDE.jpg",
+    "mime_type": "image/jpeg",
+    "question": "que obra social, prepaga, cobertura o entidad administradora aparece en esta receta?",
+    "expected": {
+      "visual_candidate": "OSDE",
+      "canonical_social_work": "OSDE"
+    }
+  }
+]
