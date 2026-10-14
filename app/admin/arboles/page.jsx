@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -10,6 +11,7 @@ import { Icon } from "@iconify/react";
 import { treeApiFetch } from "../../../lib/decision-trees/client";
 import VisualTreeEditor from "../../../components/decision-trees/VisualTreeEditor";
 import BulkTreeGenerator from "../../../components/decision-trees/BulkTreeGenerator";
+import { paginate } from "../../../lib/decision-trees/pagination.mjs";
 
 const EMPTY_TREE = {
   start_node: "",
@@ -19,6 +21,11 @@ const EMPTY_TREE = {
 export default function AdminDecisionTreesPage() {
   const [tab, setTab] =
     useState("SUGGESTED");
+
+  // Solo el Superadmin ve el generador masivo. El servidor también valida el permiso.
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [candidatePage, setCandidatePage] = useState(1);
+  const candidateListRef = useRef(null);
 
 const [treePage, setTreePage] = useState(1);
 const [circuitFilter, setCircuitFilter] = useState("");
@@ -236,6 +243,16 @@ const [generating, setGenerating] = useState(false);
     loadAll();
   }, []);
 
+  useEffect(() => {
+    try {
+      const user = JSON.parse(sessionStorage.getItem("gdpsoft_user") || "null");
+      setIsSuperAdmin(user?.is_super_admin === true);
+    } catch {
+      setIsSuperAdmin(false);
+    }
+  }, []);
+
+
 useEffect(() => {
   const query = new URLSearchParams(window.location.search);
   const socialWorkId = query.get("social_work_id");
@@ -245,7 +262,8 @@ useEffect(() => {
 
 useEffect(() => {
   setTreePage(1);
-}, [socialWorkFilter, circuitFilter, search]);
+  setCandidatePage(1);
+}, [socialWorkFilter, circuitFilter, search, tab]);
 
 useEffect(() => {
   let active = true;
@@ -449,6 +467,21 @@ async function generateFromNormative() {
       circuitFilter,
     ]);
 
+
+// Paginación posterior a búsqueda, obra social, circuito y estado.
+// No modifica los resultados ni la posibilidad de revisar / aprobar candidatos.
+const CANDIDATES_PER_PAGE = 10;
+const {
+  totalPages: candidatePageCount,
+  page: safeCandidatePage,
+  items: visibleCandidates,
+  from: candidateFrom,
+  to: candidateTo,
+} = paginate(filteredCandidates, candidatePage, CANDIDATES_PER_PAGE);
+const goToCandidatePage = (page) => {
+  setCandidatePage(Math.max(1, Math.min(candidatePageCount, page)));
+  candidateListRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+};
 
 const treePageCount = Math.max(1, Math.ceil(filteredTrees.length / 10));
 const safeTreePage = Math.min(treePage, treePageCount);
@@ -1042,7 +1075,7 @@ const visibleTrees = filteredTrees.slice((safeTreePage - 1) * 10, safeTreePage *
   {generateMessage && <p role="status" className="mt-3 rounded-lg bg-[#f2f8e9] p-3 text-sm text-[#527319]">{generateMessage}</p>}
 </section>
 
-      <BulkTreeGenerator onCompleted={loadAll} />
+      {isSuperAdmin && <BulkTreeGenerator onCompleted={loadAll} />}
 
       {/* STATS */}
 
@@ -1215,7 +1248,7 @@ const visibleTrees = filteredTrees.slice((safeTreePage - 1) * 10, safeTreePage *
         !error &&
         tab ===
           "SUGGESTED" && (
-          <>
+          <div ref={candidateListRef} className="scroll-mt-28">
 
             {filteredCandidates.length ===
             0 ? (
@@ -1226,7 +1259,7 @@ const visibleTrees = filteredTrees.slice((safeTreePage - 1) * 10, safeTreePage *
             ) : (
               <div className="grid min-w-0 gap-4 xl:grid-cols-2">
 
-                {filteredCandidates.map(
+                {visibleCandidates.map(
                   (
                     candidate
                   ) => (
@@ -1278,7 +1311,30 @@ const visibleTrees = filteredTrees.slice((safeTreePage - 1) * 10, safeTreePage *
               </div>
             )}
 
-          </>
+            {filteredCandidates.length > CANDIDATES_PER_PAGE && (
+              <nav aria-label="Paginación de árboles sugeridos por IA" className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm shadow-sm">
+                <span className="text-zinc-500">
+                  Mostrando <strong className="text-zinc-800">{candidateFrom}–{candidateTo}</strong> de <strong className="text-zinc-800">{filteredCandidates.length}</strong> sugerencias
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" onClick={() => goToCandidatePage(safeCandidatePage - 1)} disabled={safeCandidatePage === 1} className="h-9 rounded-lg border border-zinc-200 px-3 font-medium text-[#70236c] hover:bg-[#faf5fa] disabled:cursor-not-allowed disabled:opacity-40">
+                    Anterior
+                  </button>
+                  <label htmlFor="candidate-page-select" className="text-xs text-zinc-500">Página</label>
+                  <select id="candidate-page-select" aria-label="Ir a la página de sugerencias" value={safeCandidatePage} onChange={event => goToCandidatePage(Number(event.target.value))} className="h-9 rounded-lg border border-zinc-200 bg-white px-2 font-medium text-zinc-800">
+                    {Array.from({ length: candidatePageCount }, (_, index) => (
+                      <option key={index + 1} value={index + 1}>{index + 1}</option>
+                    ))}
+                  </select>
+                  <span className="text-xs text-zinc-500">de {candidatePageCount}</span>
+                  <button type="button" onClick={() => goToCandidatePage(safeCandidatePage + 1)} disabled={safeCandidatePage >= candidatePageCount} className="h-9 rounded-lg border border-zinc-200 px-3 font-medium text-[#70236c] hover:bg-[#faf5fa] disabled:cursor-not-allowed disabled:opacity-40">
+                    Siguiente
+                  </button>
+                </div>
+              </nav>
+            )}
+
+          </div>
         )}
 
       {/* ÁRBOLES */}

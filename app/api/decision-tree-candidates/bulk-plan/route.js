@@ -27,6 +27,11 @@ async function readAll(table, columns, configure) {
 export async function GET(request) {
   const auth = await requireActor(request, true);
   if (auth.error) return auth.error;
+  // Inventario y operación masiva: exclusivos de Superadmin.
+  // No se confía en el rol informado por el navegador.
+  if (auth.actor.is_super_admin !== true) {
+    return failure("Generación masiva reservada a Superadmin", 403);
+  }
 
   try {
     const [works, norms, relations, candidates, trees] = await Promise.all([
