@@ -1502,38 +1502,22 @@ export default function FloatingAssistant() {
       )}
 
       {!open && (
-        <div className="fixed bottom-3 right-3 z-[700] sm:bottom-4 sm:right-4">
+        <div className="flex justify-end px-5 pb-7 pt-2 sm:px-8" data-gdp-bot-dock>
           <button
             type="button"
-            onClick={() =>
-              setOpen(true)
-            }
-            className="group flex items-center gap-3 rounded-2xl border border-emerald-300 bg-emerald-500 px-3 py-2.5 text-white shadow-xl transition hover:bg-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-500/20"
+            onClick={() => setOpen(true)}
             aria-label="Abrir asistente GDPSoft"
             title="Abrir asistente"
+            className="group relative h-[72px] w-[72px] rounded-full border border-[#ead8ef] bg-white shadow-lg transition-transform duration-200 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#8f2a85]/25 sm:h-[84px] sm:w-[84px]"
           >
-            <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/95">
-              <Image
-                src="/images/bot-gdpsoft.png"
-                alt="Asistente GDPSoft"
-                fill
-                className="object-contain"
-                sizes="36px"
-              />
-            </span>
-
-            <span className="min-w-0 text-left">
-              <span className="block text-[11px] font-medium leading-4 text-emerald-50">
-                ● Disponible
-              </span>
-              <span className="block whitespace-nowrap text-sm font-bold leading-5">
-                Abrir asistente
-              </span>
-            </span>
-
-            <span className="ml-1 flex h-8 w-8 items-center justify-center rounded-xl bg-white/15 text-lg transition group-hover:bg-white/20">
-              ↑
-            </span>
+            <Image
+              src="/images/bot-gdpsoft.png"
+              alt=""
+              fill
+              className="object-contain p-1.5"
+              sizes="(max-width: 640px) 72px, 84px"
+            />
+            <span className="absolute -right-0.5 top-1 h-3 w-3 rounded-full border-2 border-white bg-[#93c01f]" />
           </button>
         </div>
       )}

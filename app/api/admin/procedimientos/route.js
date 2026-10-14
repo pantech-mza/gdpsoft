@@ -1,33 +1,66 @@
 import { supabaseAdmin } from '../../../../lib/supabase/admin';
 import { requireAdminActor, jsonError } from '../../../../lib/server/gdp-actor';
+import {validDraft,uniqueCode,cleanText} from '../../../../lib/procedimientos/config.mjs';
 export const runtime='nodejs'; export const dynamic='force-dynamic';
+const ok = (data={},status=200)=> Response.json({ok:true,...data},{status,headers:{'Cache-Control':'no-store'}});
+const statusIs = (value, allowed) => allowed.includes(value);
 export async function GET(request){
- const access = await requireAdminActor(request);
- if (!access.actor) return jsonError(access.error, access.status);
- const {data,error}=await supabaseAdmin.from('internal_procedures').select('id,code,title,question,answer,intent,scope,social_work_id,billing_channel_id,source_document,source_pages,review_notes,status,active,approved_at,approved_by').order('id').limit(500);
- return error?jsonError('No se pudieron cargar los procedimientos. Verificá los registros en Supabase.',500):Response.json({ok:true,procedures:data||[]},{headers:{'Cache-Control':'no-store, max-age=0'}});
+ const access=await requireAdminActor(request);
+ if(!access.actor)return jsonError(access.error,access.status);
+ const {data,error}=await supabaseAdmin.from('internal_procedures')
+  .select('id,code,title,question,answer,intent,scope,social_work_id,billing_channel_id,source_document,source_pages,source_storage_path,source_type,review_notes,status,active,approved_at,approved_by,created_at,updated_at')
+  .order('created_at',{ascending:false}).limit(1000);
+ return error?jsonError('No se pudieron leer los procedimientos: '+error.message,500):ok({procedures:data||[]});
+}
+export async function POST(request){
+ const access=await requireAdminActor(request);
+ if(!access.actor)return jsonError(access.error,access.status);
+ const b=await request.json().catch(()=>({}));
+ const validated=validDraft(b);
+ if(validated.error)return jsonError(validated.error);
+ // La alta manual no publica ni activa el procedimiento.
+ const {data,error}=await supabaseAdmin.from('internal_procedures').insert({
+  code:uniqueCode(),...validated.value,source_type:'MANUAL',status:'DRAFT',active:false,created_by:access.actor.id,
+  source_pages:cleanText(b.source_pages,90)||null
+ }).select('id').single();
+ return error?jsonError(error.message,500):ok({id:data.id},201);
 }
 export async function PATCH(request){
- const access = await requireAdminActor(request);
- if (!access.actor) return jsonError(access.error, access.status);
- const b=await request.json().catch(()=>({})); const id=Number(b.id), action=b.action;
- if(!Number.isInteger(id)||id<1||!['approve','archive','edit'].includes(action))return jsonError('Solicitud inválida');
+ const access=await requireAdminActor(request);
+ if(!access.actor)return jsonError(access.error,access.status);
+ const b=await request.json().catch(()=>({})),id=Number(b.id),action=String(b.action||'');
+ if(!Number.isInteger(id)||id<1||!['approve','archive','edit','reject','reopen'].includes(action))return jsonError('Solicitud inválida');
  const {data:existing,error:readError}=await supabaseAdmin.from('internal_procedures').select('*').eq('id',id).maybeSingle();
  if(readError||!existing)return jsonError(readError?.message||'No existe el procedimiento',404);
+ const stamp=new Date().toISOString();
  if(action==='archive'){
-  const {error}=await supabaseAdmin.from('internal_procedures').update({active:false,status:'ARCHIVED',updated_at:new Date().toISOString()}).eq('id',id);
-  return error?jsonError(error.message,500):Response.json({ok:true});
+  if(!statusIs(existing.status,['APPROVED','DRAFT','REJECTED'])) return jsonError('Estado no archivable',409);
+  const {error}=await supabaseAdmin.from('internal_procedures').update({active:false,status:'ARCHIVED',updated_at:stamp}).eq('id',id).eq('status',existing.status);
+  return error?jsonError(error.message,500):ok();
  }
- if(existing.status!=='DRAFT')return jsonError('No se puede modificar un procedimiento ya aprobado. Archivarlo y crear nueva versión.',409);
+ if(action==='reopen'){
+  if(!statusIs(existing.status,['REJECTED','ARCHIVED']))return jsonError('Solo se pueden reabrir rechazados o archivados',409);
+  const {error}=await supabaseAdmin.from('internal_procedures').update({active:false,status:'DRAFT',approved_at:null,approved_by:null,rejected_at:null,rejected_by:null,updated_at:stamp}).eq('id',id).eq('status',existing.status);
+  return error?jsonError(error.message,500):ok();
+ }
+ if(existing.status!=='DRAFT')return jsonError('Solo se pueden modificar, rechazar o aprobar borradores. Archivá y reabrí para crear otra revisión.',409);
+ if(action==='reject'){
+  const review_notes=cleanText(b.review_notes,3000);
+  if(review_notes.length<10)return jsonError('Indicá un motivo de rechazo de al menos 10 caracteres.');
+  const {error}=await supabaseAdmin.from('internal_procedures').update({active:false,status:'REJECTED',review_notes,rejected_at:stamp,rejected_by:access.actor.id,updated_at:stamp}).eq('id',id).eq('status','DRAFT');
+  return error?jsonError(error.message,500):ok();
+ }
  if(action==='edit'){
-  const question=String(b.question||'').trim(), answer=String(b.answer||'').trim(), notes=String(b.review_notes||'').trim();
-  if(question.length<8||answer.length<12||answer.length>6000)return jsonError('Pregunta y respuesta inválidas');
-  const {error}=await supabaseAdmin.from('internal_procedures').update({question,answer,review_notes:notes,updated_at:new Date().toISOString()}).eq('id',id).eq('status','DRAFT');
-  return error?jsonError(error.message,500):Response.json({ok:true});
+  const validated=validDraft({...existing,...b});
+  if(validated.error)return jsonError(validated.error);
+  const {error}=await supabaseAdmin.from('internal_procedures').update({...validated.value,source_pages:cleanText(b.source_pages??existing.source_pages,90)||null,updated_at:stamp}).eq('id',id).eq('status','DRAFT');
+  return error?jsonError(error.message,500):ok();
  }
- if(b.confirmation!=='REVISADO')return jsonError('Confirmá revisión de la fuente y la autorización del área de Obras Sociales');
- if(!existing.source_document||!existing.answer||!existing.question)return jsonError('El procedimiento carece de fuente o contenido');
- // Aprobación habilita consulta permanente. No indica que exista una caída activa.
- const {error}=await supabaseAdmin.from('internal_procedures').update({status:'APPROVED',active:true,approved_by:access.actor.id,approved_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',id).eq('status','DRAFT');
- return error?jsonError(error.message,500):Response.json({ok:true});
+ if(b.confirmation!=='REVISADO')return jsonError('Confirmá la revisión por el responsable antes de aprobar.');
+ const validated=validDraft(existing);
+ if(validated.error)return jsonError(validated.error);
+ if(['PDF','DOC','DOCX','XLS','XLSX'].includes(existing.source_type)&&!existing.source_storage_path) return jsonError('No existe el archivo fuente original para esta importación.',409);
+ // No publica automaticamente un documento interpretado por IA.
+ const {error}=await supabaseAdmin.from('internal_procedures').update({status:'APPROVED',active:true,approved_by:access.actor.id,approved_at:stamp,updated_at:stamp}).eq('id',id).eq('status','DRAFT');
+ return error?jsonError(error.message,500):ok();
 }

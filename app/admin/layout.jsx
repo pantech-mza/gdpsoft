@@ -36,9 +36,8 @@ export default function AdminLayout({ children }) {
         <AdminHeader />
 
         <main className="min-w-0 max-w-full px-4 pb-24 pt-6 sm:px-6 md:pb-12 lg:px-8">{children}</main>
+        <FloatingAssistant />
       </div>
-
-      <FloatingAssistant />
     </div>
   );
 }

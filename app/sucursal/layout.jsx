@@ -129,10 +129,9 @@ export default function SucursalLayout({
           </div>
 
         </main>
+        <FloatingAssistant />
       </div>
-
       <BranchNotices />
-      <FloatingAssistant />
 
     </div>
   );

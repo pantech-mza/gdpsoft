@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {validDraft,safeExtension,VALID_INTENTS,BUCKET} from '../../lib/procedimientos/config.mjs';
+test('admite PDF, DOC, DOCX y Excel; rechaza otros archivos',()=>{for(const s of ['p.pdf','p.DOC','p.docx','p.xls','p.xlsx'])assert.ok(safeExtension(s));for(const s of ['p.js','p.exe','p.txt'])assert.equal(safeExtension(s),null);});
+test('ámbito e intención deben ser reconocidos',()=>{const p={title:'Caída de validador',question:'¿Qué debo hacer con la receta?',answer:'Revisar el error y seguir instrucciones del responsable.',intent:'VALIDATOR_FAILURE',scope:'GENERAL',source_document:'instructivo.pdf'};assert.ok(validDraft(p).value);assert.ok(validDraft({...p,intent:'UNKNOWN'}).error);assert.ok(validDraft({...p,scope:'WRONG'}).error);assert.ok(validDraft({...p,scope:'SOCIAL_WORK'}).error);assert.ok(validDraft({...p,scope:'SOCIAL_WORK',social_work_id:8}).value);});
+test('no permite documentos sin fuente y respuestas vacías',()=>{const p={title:'Sin documento',question:'¿Se puede dispensar así?',answer:'Texto válido para prueba, pero sin fuente.',intent:VALID_INTENTS[0],scope:'GENERAL'};assert.ok(validDraft(p).error);assert.ok(validDraft({...p,source_document:'fuente.docx'}).value);});
+test('bucket privado con identificador estable',()=>assert.equal(BUCKET,'gdp-internal-procedures'));
