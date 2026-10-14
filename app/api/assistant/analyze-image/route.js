@@ -1351,6 +1351,8 @@ function sanitizeVisualAnalysis(
 
 async function analyzeImage({
   imageUrl,
+  pdfBase64 = null,
+  pdfFilename = "receta.pdf",
   question,
 }) {
   const model =
@@ -1519,16 +1521,9 @@ ${question}
                   question,
               },
 
-              {
-                type:
-                  "input_image",
-
-                image_url:
-                  imageUrl,
-
-                detail:
-                  "high",
-              },
+              pdfBase64
+                ? {type:"input_file", filename:pdfFilename, file_data:`data:application/pdf;base64,${pdfBase64}`}
+                : {type:"input_image", image_url:imageUrl, detail:"high"},
             ],
           },
         ],
@@ -2284,12 +2279,30 @@ function inferRequirementFieldKey(
   return "other";
 }
 
+// Los convenios pueden variar por Cámara/Colegio: nunca mezclar fuentes.
+async function getNormativeCircuitScope(socialWorkId, requestedChannelId = null) {
+  const {data, error} = await supabaseAdmin.from("normative_social_works")
+    .select("normative_id,billing_channel_id,normatives!inner(is_current)")
+    .eq("social_work_id", Number(socialWorkId))
+    .eq("normatives.is_current", true);
+  if (error) return {ok:false,reason:"No pude verificar el circuito de las normativas."};
+  const rows = data || [];
+  const scopes = [...new Set(rows.map(x=>Number(x.billing_channel_id)).filter(x=>Number.isInteger(x) && x>0))];
+  if (scopes.length>1 && !requestedChannelId) return {ok:false,reason:"Esta obra social tiene normas de Cámara y Colegio. Indicá el circuito para revisar la receta con la fuente correcta."};
+  const ids = [...new Set(rows.filter(x=> x.billing_channel_id==null || !requestedChannelId || Number(x.billing_channel_id)===Number(requestedChannelId)).map(x=>Number(x.normative_id)).filter(x=>x>0))];
+  if (scopes.length>1 && !ids.length) return {ok:false,reason:"No hay normativa vigente para el circuito seleccionado."};
+  // Si hay muchas relaciones, no generar filtro mayor al límite operativo del buscador.
+  if (ids.length>10) return {ok:false,reason:"Hay varias normativas vigentes: requiere revisión de Administración para seleccionar la fuente."};
+  return {ok:true,normativeIds:ids,ambiguous:false};
+}
+
 // =========================================================
 // EXTRAER REQUISITOS NORMATIVOS DE RECETA
 // =========================================================
 
 async function getPrescriptionRequirements({
   socialWork,
+  normativeIds = [],
 }) {
   const socialWorkId =
     Number(
@@ -2482,6 +2495,10 @@ Respondé únicamente JSON:
                   value:
                     true,
                 },
+                ...(normativeIds.length ? [{
+                  type:"or",
+                  filters:normativeIds.map(id=>({type:"eq",key:"normative_id",value:id})),
+                }] : []),
               ],
             },
           },
@@ -2909,6 +2926,36 @@ function evaluateRequirement({
   };
 }
 
+// La ficha estructurada complementa la normativa del documento.
+// Solo convertimos a REQUIRED campos explícitamente marcados "Requiere".
+// Nunca inferimos obligatoriedad de valores vacíos, RP ni porcentajes.
+async function getStructuredFichaRequirements(socialWorkId) {
+  const {data, error} = await supabaseAdmin.from("social_works")
+    .select("id,name,recipe_type,recipe_validity_days,letterhead,rp,diagnosis,monodrug,commercial_name,substitution,observations")
+    .eq("id", socialWorkId).maybeSingle();
+  if (error || !data) return {requirements:[],notes:[]};
+  const defs = [
+    ["letterhead", "letterhead", "Membrete"],
+    ["diagnosis", "diagnosis", "Diagnóstico"],
+    ["monodrug", "active_ingredient", "Monodroga / principio activo"],
+    ["commercial_name", "medication_name", "Nombre comercial del medicamento"],
+  ];
+  const requirements = defs.flatMap(([column,field_key,label]) => {
+    const raw = String(data[column] ?? "").trim().toLowerCase();
+    if (!raw) return [];
+    const required = /^(requiere|requerido|obligatorio|obligatoria|sí|si)$/i.test(raw);
+    const optional = /^(no requiere|no|opcional|no obligatorio|no obligatoria)$/i.test(raw);
+    if (!required && !optional) return [];
+    return [{requirement:`${label} (Recordá/Ficha)`,field_key,necessity: required ? "REQUIRED":"OPTIONAL",condition:null,source:"SOCIAL_WORK_PROFILE"}];
+  });
+  const notes=[];
+  if (data.recipe_type) notes.push(`Tipos de receta registrados en Recordá/Ficha: ${data.recipe_type}`);
+  if (data.recipe_validity_days != null) notes.push(`Vigencia registrada en Recordá/Ficha: ${data.recipe_validity_days} días. Verificar fecha exacta, sin asumir validez.`);
+  if (data.rp != null) notes.push(`Límite registrado en Recordá/Ficha: ${data.rp} RP. Revisión manual necesaria.`);
+  if (data.observations) notes.push(`Observaciones de Recordá/Ficha: ${data.observations}`);
+  return {requirements,notes};
+}
+
 // =========================================================
 // VERIFICACIÓN COMPLETA
 // =========================================================
@@ -2916,14 +2963,18 @@ function evaluateRequirement({
 async function verifyPrescriptionAgainstNormative({
   analysis,
   socialWork,
+  billingChannelId = null,
 }) {
+  const scope = await getNormativeCircuitScope(socialWork.id, billingChannelId);
+  if (!scope.ok) return {found:false,answer:scope.reason,requiresCircuit:true};
   const normative =
     await getPrescriptionRequirements({
-      socialWork,
+      socialWork, normativeIds:scope.normativeIds,
     });
+  const ficha = await getStructuredFichaRequirements(Number(socialWork.id));
 
   if (
-    !normative.found
+    !normative.found && !ficha.requirements.length
   ) {
     return {
       found:
@@ -2943,9 +2994,19 @@ async function verifyPrescriptionAgainstNormative({
   const evaluations =
     [];
 
+  // Si ambos orígenes definen el mismo campo con condiciones distintas,
+  // detener la verificación automática de ese requisito: conflicto documental.
+  const normativeFields = new Map((normative.requirements || []).map(r=>[r.field_key, r]));
+  const combined = [...(normative.requirements || [])];
+  const sourceConflicts = [];
+  for (const req of ficha.requirements) {
+    const existing = normativeFields.get(req.field_key);
+    if (existing) {
+      if (String(existing.necessity).toUpperCase() !== req.necessity) sourceConflicts.push(req.requirement);
+    } else combined.push(req);
+  }
   for (
-    const requirement of
-      normative.requirements
+    const requirement of combined
   ) {
     const evaluation =
       evaluateRequirement({
@@ -3011,6 +3072,7 @@ async function verifyPrescriptionAgainstNormative({
     );
 let result =
   "Cumple los controles visibles verificables";
+if (sourceConflicts.length || !normative.found) result = "Requiere revisión";
 
 if (
   noncompliant.length >
@@ -3109,9 +3171,13 @@ if (
   lines.push(
     "Resultado:"
   );
-  lines.push(
-    result
-  );
+  lines.push(result);
+  lines.push("Esta comprobación es visual y no autoriza por sí sola la dispensación.");
+  if (!normative.found) lines.push("No se recuperó evidencia suficiente de la normativa documental; se contrastaron únicamente campos explícitos de Recordá/Ficha.");
+  if (sourceConflicts.length) lines.push(`⚠ Diferencias entre ficha y normativa en: ${sourceConflicts.join(", ")}. Requiere revisión humana.`);
+  if (ficha.notes.length) {
+    lines.push("", "Recordá/Ficha de la obra social:", ...ficha.notes.map(n => `• ${n}`));
+  }
 
   if (
     uncertain.length
@@ -3697,15 +3763,29 @@ export async function POST(
     // VISIÓN
     // =====================================================
 
-    const imageUrl =
-      await createImageUrl(
-        activeImage
-          .storage_path
-      );
+    // PDF electrónico: enviar el documento ORIGINAL al modelo multimodal.
+    // No convertirlo en OCR plano ni perder las páginas / diseño de la receta.
+    const isPdf = activeImage.mime_type === "application/pdf";
+    let imageUrl = null;
+    let pdfBase64 = null;
+    if (isPdf) {
+      const {data:pdfBlob, error:pdfError} = await supabaseAdmin.storage
+        .from("assistant-images").download(activeImage.storage_path);
+      if (pdfError || !pdfBlob) throw new Error("No se pudo leer el PDF adjunto del almacenamiento privado.");
+      const pdfBuffer = Buffer.from(await pdfBlob.arrayBuffer());
+      if (pdfBuffer.length > 4 * 1024 * 1024 || pdfBuffer.subarray(0,5).toString("ascii") !== "%PDF-") {
+        throw new Error("El PDF no es válido o supera el límite de 4 MB.");
+      }
+      pdfBase64 = pdfBuffer.toString("base64");
+    } else {
+      imageUrl = await createImageUrl(activeImage.storage_path);
+    }
 
     const vision =
       await analyzeImage({
         imageUrl,
+        pdfBase64,
+        pdfFilename:activeImage.original_filename || "receta.pdf",
         question,
       });
 
@@ -4088,12 +4168,23 @@ export async function POST(
       // YA TENEMOS OOSS OBJETIVO SEGURA
       // ===================================================
 
+      let chosenChannelId = conversation.active_billing_channel_id || null;
+      // Circuito indicado expresamente en el mensaje prevalece sobre el contexto anterior.
+      const circuitText = normalizeText(question);
+      const mentionsCamara = /\bcamara\b/.test(circuitText);
+      const mentionsColegio = /\bcolegio\b/.test(circuitText);
+      if (mentionsCamara !== mentionsColegio) {
+        const {data:channels} = await supabaseAdmin.from("billing_channels").select("id,code,name");
+        const selected = (channels || []).find(c =>
+          normalizeText(`${c.code || ""} ${c.name || ""}`).includes(mentionsCamara ? "camara" : "colegio"));
+        if (selected) chosenChannelId = selected.id;
+      }
+
       const verification =
         await verifyPrescriptionAgainstNormative({
           analysis,
-
-          socialWork:
-            targetSocialWork,
+          socialWork:targetSocialWork,
+          billingChannelId:chosenChannelId,
         });
 
       const responseContext = {
@@ -4128,7 +4219,7 @@ export async function POST(
           question,
 
           answer:
-            `Pude analizar la receta, pero no encontré normativa suficiente de ${targetSocialWork.name} para verificarla de forma segura.`,
+            verification?.answer || `Pude analizar la receta, pero no encontré normativa suficiente de ${targetSocialWork.name} para verificarla de forma segura.`,
 
           source:
             "IMAGE_ANALYSIS",

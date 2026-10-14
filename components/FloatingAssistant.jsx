@@ -90,6 +90,66 @@ export default function FloatingAssistant() {
   ] =
     useState(null);
 
+  // GDPSoft: la navegación por rutas puede montar/desmontar el asistente.
+  // Mantener la conversación en esta pestaña, aislada por usuario+sucursal+dispositivo.
+  // No se guardan tokens; la sesión caduca después de 8 horas.
+  const [chatRestored, setChatRestored] = useState(false);
+  const chatOwnerRef = useRef(null);
+  const CHAT_SNAPSHOT_KEY = "gdpsoft_assistant_chat_v1";
+  function getChatOwner() {
+    try {
+      const u = JSON.parse(sessionStorage.getItem("gdpsoft_user") || "null");
+      const b = JSON.parse(sessionStorage.getItem("gdpsoft_branch") || "null");
+      const device = localStorage.getItem("gdpsoft_device_uuid") || "admin";
+      if (!u?.id) return null;
+      return [u.id, String(u.role || ""), b?.id || b?.branch_id || "admin", device].join(":");
+    } catch { return null; }
+  }
+
+  useEffect(() => {
+    try {
+      chatOwnerRef.current = getChatOwner();
+      const raw = sessionStorage.getItem(CHAT_SNAPSHOT_KEY);
+      const saved = raw ? JSON.parse(raw) : null;
+      if (saved && saved.owner === chatOwnerRef.current && chatOwnerRef.current &&
+          Date.now() - Number(saved.savedAt || 0) < 8 * 60 * 60 * 1000) {
+        setOpen(Boolean(saved.open));
+        setMessages(Array.isArray(saved.messages) ? saved.messages.slice(-100) : []);
+        setConversationId(saved.conversationId || null);
+        setActiveSocialWork(saved.activeSocialWork || null);
+        setActivePlan(saved.activePlan || null);
+        setActiveImage(saved.activeImage || null);
+        setPendingSocialWorkQuestion(saved.pendingSocialWorkQuestion || null);
+        setUsedTopics(Array.isArray(saved.usedTopics) ? saved.usedTopics : []);
+        setQuestion(saved.question || "");
+        setActiveActionMessageId(saved.activeActionMessageId || null);
+      } else if (saved) {
+        sessionStorage.removeItem(CHAT_SNAPSHOT_KEY);
+      }
+    } catch (error) {
+      console.warn("No se pudo restaurar la conversación local:", error);
+    } finally {
+      setChatRestored(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!chatRestored) return;
+    try {
+      const owner = getChatOwner();
+      if (!owner || owner !== chatOwnerRef.current) return;
+      sessionStorage.setItem(CHAT_SNAPSHOT_KEY, JSON.stringify({
+        owner, savedAt: Date.now(), open, messages: messages.slice(-100),
+        conversationId, activeSocialWork, activePlan, activeImage,
+        pendingSocialWorkQuestion, usedTopics, question, activeActionMessageId,
+      }));
+    } catch (error) {
+      console.warn("No se pudo guardar la conversación local:", error);
+    }
+  }, [chatRestored, open, messages, conversationId, activeSocialWork,
+      activePlan, activeImage, pendingSocialWorkQuestion, usedTopics,
+      question, activeActionMessageId]);
+
   const messagesEndRef =
     useRef(null);
 
@@ -379,6 +439,11 @@ export default function FloatingAssistant() {
     setActiveImage(
       image
     );
+
+    // Al adjuntar receta digital, ofrecer una comprobación completa, sin enviar automáticamente.
+    if (image.mime_type === "application/pdf") {
+      setQuestion("Revisar receta adjunta: identificar la obra social y verificar los datos requeridos según normativa y Recordá/Ficha.");
+    }
 
     setMessages(
       (current) => [
@@ -1251,7 +1316,13 @@ export default function FloatingAssistant() {
                         {isImageMessage ? (
                           <div className="space-y-2">
 
-                            {message.image
+                            {message.image?.mime_type === "application/pdf" ? (
+                              <div className="rounded-xl border border-[#8f2a85]/20 bg-[#f8f2fa] px-3 py-3 text-sm text-[#75216c]">
+                                <p className="font-semibold">Receta digital (PDF)</p>
+                                <p className="mt-1 truncate text-xs">{message.image.original_filename || "Documento PDF"}</p>
+                                {message.image.preview_url && <a href={message.image.preview_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-xs underline">Abrir documento</a>}
+                              </div>
+                            ) : message.image
                               ?.preview_url ? (
                               <img
                                 src={

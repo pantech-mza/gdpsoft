@@ -46,6 +46,11 @@ export default function AssistantImageUploader({
       return;
     }
 
+    if (file.type === "application/pdf" && file.size > 4 * 1024 * 1024) {
+      alert("El PDF supera los 4 MB permitidos para analizarlo online.");
+      return;
+    }
+
     setUploading(true);
     setMenuOpen(false);
 
@@ -218,7 +223,7 @@ export default function AssistantImageUploader({
           galleryInputRef
         }
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
         className="hidden"
         onChange={(event) => {
           const file =
@@ -288,7 +293,7 @@ export default function AssistantImageUploader({
             </div>
 
             <span className="font-medium">
-              Elegir imagen
+              Imagen o receta PDF
             </span>
           </button>
 
@@ -304,9 +309,9 @@ export default function AssistantImageUploader({
         title={
           uploading
             ? "Subiendo imagen..."
-            : "Adjuntar foto"
+            : "Adjuntar foto o PDF"
         }
-        aria-label="Adjuntar foto"
+        aria-label="Adjuntar foto o PDF"
         disabled={
           disabled ||
           uploading

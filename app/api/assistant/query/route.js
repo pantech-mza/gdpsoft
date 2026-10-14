@@ -17,7 +17,7 @@ import {
   detectSocialWorks,
 } from "../../../../lib/assistant/socialWorkDetection";
 
-import { resolveInternalProcedure } from "../../../../lib/assistant/internal-procedures";
+import { resolveInternalProcedure, isImmediateOperationalContingency, isSpecificNormativeQuestion } from "../../../../lib/assistant/internal-procedures";
 
 export const runtime =
   "nodejs";
@@ -69,6 +69,8 @@ async function logAssistantQuery({
   elapsedMs = null,
 
   openaiResponseId = null,
+  trafficType = "OTHER",
+  deviceId = null,
 
 }) {
 
@@ -90,6 +92,7 @@ async function logAssistantQuery({
 
           branch_id: branchId,
           traffic_type: trafficType,
+          device_id: deviceId,
 
 
 
@@ -3277,7 +3280,7 @@ async function querySocialWorkProfile({
   }
 
   let answer = null;
-
+  
 const cleanValue =
   typeof value === "string"
     ? value.trim().replace(/\.+$/, "")
@@ -3332,6 +3335,9 @@ const cleanValue =
         data,
       };
   }
+
+  // Identificar la fuente exacta del dato estructurado frente a las contingencias internas.
+  answer = `${answer}\n\nFuente: Recordá/Ficha de ${data.name}.`;
 
   return {
     found: true,
@@ -5147,6 +5153,7 @@ export async function POST(request) {
     }
     const logCurrentQuery = (payload) => logAssistantQuery({
       ...payload,
+      deviceId: verifiedPilotBranch && Number(payload.branchId) === verifiedPilotBranch ? deviceId : null,
       trafficType: verifiedPilotBranch && Number(payload.branchId) === verifiedPilotBranch ? "PILOT" : "OTHER",
     });
 
@@ -5764,7 +5771,9 @@ if (conversationId) {
     // PROCEDIMIENTO INTERNO APROBADO (PRIORITARIO ANTES DE FAQ Y CACHE)
     // 4.5 PROCEDIMIENTOS INTERNOS GDP (solo aprobados y vigentes)
     // Fallos operativos: OOSS, circuito y autorizaciones explícitas.
-    const internalProcedure = await resolveInternalProcedure({ question, socialWorkId, billingChannelId: activeBillingChannelId });
+    const internalProcedure = isImmediateOperationalContingency(question)
+      ? await resolveInternalProcedure({ question, socialWorkId, billingChannelId: activeBillingChannelId })
+      : null;
     if (internalProcedure) {
       const elapsedMs = Date.now() - startedAt;
       await logCurrentQuery({
@@ -7381,6 +7390,35 @@ const result =
  * * no recuperó documentación.
 
  */
+
+    // Protocolo interno SOLO como último recurso si no hay evidencia de ficha/normativa.
+    // No se usa para completar vigencia, RP, cobertura ni otros requisitos específicos.
+    if (!found && !isSpecificNormativeQuestion(question)) {
+      const lastResortProcedure = await resolveInternalProcedure({
+        question, socialWorkId, billingChannelId: activeBillingChannelId,
+      });
+      if (lastResortProcedure) {
+        const procedureElapsedMs = Date.now() - startedAt;
+        await logCurrentQuery({
+          branchId, socialWorkId, question,
+          answer: lastResortProcedure.answer,
+          source: "GDP_INTERNAL_PROCEDURE",
+          route: "INTERNAL_PROCEDURE_FALLBACK",
+          found: true,
+          elapsedMs: procedureElapsedMs,
+          usage: result.usage || {input_tokens:0,output_tokens:0,total_tokens:0},
+        });
+        return Response.json({
+          ok:true, question, answer:lastResortProcedure.answer,
+          source:"GDP_INTERNAL_PROCEDURE", route:"INTERNAL_PROCEDURE_FALLBACK",
+          procedure_id:lastResortProcedure.procedure_id,
+          procedure_code:lastResortProcedure.code,
+          source_reference:lastResortProcedure.source,
+          found:true, context:responseContext, elapsed_ms:procedureElapsedMs,
+          usage:result.usage || {input_tokens:0,output_tokens:0,total_tokens:0},
+        });
+      }
+    }
 
     const finalAnswer =
 

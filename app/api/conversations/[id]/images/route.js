@@ -17,6 +17,7 @@ const ALLOWED_MIME_TYPES =
     "image/jpeg",
     "image/png",
     "image/webp",
+    "application/pdf",
   ]);
 
 // =========================================================
@@ -479,7 +480,7 @@ export async function POST(
           ok: false,
 
           error:
-            "Formato no permitido. Usá JPG, PNG o WEBP.",
+            "Formato no permitido. Usá JPG, PNG, WEBP o PDF.",
 
           code:
             "INVALID_IMAGE_TYPE",
@@ -538,6 +539,11 @@ export async function POST(
       );
     }
 
+    // PDFs: límite de Vercel (~4.5 MB por request), verificar encabezado real.
+    if (mimeType === "application/pdf" && fileSize > 4 * 1024 * 1024) {
+      return Response.json({ok:false, code:"PDF_TOO_LARGE", error:"El PDF supera 4 MB."}, {status:413});
+    }
+
     // =====================================================
     // NOMBRE / EXTENSIÓN
     // =====================================================
@@ -549,7 +555,7 @@ export async function POST(
       );
 
     let extension =
-      "jpg";
+      mimeType === "application/pdf" ? "pdf" : "jpg";
 
     if (
       mimeType ===
@@ -584,6 +590,10 @@ export async function POST(
       Buffer.from(
         arrayBuffer
       );
+
+    if (mimeType === "application/pdf" && buffer.subarray(0,5).toString("ascii") !== "%PDF-") {
+      return Response.json({ok:false, code:"INVALID_PDF", error:"El archivo no parece ser un PDF válido."},{status:400});
+    }
 
     // =====================================================
     // SUBIR STORAGE PRIVADO
