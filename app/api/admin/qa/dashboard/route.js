@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "../../../../../lib/supabase/admin";
-import { validateSuperAdmin } from "../../../../../lib/qa/qa-auth";
+import { requireAdminActor } from "../../../../../lib/server/gdp-actor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,12 +9,9 @@ export async function GET(request) {
     const url = new URL(request.url);
     const profileId = url.searchParams.get("profileId");
 
-    if (!(await validateSuperAdmin(profileId))) {
-      return Response.json(
-        { ok: false, error: "Acceso exclusivo Super Admin" },
-        { status: 403 }
-      );
-    }
+    const access = await requireAdminActor(request);
+    if (!access.actor) return Response.json({ok:false,error:access.error},{status:access.status});
+    if (access.actor.is_super_admin !== true) return Response.json({ok:false,error:"Acceso exclusivo Superadmin"},{status:403});
 
     const page = Math.max(1, Number(url.searchParams.get("page") || 1));
     const pageSize = Math.min(

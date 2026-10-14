@@ -31,7 +31,9 @@ function boot({status = 200, actor = {id: 'admin-123'}, count = 14} = {}) {
   const requireAdminActor = async () => status===200 ? {status:200, actor} : {status, actor:null, error:status===401?'Sesion vencida':'Permiso denegado'};
   const jsonError = (error,statusCode=400) => Response.json({ok:false,error},{status:statusCode});
   const code = `${source}\n({GET,PATCH})`;
-  const funcs=vm.runInNewContext(code,{supabaseAdmin:db,requireAdminActor,jsonError,Response,Date,Number,String,Array,console});
+  const funcs=vm.runInNewContext(code,{supabaseAdmin:db,requireAdminActor,jsonError,Response,Date,Number,String,Array,console,
+    validDraft:()=>({value:{}}),uniqueCode:()=>"GDP-TEST",cleanText:v=>String(v||""),buildPendingRevision:()=>({value:{}})
+  });
   return {...funcs,stats:()=>({queries,updates})};
 }
 

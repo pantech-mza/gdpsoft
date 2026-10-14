@@ -17,13 +17,14 @@ export async function GET(request) {
     const days = Number(p.get('days') || 7);
     const branchId = positiveId(p.get('branch_id'));
     const socialWorkId = positiveId(p.get('social_work_id'));
+    const route = String(p.get('route')||'').trim().slice(0,100) || null;
     if (![1,7,30].includes(days) || Number.isNaN(branchId) || Number.isNaN(socialWorkId)) return jsonError('Filtros inválidos',400);
-    const {data,error} = await supabaseAdmin.rpc('gdp_assistant_activity_dashboard',{
-      p_days:days, p_branch_id:branchId, p_social_work_id:socialWorkId
+    const {data,error} = await supabaseAdmin.rpc('gdp_assistant_activity_dashboard_v2',{
+      p_days:days, p_branch_id:branchId, p_social_work_id:socialWorkId, p_route:route
     });
     if (error) {
       console.error('gdp_assistant_activity_dashboard:', error.message);
-      return jsonError('Error en el dashboard. Verificá que ejecutaste sql/03_DASHBOARD_CONSULTAS.sql',500);
+      return jsonError('Error en el dashboard. Verificá que ejecutaste supabase/migrations/20261014_activity_crossfilters.sql',500);
     }
     return Response.json({ok:true,dashboard:data||{},period_days:days,updated_at:new Date().toISOString()}, {headers:{'Cache-Control':'no-store, max-age=0'}});
   } catch (error) {

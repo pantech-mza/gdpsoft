@@ -464,7 +464,7 @@ export default function EstadisticasIA() {
       `${category ? `&category=${category}` : ""}` +
       `${sw ? `&socialWorkId=${encodeURIComponent(sw)}` : ""}`;
 
-    const r = await fetch(url, { cache: "no-store" });
+    const r = await fetch(url, { cache: "no-store", headers: {Authorization: `Bearer ${sessionStorage.getItem("gdpsoft_access_token") || ""}`} });
     const j = await r.json();
 
     if (!r.ok || !j.ok) throw new Error(j.error || "Error QA");
@@ -475,7 +475,7 @@ export default function EstadisticasIA() {
 
   const fetchPilot = useCallback(async (tab = "queries", page = 1) => {
     if (!profile?.id) return null;
-    const r = await fetch(`/api/admin/pilot/dashboard?profileId=${profile.id}&section=${tab}&page=${page}&pageSize=${PAGE_SIZE}`, { cache: "no-store" });
+    const r = await fetch(`/api/admin/pilot/dashboard?profileId=${profile.id}&section=${tab}&page=${page}&pageSize=${PAGE_SIZE}`, { cache: "no-store", headers: {Authorization: `Bearer ${sessionStorage.getItem("gdpsoft_access_token") || ""}`} });
     const j = await r.json();
     if (!r.ok || !j.ok) throw new Error(j.error || "Error piloto");
     setPilotCache((prev) => ({ ...prev, [`${tab}:${page}`]: j }));
@@ -484,7 +484,7 @@ export default function EstadisticasIA() {
 
   const fetchOpenAI = useCallback(async () => {
     if (!profile?.id) return null;
-    const r = await fetch(`/api/admin/openai-usage?profileId=${profile.id}&days=7`, { cache: "no-store" });
+    const r = await fetch(`/api/admin/openai-usage?days=7`, { cache: "no-store", headers: {Authorization: `Bearer ${sessionStorage.getItem("gdpsoft_access_token") || ""}`} });
     const j = await r.json();
     if (!r.ok || !j.ok) throw new Error(j.error || "Error OpenAI");
     setOpenai(j);

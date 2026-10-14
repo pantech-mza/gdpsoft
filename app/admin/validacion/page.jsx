@@ -43,7 +43,7 @@ function formatDate(value) {
   }
 }
 
-export default function AdminValidationPage() {
+function SuperAdminValidationPage() {
   const router = useRouter();
   const requestSeq = useRef(0);
 
@@ -565,4 +565,13 @@ function VerdictPill({ value }) {
 
 function Block({ label, children }) {
   return <div className="mb-6 rounded-2xl border border-black/5 bg-[#faf9fb] p-4"><p className="mb-2 text-xs font-bold uppercase tracking-wide text-black/35">{label}</p>{children}</div>;
+}
+
+
+import AdminBranchValidation from "../../../components/admin/AdminBranchValidation";
+export default function ValidationByRole() {
+ const [superAdmin,setSuperAdmin]=useState(null);
+ useEffect(()=>{try{const raw=sessionStorage.getItem("gdpsoft_user");setSuperAdmin(JSON.parse(raw||"null")?.is_super_admin===true)}catch{setSuperAdmin(false)}},[]);
+ if(superAdmin===null)return <div className="p-8 text-sm text-zinc-500">Cargando validación…</div>;
+ return superAdmin?<SuperAdminValidationPage/>:<AdminBranchValidation/>;
 }

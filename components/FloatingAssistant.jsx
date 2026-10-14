@@ -549,8 +549,8 @@ export default function FloatingAssistant() {
               "POST",
 
             headers: {
-              "Content-Type":
-                "application/json",
+              "Content-Type": "application/json",
+              ...(getLocalContext().accessToken ? { Authorization: `Bearer ${getLocalContext().accessToken}` } : {}),
             },
 
             body:
@@ -1502,24 +1502,21 @@ export default function FloatingAssistant() {
       )}
 
       {!open && (
-        <div className="flex justify-end px-5 pb-7 pt-2 sm:px-8" data-gdp-bot-dock>
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-label="Abrir asistente GDPSoft"
-            title="Abrir asistente"
-            className="group relative h-[72px] w-[72px] rounded-full border border-[#ead8ef] bg-white shadow-lg transition-transform duration-200 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#8f2a85]/25 sm:h-[84px] sm:w-[84px]"
-          >
-            <Image
-              src="/images/bot-gdpsoft.png"
-              alt=""
-              fill
-              className="object-contain p-1.5"
-              sizes="(max-width: 640px) 72px, 84px"
-            />
-            <span className="absolute -right-0.5 top-1 h-3 w-3 rounded-full border-2 border-white bg-[#93c01f]" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="group fixed bottom-4 right-3 z-[650] h-[64px] w-[64px] border-0 bg-transparent p-0 shadow-none outline-offset-4 transition-transform hover:-translate-y-1 focus-visible:rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#8f2a85] sm:bottom-5 sm:right-5 sm:h-[76px] sm:w-[76px]"
+          aria-label="Abrir asistente GDPSoft"
+          title="Abrir asistente GDPSoft"
+        >
+          <Image
+            src="/images/bot-gdpsoft.png"
+            alt=""
+            fill
+            className="object-contain"
+            sizes="(max-width: 640px) 64px, 76px"
+          />
+        </button>
       )}
     </>
   );

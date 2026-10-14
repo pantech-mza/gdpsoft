@@ -89,6 +89,7 @@ async function logAssistantQuery({
         .insert({
 
           branch_id: branchId,
+          traffic_type: trafficType,
 
 
 
@@ -5125,6 +5126,30 @@ export async function POST(request) {
 
     const body = await request.json();
 
+    // Solo una sesión real de Sucursal puede marcar tráfico PILOT.
+    // Las baterías técnicas sin token de sucursal no ingresan a la cola Admin.
+    let verifiedPilotBranch = null;
+    try {
+      const auth = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") || "");
+      if (auth) {
+        const session = await supabaseAdmin.auth.getUser(auth[1]);
+        if (session?.data?.user?.id) {
+          const profileResult = await supabaseAdmin.from("profiles")
+            .select("role,branch_id,active").eq("id", session.data.user.id).maybeSingle();
+          const profile = profileResult.data;
+          if (!profileResult.error && profile?.active === true && profile?.role === "SUCURSAL") {
+            verifiedPilotBranch = Number(profile.branch_id) || null;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("No se pudo clasificar tráfico de sucursal:", err?.message);
+    }
+    const logCurrentQuery = (payload) => logAssistantQuery({
+      ...payload,
+      trafficType: verifiedPilotBranch && Number(payload.branchId) === verifiedPilotBranch ? "PILOT" : "OTHER",
+    });
+
 
 
     // =====================================================
@@ -5742,7 +5767,7 @@ if (conversationId) {
     const internalProcedure = await resolveInternalProcedure({ question, socialWorkId, billingChannelId: activeBillingChannelId });
     if (internalProcedure) {
       const elapsedMs = Date.now() - startedAt;
-      await logAssistantQuery({
+      await logCurrentQuery({
         branchId, socialWorkId, question,
         answer: internalProcedure.answer,
         source: "GDP_INTERNAL_PROCEDURE",
@@ -5848,7 +5873,7 @@ if (conversationId) {
 
 
 
-          await logAssistantQuery({
+          await logCurrentQuery({
 
             branchId,
 
@@ -6037,7 +6062,7 @@ if (
     Date.now() -
     startedAt;
 
-  await logAssistantQuery({
+  await logCurrentQuery({
     branchId,
     socialWorkId,
     question,
@@ -6180,7 +6205,7 @@ if (
 
 
 
-    await logAssistantQuery({
+    await logCurrentQuery({
 
       branchId,
 
@@ -6355,7 +6380,7 @@ if (
       Date.now() -
       startedAt;
 
-    await logAssistantQuery({
+    await logCurrentQuery({
       branchId,
       socialWorkId,
       question,
@@ -6610,7 +6635,7 @@ if (
 
 
 
-        await logAssistantQuery({
+        await logCurrentQuery({
 
           branchId,
 
@@ -6861,7 +6886,7 @@ if (
 
 
 
-      await logAssistantQuery({
+      await logCurrentQuery({
 
         branchId,
 
@@ -7065,7 +7090,7 @@ if (
 
 
 
-      await logAssistantQuery({
+      await logCurrentQuery({
 
         branchId,
 
@@ -7447,7 +7472,7 @@ const result =
 
 
 
-    await logAssistantQuery({
+    await logCurrentQuery({
 
       branchId,
 

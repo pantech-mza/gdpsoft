@@ -9,13 +9,11 @@ const MENU = [
   { label: "Dashboard", href: "/admin", icon: "fluent-emoji:house" },
   { label: "Noticias / Avisos", href: "/admin/noticias", emoji: "📣" },
   { label: "Obras Sociales", href: "/admin/obras-sociales", icon: "fluent-emoji:hospital" },
-  { label: "Normativas", href: "/admin/normativas", icon: "fluent-color:document-text-24", available: false },
+  { label: "Normativas", href: "/admin/normativas", icon: "fluent-color:document-text-24" },
   { label: "Árboles de Decisión", href: "/admin/arboles", icon: "fluent-emoji:herb" },
   { label: "Procedimientos internos", href: "/admin/procedimientos", emoji: "📋" },
   { label: "Preguntas Frecuentes", href: "/admin/faqs", icon: "fluent-emoji:red-question-mark" },
-  { label: "Archivos", href: "/admin/archivos", emoji: "📂", available: false },
   { label: "Usuarios", href: "/admin/usuarios", emoji: "👥" },
-  { label: "Historial de Cambios", href: "/admin/historial", emoji: "🕘", available: false },
   { label: "Validación de respuestas", href: "/admin/validacion", icon: "fluent-color:checkmark-circle-24" },
   { label: "Actividad del bot", href: "/admin/actividad", emoji: "📊" },
 ];
@@ -123,8 +121,12 @@ export default function AdminSidebar({ collapsed, onToggle }) {
             {MENU.map((item) => (
               <SidebarItem key={item.href} item={item} />
             ))}
+            <SidebarItem item={{ label: "Gastos OpenAI", href: "/admin/openai", emoji: "💳" }} />
             {currentUser?.is_super_admin && (
-              <SidebarItem item={{ label: "Estadísticas IA", href: "/admin/estadisticas-ia", emoji: "📈" }} />
+              <>
+                <SidebarItem item={{ label: "Estadísticas IA · QA técnico", href: "/admin/estadisticas-ia", emoji: "📈" }} />
+                <SidebarItem item={{ label: "Historial de cambios", href: "/admin/historial", emoji: "🕘", available: false }} />
+              </>
             )}
           </div>
         </nav>
@@ -204,10 +206,12 @@ export default function AdminSidebar({ collapsed, onToggle }) {
                     <SidebarItem item={item} isMobile />
                   </div>
                 ))}
+                <div onClick={() => setMobileOpen(false)}><SidebarItem item={{ label: "Gastos OpenAI", href: "/admin/openai", emoji: "💳" }} isMobile /></div>
                 {currentUser?.is_super_admin && (
-                  <div onClick={() => setMobileOpen(false)}>
-                    <SidebarItem item={{ label: "Estadísticas IA", href: "/admin/estadisticas-ia", emoji: "📈" }} isMobile />
-                  </div>
+                  <>
+                    <div onClick={() => setMobileOpen(false)}><SidebarItem item={{ label: "Estadísticas IA · QA técnico", href: "/admin/estadisticas-ia", emoji: "📈" }} isMobile /></div>
+                    <SidebarItem item={{ label: "Historial de cambios", href: "/admin/historial", emoji: "🕘", available: false }} isMobile />
+                  </>
                 )}
               </div>
             </nav>

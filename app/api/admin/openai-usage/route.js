@@ -1,20 +1,7 @@
-import { supabaseAdmin } from "../../../../lib/supabase/admin";
+import { requireAdminActor, jsonError } from "../../../../lib/server/gdp-actor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-async function validateSuperAdmin(profileId) {
-  if (!profileId) return false;
-
-  const { data, error } = await supabaseAdmin
-    .from("profiles")
-    .select("id,is_super_admin,active")
-    .eq("id", profileId)
-    .maybeSingle();
-
-  if (error || !data) return false;
-  return data.active !== false && data.is_super_admin === true;
-}
 
 function unixSeconds(date) {
   return Math.floor(date.getTime() / 1000);
@@ -191,15 +178,10 @@ function buildDaily(costBuckets, usageBuckets) {
 export async function GET(request) {
   try {
     const url = new URL(request.url);
-    const profileId = url.searchParams.get("profileId");
     const days = Math.min(90, Math.max(1, Number(url.searchParams.get("days") || 7)));
 
-    if (!(await validateSuperAdmin(profileId))) {
-      return Response.json(
-        { ok: false, error: "Acceso exclusivo para Super Admin" },
-        { status: 403 }
-      );
-    }
+    const access = await requireAdminActor(request);
+    if (!access.actor) return jsonError(access.error, access.status);
 
     if (!process.env.OPENAI_ADMIN_KEY) {
       return Response.json({

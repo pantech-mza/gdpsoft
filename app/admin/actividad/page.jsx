@@ -1,162 +1,48 @@
 "use client";
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {refreshStoredSession} from '../../../lib/client/session';
-
-const accent = '#8f2a85';
-const fmtDate = x => x ? new Date(x).toLocaleString('es-AR') : '—';
-const fmtNum = x => Number(x || 0).toLocaleString('es-AR');
-const fmtMs = x => x == null ? '—' : (Number(x) / 1000).toFixed(1) + ' s';
-const lbl = s => String(s||'').replaceAll('_',' ').toLowerCase();
-
-async function authenticatedGet(url) {
-  let token = sessionStorage.getItem('gdpsoft_access_token');
-  if (!token) token = await refreshStoredSession();
-  const call = accessToken => fetch(url, {
-    cache:'no-store', headers:{Authorization:`Bearer ${accessToken}`}
-  });
-  let r = await call(token);
-  // Nunca reintentar un 403 con otro usuario: es un permiso real.
-  // Solo renovar ante 401 (token ausente, invalido o vencido).
-  if (r.status === 401) {
-    const fresh = await refreshStoredSession();
-    r = await call(fresh);
-  }
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok || !j.ok) throw new Error(j.error || `No se pudo consultar actividad (${r.status})`);
-  return j;
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { refreshStoredSession } from "../../../lib/client/session";
+const palette=["#8f2a85","#93c01f","#6479d6","#ec8c42","#2aafa0","#c45391","#8d75d3","#e1b63f"];
+const num=v=>Number(v||0).toLocaleString("es-AR");
+const date=v=>v?new Date(v).toLocaleString("es-AR"):"—";
+const seconds=v=>v==null?"—":`${(Number(v)/1000).toFixed(1)} s`;
+const pretty=v=>String(v||"Sin identificar").replaceAll("_"," ");
+async function authed(url){let token=sessionStorage.getItem("gdpsoft_access_token")||await refreshStoredSession();const get=t=>fetch(url,{cache:"no-store",headers:{Authorization:`Bearer ${t}`}});let r=await get(token);if(r.status===401)r=await get(await refreshStoredSession());const j=await r.json().catch(()=>({}));if(!r.ok||!j.ok)throw Error(j.error||"No se pudo consultar actividad");return j;}
+function Stat({title,value,note,color=palette[0]}){return <article className="rounded-2xl border border-purple-100 bg-white p-4 shadow-sm"><p className="text-xs font-semibold text-zinc-500">{title}</p><strong className="mt-2 block text-2xl font-black" style={{color}}>{value}</strong>{note&&<p className="mt-1 text-xs text-zinc-400">{note}</p>}</article>}
+function Panel({title,note,children}){return <section className="min-w-0 rounded-2xl border border-purple-100 bg-white p-5 shadow-sm"><h2 className="text-sm font-bold text-[#31203a]">{title}</h2>{note&&<p className="mt-1 text-xs text-zinc-500">{note}</p>}<div className="mt-4">{children}</div></section>}
+function Timeline({items=[]}){
+ const values=items.map(x=>Number(x.count||0));if(!values.length)return <p className="text-sm text-zinc-400">Sin datos.</p>;
+ const w=680,h=180,top=12,baseline=151,max=Math.max(1,...values);
+ const points=values.map((v,i)=>[16+(i*Math.max(1,w-32)/Math.max(1,values.length-1)),baseline-v/max*(baseline-top)]);
+ const line=points.map((x,i)=>`${i?'L':'M'}${x[0].toFixed(1)},${x[1].toFixed(1)}`).join(' ');
+ const area=`${line} L${points.at(-1)[0]},${baseline} L${points[0][0]},${baseline} Z`;
+ return <><svg role="img" aria-label="Evolución de consultas" viewBox={`0 0 ${w} ${h}`} className="w-full"><defs><linearGradient id="gdpActivityFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#8f2a85" stopOpacity=".25"/><stop offset="100%" stopColor="#8f2a85" stopOpacity=".02"/></linearGradient></defs><path d={area} fill="url(#gdpActivityFill)"/><path d={line} fill="none" stroke="#8f2a85" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>{points.map(([x,y],i)=><circle key={i} cx={x} cy={y} r={values.length>30?2.1:3.8} fill="#93c01f"><title>{items[i].name}: {values[i]} consultas</title></circle>)}</svg><div className="flex justify-between text-xs text-zinc-400"><span>{items[0]?.name}</span><span>{items.at(-1)?.name}</span></div></>;
 }
-
-function Stat({name,value,sub}) {
-  return <div className="min-w-0 rounded-2xl border border-[#e9dfea] bg-white p-4 shadow-sm">
-    <div className="text-xs font-semibold text-zinc-500">{name}</div>
-    <div className="mt-1 text-2xl font-black tabular-nums text-[#8f2a85]">{value}</div>
-    {sub && <p className="mt-1 text-xs text-zinc-500">{sub}</p>}
-  </div>;
-}
-function Bars({title,items,labelKey='name',maxItems=8}) {
-  const data = (items||[]).slice(0,maxItems);
-  const max = Math.max(1,...data.map(x=>Number(x.count)||0));
-  return <section className="min-w-0 rounded-2xl border border-[#e9dfea] bg-white p-4">
-    <h2 className="mb-4 text-sm font-bold text-zinc-900">{title}</h2>
-    {!data.length && <p className="text-xs text-zinc-500">Sin consultas para este período.</p>}
-    <div className="space-y-3">{data.map((x,i)=><div key={(x.id??x[labelKey]??i)+'_'+i}>
-      <div className="mb-1 flex items-start justify-between gap-3 text-xs"><span className="min-w-0 break-words text-zinc-700">{x[labelKey]||'No identificado'}</span><strong className="shrink-0 tabular-nums">{fmtNum(x.count)}</strong></div>
-      <div className="h-2 overflow-hidden rounded-full bg-[#f1e7f1]"><div className="h-full rounded-full bg-[#8f2a85]" style={{width:`${Math.round((Number(x.count)||0)/max*100)}%`}}/></div>
-    </div>)}</div>
-  </section>;
-}
-
-export default function AdminActivityPage() {
-  const [tab,setTab] = useState('live');
-  const [branch,setBranch] = useState('');
-  const [sw,setSw] = useState('');
-  const [days,setDays] = useState('7');
-  const [live,setLive] = useState(null);
-  const [dashboard,setDashboard] = useState(null);
-  const [liveError,setLiveError] = useState('');
-  const [dashboardError,setDashboardError] = useState('');
-  const [auto,setAuto] = useState(true);
-  const [refreshing,setRefreshing] = useState(false);
-  const [newIds,setNewIds] = useState([]);
-  const seenIds = useRef(null);
-  const filters=useMemo(()=>{
-    const p=new URLSearchParams(); if(branch)p.set('branch_id',branch); if(sw)p.set('social_work_id',sw);return p;
-  },[branch,sw]);
-  const qs=filters.toString();
-
-  const fetchLive=useCallback(async()=>{
-    try {
-      const j=await authenticatedGet('/api/admin/actividad'+(qs?'?'+qs:''));
-      setLive(j);setLiveError('');
-      const ids=new Set((j.rows||[]).map(r=>String(r.id)));
-      if(seenIds.current!==null){setNewIds((j.rows||[]).filter(r=>!seenIds.current.has(String(r.id))).map(r=>String(r.id)));}
-      seenIds.current=ids;
-    } catch(e){setLiveError(e.message);}
-  },[qs]);
-  const fetchDashboard=useCallback(async()=>{
-    try {
-      const p=new URLSearchParams(qs);p.set('days',days);
-      const j=await authenticatedGet('/api/admin/actividad/dashboard?'+p.toString());
-      setDashboard(j);setDashboardError('');
-    } catch(e){setDashboardError(e.message);}
-  },[qs,days]);
-  useEffect(()=>{seenIds.current=null;setNewIds([]);fetchLive();fetchDashboard();},[fetchLive,fetchDashboard]);
-  useEffect(()=>{
-    if(!auto)return;
-    // Vista de actividad: refresco cada 5 segundos sin exponer filas directamente por Realtime.
-    const id=setInterval(()=>{if(!document.hidden)fetchLive();},5000);
-    return()=>clearInterval(id);
-  },[auto,fetchLive]);
-  useEffect(()=>{
-    if(!auto)return;
-    const id=setInterval(()=>{if(!document.hidden)fetchDashboard();},60000);
-    return()=>clearInterval(id);
-  },[auto,fetchDashboard]);
-  const branches=useMemo(()=>Object.fromEntries((live?.branches||[]).map(x=>[x.id,x.name])),[live]);
-  const works=useMemo(()=>Object.fromEntries((live?.social_works||[]).map(x=>[x.id,x.name])),[live]);
-  const dash=dashboard?.dashboard||{};
-  const t=dash.totals||{};
-  const recent=live?.rows||[];
-  const graph=days==='1' ? (dash.hourly||[]).map(x=>({name:String(x.hour).slice(11,16),count:x.count})) : (dash.daily||[]).map(x=>({name:x.day,count:x.count}));
-  const freshCount=newIds.length;
-  const nowFmt=live?.updated_at?new Date(live.updated_at).toLocaleTimeString('es-AR'): '—';
-  async function refreshAll(){setRefreshing(true);try{await Promise.all([fetchLive(),fetchDashboard()]);}finally{setRefreshing(false);}}
-  return <div className="mx-auto max-w-[1500px] space-y-5 pb-8">
-    <header className="flex flex-wrap items-center justify-between gap-3"><div>
-      <p className="text-xs font-black uppercase tracking-widest text-[#8f2a85]">Admin y Superadmin · Estadísticas</p>
-      <h1 className="mt-1 text-2xl font-black text-zinc-900">Consultas de las sucursales</h1>
-      <p className="mt-1 text-sm text-zinc-500">Consultas registradas en Supabase. Se excluyen las pruebas QA que estan identificadas como tales.</p>
-    </div><div className="flex items-center gap-2 rounded-full border bg-white px-3 py-2 text-xs text-zinc-600"><span className={`h-2 w-2 rounded-full ${auto&&!liveError?'bg-emerald-500':'bg-amber-400'}`}/>{auto?'Actualización cada 5 s':'Pausada'} · {nowFmt}</div></header>
-    <div className="flex flex-wrap items-end gap-3 rounded-2xl border bg-white p-4 shadow-sm">
-      <label className="min-w-[180px] flex-1 text-xs font-bold text-zinc-700">Sucursal<select className="mt-1 block w-full rounded-xl border p-2.5 text-sm font-normal" value={branch} onChange={e=>setBranch(e.target.value)}><option value="">Todas las sucursales</option>{(live?.branches||[]).map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-      <label className="min-w-[180px] flex-1 text-xs font-bold text-zinc-700">Obra social<select className="mt-1 block w-full rounded-xl border p-2.5 text-sm font-normal" value={sw} onChange={e=>setSw(e.target.value)}><option value="">Todas las obras sociales</option>{(live?.social_works||[]).map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-      <label className="min-w-[120px] text-xs font-bold text-zinc-700">Período del dashboard<select className="mt-1 block w-full rounded-xl border p-2.5 text-sm font-normal" value={days} onChange={e=>setDays(e.target.value)}><option value="1">24 horas</option><option value="7">7 días</option><option value="30">30 días</option></select></label>
-      <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={auto} onChange={e=>setAuto(e.target.checked)}/>En vivo</label>
-      <button onClick={refreshAll} disabled={refreshing} className="rounded-xl bg-[#8f2a85] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">{refreshing?'Actualizando…':'Actualizar'}</button>
-    </div>
-    <div className="flex flex-wrap gap-2"><button className={`rounded-xl px-4 py-2 text-sm font-bold ${tab==='live'?'bg-[#8f2a85] text-white':'border bg-white text-zinc-700'}`} onClick={()=>setTab('live')}>Consultas en vivo {freshCount>0?`· ${freshCount} nuevas`:''}</button><button className={`rounded-xl px-4 py-2 text-sm font-bold ${tab==='dashboard'?'bg-[#8f2a85] text-white':'border bg-white text-zinc-700'}`} onClick={()=>{setTab('dashboard');setNewIds([]);}}>Dashboard de datos</button></div>
-    {liveError&&<p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">Consultas: {liveError}</p>}
-    {dashboardError&&<p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Dashboard: {dashboardError}</p>}
-    {tab==='dashboard' && <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">Las pruebas QA registradas sin <code>traffic_type</code> continuan sumando al historico. Para diferenciarlas sin borrar consultas, revisa el archivo SQL de auditoria incluido en este parche.</p>}
-    {tab==='live'?<>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <Stat name="Consultas recientes" value={fmtNum(recent.length)} sub="Hasta 120, últimas 24 h"/>
-        <Stat name="Nuevas desde la última revisión" value={fmtNum(freshCount)} sub="Se resaltan en el listado"/>
-        <Stat name="Última actualización" value={nowFmt} sub="Refresco automático cada 5 segundos"/>
-      </div>
-      <section className="overflow-hidden rounded-2xl border border-[#e9dfea] bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3"><h2 className="font-bold">Preguntas realizadas en sucursal</h2><span className="text-xs text-zinc-500">Solo consultas enviadas, no texto mientras escriben</span></div>
-        <div className="overflow-x-auto"><table className="w-full min-w-[920px] text-left text-sm"><thead className="bg-[#f8f2f8] text-xs text-[#6f2767]"><tr>{['Fecha y hora','Sucursal','Obra social','Pregunta','Resultado','Tiempo','Respuesta'].map(x=><th className="px-3 py-3" key={x}>{x}</th>)}</tr></thead>
-          <tbody>{recent.map(r=><tr key={r.id} className={`border-t align-top ${newIds.includes(String(r.id))?'bg-lime-50':''}`}>
-            <td className="whitespace-nowrap px-3 py-3 text-xs">{fmtDate(r.created_at)}</td>
-            <td className="px-3 py-3">{branches[r.branch_id]||'No identificada'}</td>
-            <td className="px-3 py-3">{works[r.social_work_id]||'No identificada'}</td>
-            <td className="max-w-[360px] whitespace-pre-wrap break-words px-3 py-3 font-semibold">{r.question||'—'}</td>
-            <td className="px-3 py-3"><span className={r.error_code||r.status==='ERROR'?'font-bold text-red-700':r.found===false?'font-bold text-amber-700':'text-emerald-700'}>{r.error_code?'Error: '+r.error_code:r.found===false?'Sin respuesta':r.status==='ERROR'?'Error':'Respondida'}</span></td>
-            <td className="whitespace-nowrap px-3 py-3">{fmtMs(r.elapsed_ms)}</td>
-            <td className="max-w-[300px] px-3 py-3"><details><summary className="cursor-pointer text-[#8f2a85]">Ver respuesta</summary><p className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed">{r.answer||'Sin respuesta registrada'}</p><p className="mt-2 text-xs text-zinc-400">{r.source||r.route||''}</p></details></td>
-          </tr>)}</tbody></table></div>
-        {recent.length===0&&<p className="p-5 text-sm text-zinc-500">No hay consultas registradas en las últimas 24 horas para estos filtros.</p>}
-      </section>
-    </>:<>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
-        <Stat name="Consultas" value={fmtNum(t.total)} sub={`${days} día(s)`}/>
-        <Stat name="Sucursales que consultaron" value={fmtNum(t.branches_active)}/>
-        <Stat name="Sin respuesta" value={fmtNum(t.no_answer)}/>
-        <Stat name="Errores" value={fmtNum(t.errors)}/>
-        <Stat name="Más de 6 s" value={fmtNum(t.slow)}/>
-        <Stat name="Promedio" value={fmtMs(t.avg_ms)}/>
-        <Stat name="P95" value={fmtMs(t.p95_ms)}/>
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Bars title="Volumen de consultas" items={graph}/>
-        <Bars title="Consultas por sucursal" items={dash.by_branch||[]}/>
-        <Bars title="Obras sociales más consultadas" items={dash.by_social_work||[]}/>
-        <Bars title="Temas / preguntas frecuentes" items={dash.frequent_questions||[]} labelKey="question" maxItems={10}/>
-        <Bars title="Cómo respondió el asistente" items={dash.by_route||[]} labelKey="route"/>
-        <section className="rounded-2xl border border-[#e9dfea] bg-white p-4"><h2 className="text-sm font-bold">Consumo e indicadores</h2><p className="mt-3 text-sm">Consultas con imágenes: <strong>{fmtNum(t.images)}</strong></p><p className="mt-2 text-sm">Costo estimado registrado: <strong>USD {Number(t.cost_usd||0).toFixed(4)}</strong></p><p className="mt-3 text-xs text-zinc-500">El costo aparece solo si la consulta guarda el campo de estimación. Las métricas son agregadas en Supabase sobre todo el período; no se calculan a partir de las 120 filas recientes.</p><p className="mt-2 text-xs text-zinc-500">Última actualización: {fmtDate(dashboard?.updated_at)} · automática cada 60 s.</p></section>
-      </div>
-    </>}
-    <p className="text-xs text-zinc-500">Acceso restringido a Admin/Superadmin. El contenido puede incluir datos ingresados por operadores; evitá reproducir datos personales de pacientes en pruebas. Los registros existentes anteriores a la clasificación de QA podrían incluir pruebas.</p>
-  </div>;
+function Donut({rows=[],onChoose,selected}){const total=rows.reduce((a,x)=>a+Number(x.count||0),0);if(!total)return <p className="text-sm text-zinc-400">Sin datos.</p>;
+ let acc=0;const background=rows.map((x,i)=>{const from=acc/total*100;acc+=Number(x.count||0);return `${palette[i%palette.length]} ${from}% ${acc/total*100}%`}).join(',');return <div className="flex flex-wrap items-center gap-5"><div role="img" aria-label="Distribución de respuestas" className="grid h-40 w-40 shrink-0 place-items-center rounded-full" style={{background:`conic-gradient(${background})`}}><div className="grid h-24 w-24 place-items-center rounded-full bg-white text-center text-xs font-bold text-[#31203a]">{num(total)}<br/>consultas</div></div><div className="min-w-0 flex-1 space-y-2">{rows.map((x,i)=><button key={i} type="button" onClick={()=>onChoose?.(x)} className={`flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition hover:bg-purple-50 ${selected===String(x.route||"")?"bg-purple-50 ring-1 ring-purple-200":""}`}><span className="flex min-w-0 items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{background:palette[i%palette.length]}}/><span className="truncate">{pretty(x.route||x.name)}</span></span><strong>{num(x.count)}</strong></button>)}</div></div>}
+function VerticalBars({items=[],onChoose,selected,idKey='id'}){const max=Math.max(1,...items.map(x=>Number(x.count)||0));if(!items.length)return <p className="text-sm text-zinc-400">Sin datos.</p>;return <div className="overflow-x-auto"><div className="flex min-w-[400px] items-end gap-2 pt-4">{items.slice(0,10).map((x,i)=><button title={`${x.name||x.day}: ${x.count} consultas`} onClick={()=>onChoose?.(x)} key={i} className={`group flex min-w-0 flex-1 flex-col items-center gap-2 rounded-lg px-0.5 pb-2 transition hover:bg-purple-50 ${selected===String(x[idKey])?"bg-purple-50 ring-1 ring-purple-200":""}`}><strong className="text-[10px] text-zinc-500">{num(x.count)}</strong><span className="w-full max-w-11 rounded-t-xl transition-all group-hover:brightness-110" style={{height:`${Math.max(8,(Number(x.count)||0)/max*135)}px`,background:palette[i%palette.length]}}/><span className="line-clamp-2 h-9 w-full break-words text-center text-[10px] leading-4 text-zinc-500">{x.name||x.day}</span></button>)}</div></div>}
+function Ranked({items=[],keyName='name',onChoose,selected}){return <div className="space-y-2">{items.slice(0,8).map((x,i)=><button key={i} onClick={()=>onChoose?.(x)} className={`flex w-full items-start justify-between gap-3 rounded-xl p-2.5 text-left text-xs hover:bg-purple-50 ${selected===String(x.id)?"bg-purple-50 ring-1 ring-purple-200":""}`}><span className="flex min-w-0 items-start gap-2"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-purple-50 font-bold text-[#8f2a85]">{i+1}</span><span className="line-clamp-2 min-w-0 text-zinc-700">{pretty(x[keyName])}</span></span><strong className="shrink-0 text-[#8f2a85]">{num(x.count)}</strong></button>)}</div>}
+export default function AdminActivityPage(){
+ const [tab,setTab]=useState('dashboard'),[branch,setBranch]=useState(''),[social,setSocial]=useState(''),[route,setRoute]=useState(''),[days,setDays]=useState('7');
+ const [page,setPage]=useState(1),[search,setSearch]=useState(''),[live,setLive]=useState(null),[dash,setDash]=useState(null),[error,setError]=useState(''),[auto,setAuto]=useState(true),[busy,setBusy]=useState(false);
+ const seen=useRef(new Set());const [newIds,setNewIds]=useState([]);
+ const params=useMemo(()=>{const p=new URLSearchParams();if(branch)p.set('branch_id',branch);if(social)p.set('social_work_id',social);if(route)p.set('route',route);return p},[branch,social,route]);
+ const loadLive=useCallback(async()=>{const p=new URLSearchParams(params);p.set('page',String(page));p.set('pageSize','12');const j=await authed('/api/admin/actividad?'+p.toString());setLive(j);const ids=new Set((j.rows||[]).map(r=>String(r.id)));setNewIds((j.rows||[]).filter(r=>!seen.current.has(String(r.id))).map(r=>String(r.id)));seen.current=ids},[params,page]);
+ const loadDash=useCallback(async()=>{const p=new URLSearchParams(params);p.set('days',days);setDash(await authed('/api/admin/actividad/dashboard?'+p.toString()))},[params,days]);
+ const refresh=useCallback(async()=>{setBusy(true);try{await Promise.all([loadLive(),loadDash()]);setError('')}catch(e){setError(e.message)}finally{setBusy(false)}},[loadLive,loadDash]);
+ useEffect(()=>{refresh()},[refresh]);
+ useEffect(()=>{if(!auto)return;const h=setInterval(()=>{if(!document.hidden)loadLive().catch(e=>setError(e.message))},10000);return()=>clearInterval(h)},[auto,loadLive]);
+ const t=dash?.dashboard?.totals||{},chart=dash?.dashboard||{},recent=live?.rows||[],pagin=live?.pagination||{};
+ const branches=live?.branches||[],works=live?.social_works||[];
+ const graph=(days==='1'?chart.hourly||[]:chart.daily||[]).map(x=>({name:days==='1'?String(x.hour).slice(11,16):x.day,count:x.count}));
+ const visible=recent.filter(r=>!search||[r.question,r.answer].join(' ').toLowerCase().includes(search.toLowerCase()));
+ function setAndReset(setter,value){setter(String(value||''));setPage(1)}
+ return <div className="mx-auto max-w-[1550px] space-y-5 pb-28">
+ <header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.15em] text-[#8f2a85]">Actividad operativa</p><h1 className="mt-1 text-3xl font-black text-[#311a38]">Actividad del bot</h1><p className="mt-1 text-sm text-zinc-500">Consultas de sucursales, tiempos y tendencias; las pruebas QA identificadas se excluyen.</p></div><label className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs text-zinc-600 shadow-sm"><input type="checkbox" checked={auto} onChange={e=>setAuto(e.target.checked)}/>Actualizar consultas cada 10 s</label></header>
+ <div className="grid gap-3 rounded-2xl border border-purple-100 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-[1fr_1fr_180px_auto]"><label className="text-xs font-semibold text-zinc-600">Sucursal<select value={branch} onChange={e=>setAndReset(setBranch,e.target.value)} className="mt-1 w-full rounded-xl border border-purple-100 bg-white p-2.5 text-sm"><option value="">Todas las sucursales</option>{branches.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label><label className="text-xs font-semibold text-zinc-600">Obra social<select value={social} onChange={e=>setAndReset(setSocial,e.target.value)} className="mt-1 w-full rounded-xl border border-purple-100 bg-white p-2.5 text-sm"><option value="">Todas las obras sociales</option>{works.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label><label className="text-xs font-semibold text-zinc-600">Período<select value={days} onChange={e=>setDays(e.target.value)} className="mt-1 w-full rounded-xl border border-purple-100 bg-white p-2.5 text-sm"><option value="1">24 horas</option><option value="7">7 días</option><option value="30">30 días</option></select></label><button onClick={refresh} disabled={busy} className="self-end rounded-xl bg-[#8f2a85] px-4 py-3 text-sm font-bold text-white disabled:opacity-40">{busy?'Actualizando…':'Actualizar'}</button></div>
+ <div className="flex flex-wrap gap-2">{(branch||social||route)&&<><span className="self-center text-xs text-zinc-400">Filtros activos:</span>{branch&&<button onClick={()=>setAndReset(setBranch,'')} className="rounded-full bg-purple-100 px-3 py-1.5 text-xs text-purple-800">Sucursal: {branches.find(x=>String(x.id)===branch)?.name||branch} ×</button>}{social&&<button onClick={()=>setAndReset(setSocial,'')} className="rounded-full bg-lime-100 px-3 py-1.5 text-xs text-lime-800">OOSS: {works.find(x=>String(x.id)===social)?.name||social} ×</button>}{route&&<button onClick={()=>setAndReset(setRoute,'')} className="rounded-full bg-indigo-100 px-3 py-1.5 text-xs text-indigo-800">Ruta: {pretty(route)} ×</button>}</>}</div>
+ <div className="flex flex-wrap gap-2"><button onClick={()=>setTab('dashboard')} className={`rounded-xl px-4 py-2 text-sm font-semibold ${tab==='dashboard'?'bg-[#8f2a85] text-white':'bg-white text-[#6a4471]'}`}>Dashboard</button><button onClick={()=>setTab('questions')} className={`rounded-xl px-4 py-2 text-sm font-semibold ${tab==='questions'?'bg-[#8f2a85] text-white':'bg-white text-[#6a4471]'}`}>Preguntas de sucursales</button></div>
+ {error&&<p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+ {tab==='dashboard'?<><div className="grid grid-cols-2 gap-3 md:grid-cols-4"><Stat title="Consultas" value={num(t.total)}/><Stat title="Sucursales activas" value={num(t.branches_active)} color={palette[1]}/><Stat title="Sin respuesta" value={num(t.no_answer)} color={palette[3]}/><Stat title="Promedio" value={seconds(t.avg_ms)} color={palette[2]}/></div><div className="grid gap-4 lg:grid-cols-2"><Panel title="Tendencia de consultas" note="Evolución según el período elegido"><Timeline items={graph}/></Panel><Panel title="Distribución por ruta" note="Seleccioná una categoría para filtrar todo el tablero"><Donut rows={chart.by_route||[]} selected={route} onChoose={x=>setAndReset(setRoute,x.route===route?'':x.route)}/></Panel><Panel title="Sucursales con mayor actividad" note="Las columnas permiten filtrar todo el tablero"><VerticalBars items={chart.by_branch||[]} selected={branch} onChoose={x=>setAndReset(setBranch,String(x.id)===branch?'':x.id)}/></Panel><Panel title="Obras sociales más consultadas" note="Seleccioná una obra social para aplicar el filtro"><Ranked items={chart.by_social_work||[]} selected={social} onChoose={x=>setAndReset(setSocial,String(x.id)===social?'':x.id)}/></Panel><Panel title="Preguntas frecuentes" note="Temas más consultados por sucursal"><Ranked items={chart.frequent_questions||[]} keyName="question"/></Panel><Panel title="Calidad y costo estimado" note="Datos registrados en Supabase, no facturación real de OpenAI"><div className="grid grid-cols-2 gap-3"><Stat title="Errores" value={num(t.errors)} color={palette[3]}/><Stat title="Más de 6 s" value={num(t.slow)} color={palette[5]}/><Stat title="P95" value={seconds(t.p95_ms)} color={palette[2]}/><Stat title="Costo estimado" value={`US$ ${Number(t.cost_usd||0).toFixed(4)}`} color={palette[1]}/></div><p className="mt-3 text-xs text-zinc-400">Para gastos reales de OpenAI utilizá el módulo «Gastos OpenAI».</p></Panel></div></>:
+ <section className="overflow-hidden rounded-2xl border border-purple-100 bg-white shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div><h2 className="font-bold text-[#311a38]">Preguntas realizadas en sucursal</h2><p className="text-xs text-zinc-500">Últimas 24 horas · {num(pagin.total)} consultas</p></div><input aria-label="Buscar en esta página" placeholder="Buscar en esta página…" value={search} onChange={e=>setSearch(e.target.value)} className="w-60 max-w-full rounded-xl border border-purple-100 px-3 py-2 text-sm"/></div><div className="overflow-x-auto"><table className="w-full min-w-[950px] text-left text-sm"><thead className="bg-[#f9f3fa] text-xs uppercase tracking-wide text-[#713478]"><tr>{['Fecha','Sucursal','Obra social','Pregunta','Estado','Tiempo','Respuesta'].map(x=><th key={x} className="px-4 py-3">{x}</th>)}</tr></thead><tbody className="divide-y divide-purple-50">{visible.map(r=><tr key={r.id} className={newIds.includes(String(r.id))?'bg-lime-50':'hover:bg-[#fdfaff]'}><td className="whitespace-nowrap px-4 py-3 text-xs text-zinc-600">{date(r.created_at)}</td><td className="px-4 py-3">{branches.find(x=>x.id===r.branch_id)?.name||'—'}</td><td className="px-4 py-3">{works.find(x=>x.id===r.social_work_id)?.name||'—'}</td><td className="max-w-[370px] break-words px-4 py-3 font-semibold text-[#351f3d]">{r.question||'—'}</td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${r.error_code||r.status==='ERROR'?'bg-red-50 text-red-700':r.found===false?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700'}`}>{r.error_code?'Error':r.found===false?'Sin respuesta':'Respondida'}</span></td><td className="whitespace-nowrap px-4 py-3">{seconds(r.elapsed_ms)}</td><td className="max-w-[250px] px-4 py-3"><details><summary className="cursor-pointer text-[#8f2a85]">Ver respuesta</summary><p className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed">{r.answer||'Sin respuesta'}</p></details></td></tr>)}</tbody></table></div>{!visible.length&&<p className="p-8 text-center text-sm text-zinc-400">No hay consultas para estos filtros.</p>}<nav aria-label="Paginación de consultas" className="flex items-center justify-between border-t border-purple-50 px-5 py-4"><button disabled={page<=1} onClick={()=>setPage(v=>v-1)} className="rounded-xl border border-purple-100 px-4 py-2 text-sm disabled:opacity-30">Anterior</button><span className="text-xs text-zinc-500">Página {page} de {pagin.pages||1} · 12 por página</span><button disabled={page>=(pagin.pages||1)} onClick={()=>setPage(v=>v+1)} className="rounded-xl border border-purple-100 px-4 py-2 text-sm disabled:opacity-30">Siguiente</button></nav></section>}
+ <p className="text-xs text-zinc-400">Los filtros por sucursal, obra social y ruta se aplican en Supabase a todas las métricas. Los registros anteriores a la clasificación QA pueden incluir pruebas no identificadas.</p></div>;
 }
