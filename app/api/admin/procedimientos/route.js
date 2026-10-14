@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../../../../lib/supabase/admin';
 import { requireAdminActor, jsonError } from '../../../../lib/server/gdp-actor';
-import {validDraft,uniqueCode,cleanText} from '../../../../lib/procedimientos/config.mjs';
+import {validDraft,uniqueCode,cleanText,buildPendingRevision} from '../../../../lib/procedimientos/config.mjs';
 export const runtime='nodejs'; export const dynamic='force-dynamic';
 const ok = (data={},status=200)=> Response.json({ok:true,...data},{status,headers:{'Cache-Control':'no-store'}});
 const statusIs = (value, allowed) => allowed.includes(value);
@@ -29,10 +29,24 @@ export async function PATCH(request){
  const access=await requireAdminActor(request);
  if(!access.actor)return jsonError(access.error,access.status);
  const b=await request.json().catch(()=>({})),id=Number(b.id),action=String(b.action||'');
- if(!Number.isInteger(id)||id<1||!['approve','archive','edit','reject','reopen'].includes(action))return jsonError('Solicitud inválida');
+ if(!Number.isInteger(id)||id<1||!['approve','archive','edit','reject','reopen','revise'].includes(action))return jsonError('Solicitud inválida');
  const {data:existing,error:readError}=await supabaseAdmin.from('internal_procedures').select('*').eq('id',id).maybeSingle();
  if(readError||!existing)return jsonError(readError?.message||'No existe el procedimiento',404);
  const stamp=new Date().toISOString();
+ if (action === 'revise') {
+  // Approved procedures remain live until Save, never while simply typing.
+  // Once saved, the procedure is disabled and must be approved again.
+  const result = buildPendingRevision(existing,b,stamp);
+  if(result.error)return jsonError(result.error,409);
+  if(String(b.updated_at??'')!==String(existing.updated_at??''))
+   return jsonError('Otro administrador modificó este procedimiento. Actualizá la pantalla antes de guardar.',409);
+  let update = supabaseAdmin.from('internal_procedures').update(result.value).eq('id',id).eq('status',existing.status);
+  update = existing.updated_at ? update.eq('updated_at',existing.updated_at) : update.is('updated_at',null);
+  const {data,error}=await update.select('id').maybeSingle();
+  if(error)return jsonError('No se pudo guardar la revisión: '+error.message,500);
+  if(!data)return jsonError('El procedimiento cambió durante la edición. Actualizá antes de guardar.',409);
+  return ok({id:data.id,status:'DRAFT',active:false});
+ }
  if(action==='archive'){
   if(!statusIs(existing.status,['APPROVED','DRAFT','REJECTED'])) return jsonError('Estado no archivable',409);
   const {error}=await supabaseAdmin.from('internal_procedures').update({active:false,status:'ARCHIVED',updated_at:stamp}).eq('id',id).eq('status',existing.status);
