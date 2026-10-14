@@ -43,8 +43,8 @@ export default function AdminSidebar({ collapsed, onToggle }) {
     const active = isActive(item.href);
     const disabled = item.available === false;
     const classes = [
-      "flex min-h-[56px] items-center rounded-[14px] transition",
-      collapsed && !isMobile ? "justify-center" : "gap-3 px-4",
+      "flex min-h-[48px] items-center rounded-[12px] py-2 transition-colors duration-150",
+      collapsed && !isMobile ? "justify-center px-1" : "gap-2.5 px-2.5",
       active
         ? "bg-gradient-to-r from-[#703099] to-[#592077] text-white"
         : disabled
@@ -54,19 +54,19 @@ export default function AdminSidebar({ collapsed, onToggle }) {
 
     const inner = (
       <>
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-white/[0.04]">
-          {item.emoji ? <span className={"text-[25px] leading-none " + (disabled && !active ? "opacity-75" : "")}>{item.emoji}</span> : <Icon icon={item.icon} width="25" height="25" className={disabled && !active ? "opacity-75" : ""} />}
+        <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-white/[0.06]">
+          {item.emoji ? <span className={"text-[20px] leading-none " + (disabled && !active ? "opacity-75" : "")}>{item.emoji}</span> : <Icon icon={item.icon} width="20" height="20" className={disabled && !active ? "opacity-75" : ""} />}
         </span>
 
         {(!collapsed || isMobile) && (
-          <>
-            <span className="text-[13px] font-medium">{item.label}</span>
-            {disabled ? (
-              <span className="ml-auto text-[10px] text-white/35">Pendiente</span>
-            ) : (
-              <Icon icon="fluent:chevron-right-20-regular" width="17" className="ml-auto text-white/25" />
+          <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
+            <span className="w-full whitespace-normal break-words text-[12.5px] font-semibold leading-[1.35]">
+              {item.label}
+            </span>
+            {disabled && (
+              <span className="text-[10px] leading-3 text-white/45">Pendiente</span>
             )}
-          </>
+          </span>
         )}
       </>
     );
@@ -91,16 +91,16 @@ export default function AdminSidebar({ collapsed, onToggle }) {
       <aside
         className={[
           "fixed inset-y-0 left-0 z-50 hidden flex-col overflow-hidden bg-[#19082a] text-white transition-all duration-300 md:flex",
-          collapsed ? "w-[82px]" : "w-[220px]",
+          collapsed ? "w-[82px]" : "w-[256px]",
         ].join(" ")}
       >
-        <div className={["flex h-[92px] items-center border-b border-white/10", collapsed ? "flex-col justify-center gap-1 px-2" : "gap-3 px-5"].join(" ")}>
+        <div className={["flex h-[92px] items-center border-b border-white/10", collapsed ? "flex-col justify-center gap-1 px-2" : "gap-2.5 px-4"].join(" ")}>
           <img src="/images/gdpsoft-icon.png" alt="GDP Soft" className={collapsed ? "h-9 w-9 shrink-0 object-contain" : "h-11 w-11 shrink-0 object-contain"} />
 
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-bold">GDP Soft</p>
-              <p className="truncate text-[11px] text-white/45">Panel de Administración</p>
+              <p className="text-[14px] font-bold leading-tight">GDP Soft</p>
+              <p className="whitespace-normal text-[10px] leading-4 text-white/45">Panel de Administración</p>
             </div>
           )}
 
@@ -118,8 +118,8 @@ export default function AdminSidebar({ collapsed, onToggle }) {
           </button>
         </div>
 
-        <nav className="gdp-sidebar-scroll flex-1 min-h-0 overflow-x-hidden overflow-y-auto px-3 py-5">
-          <div className="space-y-2">
+        <nav className="gdp-sidebar-scroll flex-1 min-h-0 overflow-x-hidden overflow-y-auto px-2.5 py-3">
+          <div className="space-y-1.5">
             {MENU.map((item) => (
               <SidebarItem key={item.href} item={item} />
             ))}
@@ -133,12 +133,12 @@ export default function AdminSidebar({ collapsed, onToggle }) {
           <button type="button" onClick={onToggle}
             aria-label={collapsed ? "Expandir menú" : "Contraer menú"}
             title={collapsed ? "Expandir menú" : "Contraer menú"}
-            className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-white/[0.08] text-white hover:bg-[#703099] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
+            className="flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-white/[0.08] text-white hover:bg-[#703099] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
             <Icon icon={collapsed ? "fluent:panel-left-expand-24-regular" : "fluent:panel-left-contract-24-regular"} width="23" />
             {!collapsed && <span className="text-xs font-medium">Contraer menú</span>}
           </button>
         </div>
-        <div className={["border-t border-white/10", collapsed ? "p-3" : "p-4"].join(" ")}>
+        <div className={["border-t border-white/10", collapsed ? "p-3" : "px-3 py-3"].join(" ")}>
           <div className={["flex items-center", collapsed ? "justify-center" : "gap-3"].join(" ")}>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#8f2a85] text-xs font-bold text-white">
               {(currentUser?.full_name || currentUser?.username || "AD")
@@ -151,9 +151,9 @@ export default function AdminSidebar({ collapsed, onToggle }) {
             </div>
 
             {!collapsed && (
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{currentUser?.full_name || currentUser?.username || "Administrador"}</p>
-                <p className="text-xs text-white/40">
+              <div className="min-w-0 flex-1">
+                <p className="whitespace-normal break-words text-xs font-semibold leading-4">{currentUser?.full_name || currentUser?.username || "Administrador"}</p>
+                <p className="text-[11px] text-white/50">
                   {currentUser?.is_super_admin ? "Super Admin" : currentUser?.role === "ADMIN" ? "Administrador" : currentUser?.role || "Usuario"}
                 </p>
               </div>
@@ -197,8 +197,8 @@ export default function AdminSidebar({ collapsed, onToggle }) {
               <Icon icon="fluent:dismiss-24-regular" width="20" />
             </button>
 
-            <nav className="gdp-sidebar-scroll flex-1 min-h-0 overflow-x-hidden overflow-y-auto px-4 py-5">
-              <div className="space-y-2">
+            <nav className="gdp-sidebar-scroll flex-1 min-h-0 overflow-x-hidden overflow-y-auto px-3 py-3">
+              <div className="space-y-1.5">
                 {MENU.map((item) => (
                   <div key={item.href} onClick={() => item.available !== false && setMobileOpen(false)}>
                     <SidebarItem item={item} isMobile />
