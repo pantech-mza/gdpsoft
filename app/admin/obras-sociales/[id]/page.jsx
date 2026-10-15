@@ -18,9 +18,9 @@ import { treeApiFetch } from "../../../../lib/decision-trees/client";
 
 
 const TABS = [
+  { key: "REMEMBER", label: "Ficha", desktopLabel: "Recordá / Ficha", icon: "fluent-emoji:bell" },
   { key: "TREE", label: "Árboles", desktopLabel: "Árbol de Decisiones", icon: "fluent-emoji:herb" },
   { key: "NORMATIVES", label: "Normativas", desktopLabel: "Normativas", icon: "fluent-color:document-bullet-list-24" },
-  { key: "REMEMBER", label: "Ficha", desktopLabel: "Recordá / Ficha", icon: "fluent-emoji:bell" },
   { key: "BILLING", label: "Facturar", desktopLabel: "Cómo Facturar", icon: "fluent-color:document-text-24" },
   { key: "CONTACT", label: "Contacto", desktopLabel: "Contacto", icon: "fluent-color:phone-24" },
   { key: "AI", label: "IA", desktopLabel: "Consultar IA", icon: "fluent-color:bot-24" },
@@ -41,7 +41,7 @@ export default function SocialWorkAdminPage() {
   const [
     activeTab,
     setActiveTab,
-  ] = useState("TREE");
+  ] = useState("REMEMBER");
 
   const [
     loading,

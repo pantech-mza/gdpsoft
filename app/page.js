@@ -204,9 +204,11 @@ function redirectUser(data) {
         return;
       }
 
-      localStorage.removeItem('gdpsoft_device_uuid');
-      localStorage.removeItem('gdpsoft_device_name');
-      localStorage.removeItem('gdpsoft_device_type');
+      // Una falla de red o de Supabase NO significa que la PC sea nueva.
+      // Conservar el UUID evita perder la identidad y los avisos ya cerrados.
+      setError('No se pudo verificar el dispositivo registrado. Revisá la conexión y reintentá el ingreso.');
+      setSubmitting(false);
+      return;
     }
 
     setLoginData(data);

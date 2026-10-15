@@ -24,31 +24,6 @@ import { Icon } from "@iconify/react";
 
 
 const TABS = [
-
-  {
-
-    id: "tree",
-
-    label: "Árbol",
-
-    desktopLabel: "Árbol de Decisiones",
-
-    icon: "fluent-emoji:herb",
-
-  },
-
-  {
-
-    id: "normatives",
-
-    label: "Normativas",
-
-    desktopLabel: "Normativas",
-
-    icon: "fluent-color:document-text-24",
-
-  },
-
   {
 
     id: "remember",
@@ -60,7 +35,28 @@ const TABS = [
     icon: "fluent-color:note-24",
 
   },
+  {
 
+    id: "tree",
+
+    label: "Árbol",
+
+    desktopLabel: "Árbol de Decisiones",
+
+    icon: "fluent-emoji:herb",
+
+  },
+  {
+
+    id: "normatives",
+
+    label: "Normativas",
+
+    desktopLabel: "Normativas",
+
+    icon: "fluent-color:document-text-24",
+
+  },
   {
 
     id: "billing",
@@ -72,7 +68,6 @@ const TABS = [
     icon: "fluent-color:receipt-24",
 
   },
-
   {
 
     id: "contact",
@@ -84,7 +79,6 @@ const TABS = [
     icon: "fluent-color:phone-24",
 
   },
-
   {
 
     id: "faq",
@@ -96,7 +90,6 @@ const TABS = [
     icon: "fluent-emoji:red-question-mark",
 
   },
-
 ];
 
 
@@ -111,7 +104,7 @@ export default function SucursalSocialWorkDetailPage() {
 
   const [activeTab, setActiveTab] =
 
-    useState("tree");
+    useState("remember");
 
 
 
