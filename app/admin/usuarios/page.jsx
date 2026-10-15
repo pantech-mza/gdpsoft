@@ -319,9 +319,15 @@ export default function SucursalesAdminPage() {
                   <strong className="text-sm text-zinc-900">{d.device_name}</strong>
                   <p className="text-xs text-zinc-500">{d.device_type} · {d.active ? "Activo" : "Inactivo"}</p>
                 </div>
-                <button disabled={busy} className={btn} onClick={() => mutate("/api/admin/sucursales/dispositivos", "PATCH", { device_id: d.id, active: !d.active }, "Dispositivo actualizado")}>
-                  {d.active ? "Desactivar" : "Activar"}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button disabled={busy} className={btn} onClick={() => mutate("/api/admin/sucursales/dispositivos", "PATCH", { device_id: d.id, active: !d.active }, "Dispositivo actualizado")}>
+                    {d.active ? "Desactivar" : "Activar"}
+                  </button>
+                  <button type="button" disabled={busy} className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40" onClick={() => {
+                    if (window.confirm(`¿Quitar "${d.device_name}" de esta sucursal? Se conservará el historial y podrá volver a registrarse.`))
+                      mutate("/api/admin/sucursales/dispositivos", "DELETE", { device_id: d.id }, "Dispositivo quitado del listado");
+                  }}>Quitar dispositivo</button>
+                </div>
               </div>
             ))}
           </div>

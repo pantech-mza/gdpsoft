@@ -20,7 +20,7 @@ export async function GET(request) {
   const [bs, ps, ds] = await Promise.all([
     supabaseAdmin.from("branches").select("id,code,name,branch_type,active").order("name"),
     supabaseAdmin.from("profiles").select("id,username,full_name,role,branch_id,active,is_super_admin").eq("role", "SUCURSAL"),
-    supabaseAdmin.from("branch_devices").select("id,branch_id,device_name,device_type,active,last_seen_at").order("device_name"),
+    supabaseAdmin.from("branch_devices").select("id,branch_id,device_name,device_type,active,last_seen_at").is("removed_at",null).order("device_name"),
   ]);
   if (bs.error || ps.error || ds.error) return fail("No se pudo consultar la información: " + (bs.error || ps.error || ds.error).message, 500);
   const profiles = ps.data || [];

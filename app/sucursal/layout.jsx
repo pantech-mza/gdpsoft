@@ -105,7 +105,7 @@ export default function SucursalLayout({
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f7f6f9]">
+    <div className="gdp-app-scale min-h-screen overflow-x-hidden bg-[#f7f6f9]">
 
       <SucursalSidebar
         collapsed={collapsed}
@@ -129,9 +129,10 @@ export default function SucursalLayout({
           </div>
 
         </main>
-        <FloatingAssistant />
       </div>
+
       <BranchNotices />
+      <FloatingAssistant />
 
     </div>
   );

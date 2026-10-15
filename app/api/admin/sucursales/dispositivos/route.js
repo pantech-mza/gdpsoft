@@ -1,13 +1,31 @@
-import { supabaseAdmin } from "../../../../../lib/supabase/admin";
-export const runtime = "nodejs";
-export async function PATCH(request) {
-  const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  const { data: auth } = token ? await supabaseAdmin.auth.getUser(token) : { data: null };
-  if (!auth?.user) return Response.json({ ok: false, error: "No autorizado" }, { status: 401 });
-  const { data: actor } = await supabaseAdmin.from("profiles").select("active,role,is_super_admin").eq("id", auth.user.id).maybeSingle();
-  if (!actor?.active || !(actor.is_super_admin || actor.role === "ADMIN")) return Response.json({ ok: false, error: "No autorizado" }, { status: 403 });
-  const body = await request.json().catch(() => ({}));
-  if (typeof body.active !== "boolean" || !body.device_id) return Response.json({ ok: false, error: "Datos inválidos" }, { status: 400 });
-  const { error } = await supabaseAdmin.from("branch_devices").update({ active: body.active }).eq("id", body.device_id);
-  return error ? Response.json({ ok: false, error: error.message }, { status: 400 }) : Response.json({ ok: true });
+import { supabaseAdmin } from '../../../../../lib/supabase/admin';
+import { requireAdminActor, jsonError } from '../../../../../lib/server/gdp-actor';
+export const runtime='nodejs';
+export const dynamic='force-dynamic';
+async function authorize(request) {
+  const auth=await requireAdminActor(request);
+  if(!auth.actor)return {error:jsonError(auth.error,auth.status)};
+  return {actor:auth.actor};
+}
+function validId(x){const n=Number(x);return Number.isSafeInteger(n)&&n>0?n:null;}
+export async function PATCH(request){
+  const auth=await authorize(request);if(auth.error)return auth.error;
+  const b=await request.json().catch(()=>({}));const id=validId(b.device_id);
+  if(!id||typeof b.active!=='boolean')return jsonError('Datos inválidos',400);
+  const {data,error}=await supabaseAdmin.from('branch_devices').update({active:b.active}).eq('id',id).is('removed_at',null).select('id').maybeSingle();
+  if(error)return jsonError('No se pudo modificar dispositivo',500);
+  if(!data)return jsonError('Dispositivo inexistente o quitado',404);
+  return Response.json({ok:true});
+}
+export async function DELETE(request){
+  const auth=await authorize(request);if(auth.error)return auth.error;
+  const b=await request.json().catch(()=>({}));const id=validId(b.device_id);
+  if(!id)return jsonError('Dispositivo inválido',400);
+  // Baja lógica para conservar recepción de notificaciones y trazabilidad histórica.
+  // El dispositivo no aparece más en Admin. Un nuevo registro puede volver a darlo de alta.
+  const {data,error}=await supabaseAdmin.from('branch_devices').update({removed_at:new Date().toISOString(),active:false})
+    .eq('id',id).is('removed_at',null).select('id').maybeSingle();
+  if(error)return jsonError('No se pudo quitar el dispositivo',500);
+  if(!data)return jsonError('Dispositivo inexistente o ya eliminado',404);
+  return Response.json({ok:true,removed:true});
 }

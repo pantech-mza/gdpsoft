@@ -24,6 +24,7 @@ export async function GET(request) {
         created_at,
         updated_at
       `)
+      .is("removed_at", null)
       .order("device_name", { ascending: true });
 
     if (branchId) {
@@ -226,6 +227,7 @@ export async function POST(request) {
             device_name: device_name.trim(),
             device_type: normalizedType,
             active: true,
+            removed_at: null,
             last_seen_at: now,
             updated_at: now,
           })

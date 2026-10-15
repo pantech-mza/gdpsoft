@@ -29,15 +29,16 @@ export default function AdminLayout({ children }) {
   }
 
   return (
-    <div className="min-h-screen min-w-0 overflow-x-clip bg-[#f7f5fa]">
+    <div className="gdp-app-scale min-h-screen min-w-0 overflow-x-clip bg-[#f7f5fa]">
       <AdminSidebar collapsed={collapsed} onToggle={handleToggle} />
 
       <div className={["gdp-admin-shell min-h-screen min-w-0 overflow-x-clip transition-[margin] duration-300", collapsed ? "md:ml-[82px]" : "md:ml-[256px]"] .join(" ")}>
         <AdminHeader />
 
         <main className="min-w-0 max-w-full px-4 pb-24 pt-6 sm:px-6 md:pb-12 lg:px-8">{children}</main>
-        <FloatingAssistant />
       </div>
+
+      <FloatingAssistant />
     </div>
   );
 }
