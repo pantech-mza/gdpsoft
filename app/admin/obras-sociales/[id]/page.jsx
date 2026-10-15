@@ -13,6 +13,8 @@ import {
 
 import { Icon } from "@iconify/react";
 import ResourcesPanel from "../../../../components/social-works/ResourcesPanel";
+import FichaEditor from "../../../../components/social-works/FichaEditor";
+import FichaNotesPanel from "../../../../components/social-works/FichaNotesPanel";
 import DecisionTreesPanel from "../../../../components/social-works/DecisionTreesPanel";
 import { treeApiFetch } from "../../../../lib/decision-trees/client";
 
@@ -47,6 +49,7 @@ export default function SocialWorkAdminPage() {
     loading,
     setLoading,
   ] = useState(true);
+  const [editFichaOpen,setEditFichaOpen] = useState(false);
 
   const [
     error,
@@ -270,11 +273,16 @@ return (
       {activeTab ===
         "REMEMBER" && (
         <RememberView
-          socialWork={
-            socialWork
-          }
+          socialWork={socialWork}
+          onEdit={()=>setEditFichaOpen(true)}
         />
       )}
+
+      {editFichaOpen && <FichaEditor
+        socialWork={socialWork}
+        onClose={()=>setEditFichaOpen(false)}
+        onSaved={(updated)=>{setSocialWork(updated);setEditFichaOpen(false);}}
+      />}
 
       {/* =================================================
           FACTURACION
@@ -555,7 +563,7 @@ function DecisionCard({
 // =========================================================
 
 function RememberView({
-  socialWork,
+  socialWork,onEdit,
 }) {
   return (
     <div className="space-y-4">
@@ -564,6 +572,7 @@ function RememberView({
         title="Recordá / Ficha"
         description="Información rápida que debe tener presente el personal de farmacia."
         button="Editar ficha"
+        onAction={onEdit}
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -642,34 +651,7 @@ function RememberView({
 
       </div>
 
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
-
-        <div className="flex gap-3">
-
-          <span className="text-xl">
-            🔔
-          </span>
-
-          <div>
-
-            <h3 className="font-semibold text-amber-900">
-              Observaciones
-            </h3>
-
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-amber-800">
-
-              {
-                socialWork.observations ||
-                "No hay observaciones cargadas."
-              }
-
-            </p>
-
-          </div>
-
-        </div>
-
-      </div>
+      <FichaNotesPanel socialWorkId={socialWork.id} editable legacyObservations={socialWork.observations} />
 
     </div>
   );
@@ -805,6 +787,7 @@ function AdminSectionBar({
   title,
   description,
   button,
+  onAction,
 }) {
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-[#8f2a85]/10 bg-[#8f2a85]/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -825,6 +808,7 @@ function AdminSectionBar({
         <button
           type="button"
           className="rounded-lg bg-[#8f2a85] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#7c2474]"
+          onClick={onAction}
         >
           {button}
         </button>
@@ -953,6 +937,7 @@ function NormativesView({
     loading,
     setLoading,
   ] = useState(true);
+  const [editFichaOpen,setEditFichaOpen] = useState(false);
 
   const [
     error,

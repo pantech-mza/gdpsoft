@@ -22,6 +22,7 @@ import { resolveInternalProcedure, isImmediateOperationalContingency, isSpecific
 import { asksForPrescriptionChecklist, buildFichaPrescriptionChecklist } from "../../../../lib/assistant/prescription-safety.mjs";
 import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, isSpecificNormativeTopic } from "../../../../lib/assistant/linked-normatives.mjs";
 import { shouldPreferValidationProfile } from "../../../../lib/assistant/validation-profile-priority.mjs";
+import { isGeneralBranchCircuitQuestion, resolveGeneralBranchMembership, formatGeneralBranchMembershipResponse } from "../../../../lib/assistant/branch-circuit-membership.mjs";
 
 export const runtime =
   "nodejs";
@@ -5771,6 +5772,50 @@ if (conversationId) {
     // Recordá/Ficha, aunque incluya «por dónde valido».
     // Las preguntas por recepción, circuito o sucursal concreta mantienen
     // prioridad operativa y sus controles de seguridad.
+    // Pregunta general por pertenencia de la sucursal a Cámara/Colegio.
+    // No debe absorber la obra social activa ni requerir una regla particular
+    // de OSDEPYM, OMINT, etc. Una pregunta específica sigue en resolveOperation.
+    if (isGeneralBranchCircuitQuestion(question)) {
+      let currentBranch = null;
+      if (branchId || branchCode) {
+        const baseQuery = supabaseAdmin
+          .from("branches")
+          .select("id,name,code,branch_type,active")
+          .eq("active", true);
+        const { data, error } = await (branchId
+          ? baseQuery.eq("id", branchId)
+          : baseQuery.eq("code", branchCode)).maybeSingle();
+        if (error) {
+          console.error("GDP branch membership lookup:", error.message);
+        } else {
+          currentBranch = data;
+        }
+      }
+      const membership = currentBranch
+        ? resolveGeneralBranchMembership({
+            branchName: currentBranch.name,
+            branchCode: currentBranch.code,
+            branchType: currentBranch.branch_type,
+          })
+        : null;
+      const answer = formatGeneralBranchMembershipResponse({
+        branch: currentBranch, result: membership,
+      });
+      const found = membership?.status === "CONFIRMED";
+      const elapsedMs = Date.now() - startedAt;
+      await logCurrentQuery({branchId, socialWorkId, question, answer,
+        source:"GDP_BRANCH_MEMBERSHIP", route:"GENERAL_BRANCH_CIRCUIT",
+        found, elapsedMs,
+        usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+      return Response.json({ok:true,question,answer,
+        source:"GDP_BRANCH_MEMBERSHIP",route:"GENERAL_BRANCH_CIRCUIT",
+        found,branch:currentBranch ? {
+          id:currentBranch.id,code:currentBranch.code,name:currentBranch.name,
+        } : null,
+        context:responseContext,elapsed_ms:elapsedMs,
+        usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+    }
+
     const detectedOperationIntent = detectOperationIntent(question);
     const validationProfileIntent = detectSocialWorkProfileIntent(question);
     const operationIntent = shouldPreferValidationProfile({

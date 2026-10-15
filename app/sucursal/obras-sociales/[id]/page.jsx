@@ -1,4 +1,5 @@
 "use client";
+import FichaNotesPanel from "../../../../components/social-works/FichaNotesPanel";
 import ResourcesPanel from "../../../../components/social-works/ResourcesPanel";
 import DecisionTreesPanel from "../../../../components/social-works/DecisionTreesPanel";
 
@@ -1389,59 +1390,7 @@ function RememberTab({
 
 
 
-      <div className="rounded-[16px] border border-amber-200 bg-amber-50 p-4 sm:p-5">
-
-
-
-        <div className="flex items-start gap-3">
-
-
-
-          <Icon
-
-            icon="fluent:alert-24-regular"
-
-            width="21"
-
-            className="mt-0.5 shrink-0 text-amber-600"
-
-          />
-
-
-
-          <div className="min-w-0">
-
-
-
-            <p className="text-[13px] font-semibold text-amber-900 sm:text-sm">
-
-              Observaciones
-
-            </p>
-
-
-
-            <p className="mt-2 whitespace-pre-wrap break-words text-[12px] leading-5 text-amber-800 sm:text-[13px] sm:leading-6">
-
-              {socialWork.observations ||
-
-                "No hay observaciones cargadas."}
-
-            </p>
-
-
-
-          </div>
-
-
-
-        </div>
-
-
-
-      </div>
-
-
+      <FichaNotesPanel socialWorkId={socialWork.id} legacyObservations={socialWork.observations} />
 
     </div>
 

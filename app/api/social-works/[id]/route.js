@@ -1,3 +1,4 @@
+import { requireAdminActor } from "../../../../lib/server/gdp-actor";
 import {
   supabaseAdmin,
 } from "../../../../lib/supabase/admin";
@@ -115,6 +116,8 @@ export async function PATCH(
   { params }
 ) {
   try {
+    const access = await requireAdminActor(request);
+    if (!access.actor) return Response.json({ok:false,error:access.error},{status:access.status});
     const { id } =
       await params;
 
@@ -154,6 +157,8 @@ export async function PATCH(
       "commercial_name",
       "substitution",
       "observations",
+      "validator_name",
+      "validator_type",
       "active",
     ];
 
@@ -171,6 +176,16 @@ export async function PATCH(
       ) {
         payload[field] =
           body[field];
+      }
+    }
+
+    for (const field of ["validator_name","validator_type","plan","recipe_type","letterhead","diagnosis","monodrug","commercial_name","substitution"]) {
+      if (Object.prototype.hasOwnProperty.call(payload,field)) {
+        const value = payload[field];
+        payload[field] = value == null || String(value).trim() === "" ? null : String(value).trim();
+        if (payload[field] && payload[field].length > 500) {
+          return Response.json({ok:false,error:`Campo ${field} demasiado largo`},{status:400});
+        }
       }
     }
 
