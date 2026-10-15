@@ -90,7 +90,7 @@ export async function PATCH(request) {
   }
   if (body.action === "reset_password") {
     const password = String(body.password || "");
-    if (password.length < 12) return respond("Usá una contraseña temporal de al menos 12 caracteres", 400);
+    if (password.length < 6 || password.length > 12) return respond("La contraseña temporal debe tener entre 6 y 12 caracteres", 400);
     const { error } = await supabaseAdmin.auth.admin.updateUserById(id, { password });
     return error ? respond(error.message, 400) : Response.json({ ok: true });
   }

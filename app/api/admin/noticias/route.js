@@ -48,7 +48,30 @@ export async function PATCH(request) {
   const actor=await actorFromRequest(request);
   if(!adminActor(actor)) return jsonError('No autorizado',403);
   const body=await request.json().catch(()=>({}));const id=Number(body.id);
-  if(!Number.isInteger(id)||id<1||body.action!=='archive') return jsonError('Acción inválida');
+  if(!Number.isInteger(id)||id<1||!['archive','republish'].includes(body.action)) return jsonError('Acción inválida');
+  // Volver a mostrar: reiniciar acks de todas las PCs. No duplica la noticia.
+  if (body.action === 'republish') {
+    const {data:found,error:lookupError}=await supabaseAdmin.from('branch_notices').select('id').eq('id',id).maybeSingle();
+    if(lookupError)return jsonError(lookupError.message,500);
+    if(!found)return jsonError('Aviso inexistente',404);
+    const {error:ackError}=await supabaseAdmin.from('branch_notice_ack').delete().eq('notice_id',id);
+    if(ackError)return jsonError('No se pudieron restablecer los cierres: '+ackError.message,500);
+    const {error}=await supabaseAdmin.from('branch_notices').update({published:true,archived_at:null}).eq('id',id);
+    return error?jsonError(error.message,500):Response.json({ok:true});
+  }
   const {error}=await supabaseAdmin.from('branch_notices').update({published:false,archived_at:new Date().toISOString()}).eq('id',id);
   return error?jsonError(error.message,500):Response.json({ok:true});
+}
+
+export async function DELETE(request) {
+  const actor=await actorFromRequest(request);
+  if(!adminActor(actor)) return jsonError('No autorizado',403);
+  const body=await request.json().catch(()=>({}));
+  const id=Number(body.id);
+  if(!Number.isSafeInteger(id)||id<1)return jsonError('Aviso inválido',400);
+  // Las tablas branch_notice_targets / branch_notice_ack tienen ON DELETE CASCADE.
+  const {data,error}=await supabaseAdmin.from('branch_notices').delete().eq('id',id).select('id').maybeSingle();
+  if(error)return jsonError(error.message,500);
+  if(!data)return jsonError('Aviso inexistente',404);
+  return Response.json({ok:true});
 }

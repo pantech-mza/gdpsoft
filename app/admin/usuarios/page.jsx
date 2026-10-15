@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
+import { createPortal } from "react-dom";
 import { refreshStoredSession } from "../../../lib/client/session";
 
 const field = "w-full min-w-0 rounded-xl border border-[#e6d5e5] bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#8f2a85] focus:ring-2 focus:ring-[#8f2a85]/10";
@@ -23,6 +24,8 @@ export default function SucursalesAdminPage() {
   const [reset, setReset] = useState(null);
   const [selected, setSelected] = useState(null);
   const [actionMenu, setActionMenu] = useState(null);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
 
   const request = useCallback(async (url, options = {}) => {
     let token = sessionStorage.getItem("gdpsoft_access_token") || await refreshStoredSession();
@@ -85,7 +88,7 @@ export default function SucursalesAdminPage() {
     if (actionMenu?.id === branch.id) { setActionMenu(null); return; }
     const rect = event.currentTarget.getBoundingClientRect();
     const menuWidth = 210;
-    const menuHeight = 208;
+    const menuHeight = 224;
     const left = Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8));
     const top = rect.bottom + menuHeight + 8 > window.innerHeight
       ? Math.max(8, rect.top - menuHeight - 6)
@@ -286,7 +289,7 @@ export default function SucursalesAdminPage() {
         )}
       </section>
 
-      {actionMenu && (
+      {actionMenu && createPortal(
         <>
           <button type="button" aria-label="Cerrar acciones" onClick={() => setActionMenu(null)} className="fixed inset-0 z-[220] cursor-default bg-transparent" />
           <div
@@ -306,7 +309,7 @@ export default function SucursalesAdminPage() {
               </button>
             ))}
           </div>
-        </>
+        </>, document.body
       )}
 
       {selected !== null && (
@@ -337,7 +340,7 @@ export default function SucursalesAdminPage() {
       {newBranch && (
         <Modal title="Crear sucursal y cuenta" onClose={() => setNewBranch(null)}>
           <form onSubmit={e => { e.preventDefault(); mutate("/api/admin/sucursales", "POST", newBranch, "Sucursal y cuenta creadas correctamente"); }} className="grid gap-3 sm:grid-cols-2">
-            {[ ["code", "Código"], ["name", "Nombre"], ["branch_type", "Circuito / tipo"], ["username", "Usuario de acceso"], ["email", "Correo"] ].map(([key, label]) => (
+            {[ ["code", "Código interno de sucursal (ej. DP1)"], ["name", "Nombre"], ["branch_type", "Circuito / tipo"], ["username", "Usuario de acceso"], ["email", "Correo"] ].map(([key, label]) => (
               <label key={key} className="text-xs text-zinc-600">
                 {label}
                 <input
@@ -350,8 +353,8 @@ export default function SucursalesAdminPage() {
               </label>
             ))}
             <label className="text-xs text-zinc-600">
-              Contraseña inicial (12+)
-              <input className={`${field} mt-1`} type="password" minLength={12} required value={newBranch.password} onChange={e => setNewBranch({ ...newBranch, password: e.target.value })} />
+              Contraseña inicial (6 a 12 caracteres)
+              <div className="relative mt-1"><input className={`${field} pr-14`} type={showNewPassword ? "text" : "password"} minLength={6} maxLength={12} autoComplete="new-password" required value={newBranch.password} onChange={e => setNewBranch({ ...newBranch, password: e.target.value })} /><button type="button" onClick={()=>setShowNewPassword(v=>!v)} aria-label={showNewPassword ? 'Ocultar contraseña' : 'Ver contraseña'} className="absolute inset-y-0 right-1 flex items-center rounded-lg px-3 text-[#8f2a85]"><Icon icon={showNewPassword ? 'fluent:eye-off-24-regular' : 'fluent:eye-24-regular'} width="20"/></button></div>
             </label>
             <div className="sm:col-span-2 flex justify-end"><button disabled={busy} className={btnPrimary}>Crear sucursal</button></div>
           </form>
@@ -378,7 +381,7 @@ export default function SucursalesAdminPage() {
         <Modal title={`Nueva contraseña · ${reset.username}`} onClose={() => setReset(null)}>
           <form className="space-y-3" onSubmit={e => { e.preventDefault(); mutate("/api/admin/usuarios", "PATCH", { id: reset.id, action: "reset_password", password: reset.password }, "Contraseña temporal actualizada. Compartila por un canal seguro."); }}>
             <p className="text-sm text-zinc-500">La contraseña anterior no puede consultarse.</p>
-            <input className={field} type="password" minLength={12} required placeholder="Nueva contraseña temporal" value={reset.password} onChange={e => setReset({ ...reset, password: e.target.value })} />
+            <div className="relative"><input className={`${field} pr-14`} type={showResetPassword ? "text" : "password"} minLength={6} maxLength={12} autoComplete="new-password" required placeholder="Nueva contraseña temporal (6 a 12 caracteres)" value={reset.password} onChange={e => setReset({ ...reset, password: e.target.value })} /><button type="button" onClick={()=>setShowResetPassword(v=>!v)} aria-label={showResetPassword?'Ocultar contraseña':'Ver contraseña'} className="absolute inset-y-0 right-1 flex items-center rounded-lg px-3 text-[#8f2a85]"><Icon icon={showResetPassword?'fluent:eye-off-24-regular':'fluent:eye-24-regular'} width="20"/></button></div>
             <button disabled={busy} className={btnPrimary}>Guardar nueva contraseña</button>
           </form>
         </Modal>

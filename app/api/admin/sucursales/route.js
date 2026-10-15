@@ -40,7 +40,7 @@ export async function POST(request) {
   const username = String(b.username || code).trim();
   const email = String(b.email || "").trim().toLowerCase();
   const password = String(b.password || "");
-  if (!validCode(code) || !name || !username || !validEmail(email) || password.length < 12) return fail("Completá código, nombre, usuario, correo y contraseña (mínimo 12 caracteres)");
+  if (!validCode(code) || !name || !username || !validEmail(email) || password.length < 6 || password.length > 12) return fail("Completá código, nombre, usuario, correo y contraseña (6 a 12 caracteres)");
   const [existingBranch, existingUser] = await Promise.all([
     supabaseAdmin.from("branches").select("id").eq("code", code).maybeSingle(),
     supabaseAdmin.from("profiles").select("id").ilike("username", username).maybeSingle(),
