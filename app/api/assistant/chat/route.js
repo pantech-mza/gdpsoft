@@ -1,6 +1,7 @@
 import {
   supabaseAdmin,
 } from "../../../../lib/supabase/admin";
+import { isGeneralBranchCircuitQuestion } from "../../../../lib/assistant/branch-circuit-membership.mjs";
 
 import {
   buildTopicQuestion,
@@ -997,6 +998,18 @@ export async function POST(
         conversation
           .active_social_work_id
       );
+
+    // GDPSoft v3.12.5: la pertenencia de la sucursal a Cámara/Colegio
+    // no requiere seleccionar obra social. Consultar el router central para
+    // usar la sucursal guardada en la conversación, no datos del frontend.
+    if (originalQuestion && !topic && isGeneralBranchCircuitQuestion(originalQuestion)) {
+      const { response, data } = await callAssistantQuery({
+        request,
+        conversationId,
+        question: originalQuestion,
+      });
+      return Response.json(data, { status: response.status });
+    }
 
     // =====================================================
     // SI SIGUE SIN OOSS

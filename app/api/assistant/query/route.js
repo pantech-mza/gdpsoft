@@ -23,6 +23,7 @@ import { asksForPrescriptionChecklist, buildFichaPrescriptionChecklist } from ".
 import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, isSpecificNormativeTopic } from "../../../../lib/assistant/linked-normatives.mjs";
 import { shouldPreferValidationProfile } from "../../../../lib/assistant/validation-profile-priority.mjs";
 import { isGeneralBranchCircuitQuestion, resolveGeneralBranchMembership, formatGeneralBranchMembershipResponse } from "../../../../lib/assistant/branch-circuit-membership.mjs";
+import { isOperationalCircuitQuestion } from "../../../../lib/assistant/operational-circuit-intent.mjs";
 
 export const runtime =
   "nodejs";
@@ -2050,7 +2051,7 @@ function detectOperationIntent(
 
 
   if (
-
+    isOperationalCircuitQuestion(question) ||
     containsAny(
 
       q,
@@ -5620,13 +5621,9 @@ if (conversationId) {
 
     if (
 
-      !Number.isInteger(
-
-        socialWorkId
-
-      ) ||
-
-      socialWorkId <= 0
+      !isGeneralBranchCircuitQuestion(question) && (
+        !Number.isInteger(socialWorkId) || socialWorkId <= 0
+      )
 
     ) {
 
