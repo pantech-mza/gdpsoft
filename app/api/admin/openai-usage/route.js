@@ -1,4 +1,5 @@
 import { requireAdminActor, jsonError } from "../../../../lib/server/gdp-actor";
+import { collectPagedOpenAIBuckets, MAX_DAILY_BUCKETS } from "../../../../lib/openai/daily-buckets.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,23 +49,10 @@ async function openAIGet(path, params = {}) {
   return json;
 }
 
-async function getAllPages(path, params, maxPages = 20) {
-  const data = [];
-  let page = null;
-
-  for (let i = 0; i < maxPages; i++) {
-    const result = await openAIGet(path, {
-      ...params,
-      ...(page ? { page } : {}),
-    });
-
-    data.push(...(result?.data || []));
-
-    if (!result?.has_more || !result?.next_page) break;
-    page = result.next_page;
-  }
-
-  return data;
+async function getAllPages(path, params) {
+  // OpenAI permite como máximo 31 buckets para bucket_width=1d.
+  // El paginado conserva los 90 días sin recortar las estadísticas.
+  return collectPagedOpenAIBuckets(openAIGet, path, params);
 }
 
 function flattenBuckets(buckets) {
@@ -206,7 +194,7 @@ export async function GET(request) {
         start_time: startTime,
         end_time: endTime,
         bucket_width: "1d",
-        limit: Math.min(days + 2, 90),
+        limit: MAX_DAILY_BUCKETS,
         "group_by[]": ["line_item"],
         ...projectParams,
       }),
@@ -214,7 +202,7 @@ export async function GET(request) {
         start_time: startTime,
         end_time: endTime,
         bucket_width: "1d",
-        limit: Math.min(days + 2, 90),
+        limit: MAX_DAILY_BUCKETS,
         "group_by[]": ["model"],
         ...projectParams,
       }),

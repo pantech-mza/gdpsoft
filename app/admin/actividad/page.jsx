@@ -1,11 +1,11 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { refreshStoredSession } from "../../../lib/client/session";
 
 const COLORS=["#8f2a85","#93c01f","#5f76d0","#e5a83b","#18a58d","#c55c97","#7864c6","#eb7d65"];
 const fmt=v=>Number(v||0).toLocaleString('es-AR');
 const date=v=>v?new Date(v).toLocaleString('es-AR'):'—';
-async function fetchData(url){let t=sessionStorage.getItem('gdpsoft_access_token')||await refreshStoredSession();const run=x=>fetch(url,{headers:{Authorization:`Bearer ${x}`},cache:'no-store'});let r=await run(t);if(r.status===401)r=await run(await refreshStoredSession());const j=await r.json().catch(()=>({}));if(!r.ok||!j.ok)throw Error(j.error||'Error consultando actividad');return j;}
+async function fetchData(url,signal){let t=sessionStorage.getItem('gdpsoft_access_token')||await refreshStoredSession();const run=x=>fetch(url,{headers:{Authorization:`Bearer ${x}`},cache:'no-store',signal});let r=await run(t);if(r.status===401)r=await run(await refreshStoredSession());const j=await r.json().catch(()=>({}));if(!r.ok||!j.ok)throw Error(j.error||'Error consultando actividad');return j;}
 function Card({title,value,caption}){return <div className="rounded-2xl border border-purple-100 bg-white p-4 shadow-sm"><p className="text-xs font-semibold text-slate-500">{title}</p><div className="mt-2 text-3xl font-black text-[#80227b]">{fmt(value)}</div>{caption&&<p className="mt-1 text-xs text-slate-400">{caption}</p>}</div>}
 function Panel({title,description,children}){return <section className="min-w-0 rounded-2xl border border-purple-100 bg-white p-5 shadow-sm"><h2 className="font-bold text-[#352039]">{title}</h2>{description&&<p className="mt-1 text-xs text-slate-500">{description}</p>}<div className="mt-4">{children}</div></section>}
 function Donut({items=[],selected,onPick}){
@@ -18,13 +18,47 @@ function Trend({items=[],selected,onPick}){const max=Math.max(1,...items.map(x=>
 export default function ActivityPage(){
  const [days,setDays]=useState('0'),[branch,setBranch]=useState(''),[social,setSocial]=useState(''),[device,setDevice]=useState(''),[question,setQuestion]=useState(''),[day,setDay]=useState(''),[page,setPage]=useState(1),[dash,setDash]=useState(null),[listing,setListing]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const params=useMemo(()=>{const p=new URLSearchParams({days});if(branch)p.set('branch_id',branch);if(social)p.set('social_work_id',social);if(device)p.set('device_id',device);if(question)p.set('question',question);if(day)p.set('day',day);return p},[days,branch,social,device,question,day]);
- const load=useCallback(async()=>{setBusy(true);try{const qp=new URLSearchParams(params);const [d,l]=await Promise.all([fetchData('/api/admin/actividad/dashboard?'+params),fetchData('/api/admin/actividad?'+(qp.set('page',String(page)),qp))]);setDash(d);setListing(l);setError('')}catch(e){setError(e.message)}finally{setBusy(false)}},[params,page]);
- useEffect(()=>{load()},[load]);const data=dash?.dashboard||{},totals=data.totals||{},pagination=listing?.pagination||{},isSuper=dash?.is_super_admin===true;
+ const requestRef=useRef(null);
+ const load=useCallback(async({silent=false}={})=>{
+   // Evitar peticiones simultáneas: un sondeo nunca interrumpe a otro.
+   if(requestRef.current){if(silent)return;requestRef.current.abort();}
+   const controller=new AbortController();
+   requestRef.current=controller;
+   if(!silent){setBusy(true);setError('');}
+   try{
+     const qp=new URLSearchParams(params);
+     qp.set('page',String(page));
+     const [d,l]=await Promise.all([
+       fetchData('/api/admin/actividad/dashboard?'+params,controller.signal),
+       fetchData('/api/admin/actividad?'+qp,controller.signal),
+     ]);
+     if(controller.signal.aborted)return;
+     setDash(d);setListing(l);setError('');
+   }catch(e){if(!controller.signal.aborted)setError(e?.message||'No se pudo actualizar actividad');}
+   finally{
+     if(requestRef.current===controller){
+       requestRef.current=null;
+       if(!silent)setBusy(false);
+     }
+   }
+ },[params,page]);
+ useEffect(()=>{
+   void load();
+   const interval=setInterval(()=>{if(!document.hidden)void load({silent:true});},5000);
+   const onVisible=()=>{if(!document.hidden)void load({silent:true});};
+   document.addEventListener('visibilitychange',onVisible);
+   return()=>{
+     clearInterval(interval);
+     document.removeEventListener('visibilitychange',onVisible);
+     requestRef.current?.abort();
+   };
+ },[load]);
+ const data=dash?.dashboard||{},totals=data.totals||{},pagination=listing?.pagination||{},isSuper=dash?.is_super_admin===true;
  const change=(set,next)=>{set(String(next??''));setPage(1)};
  const toggle=(set,value,current)=>change(set,current===String(value)?'':value);
  const reset=()=>{setBranch('');setSocial('');setDevice('');setQuestion('');setDay('');setPage(1)};
  const mostBranch=data.by_branch?.[0],mostDevice=data.by_device?.find(x=>x.id!=null),mostWork=data.by_social_work?.find(x=>x.id!=null);
- return <div className="mx-auto max-w-[1600px] space-y-5 pb-24"><header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#8f2a85]">Sucursales · desde inicio del piloto</p><h1 className="mt-1 text-3xl font-black">Actividad del bot</h1><p className="mt-1 text-sm text-slate-500">Sin las baterías históricas. Se conservan cuatro consultas iniciales y se agregan las nuevas de sucursal.</p></div><button type="button" disabled={busy} onClick={load} className="rounded-xl bg-[#8f2a85] px-4 py-2.5 text-sm font-semibold text-white">{busy?'Actualizando…':'Actualizar'}</button></header>
+ return <div className="mx-auto max-w-[1600px] space-y-5 pb-24"><header className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#8f2a85]">Sucursales · desde inicio del piloto</p><h1 className="mt-1 text-3xl font-black">Actividad del bot</h1><p className="mt-1 text-sm text-slate-500">Sin baterías históricas de desarrollo. Se actualiza automáticamente cada 5 segundos con las consultas nuevas de sucursal.</p></div><button type="button" disabled={busy} onClick={()=>void load()} className="rounded-xl bg-[#8f2a85] px-4 py-2.5 text-sm font-semibold text-white">{busy?'Actualizando…':'Actualizar'}</button></header>
  <div className="grid gap-3 rounded-2xl border border-purple-100 bg-white p-4 shadow-sm md:grid-cols-3"><label className="text-xs font-semibold text-slate-500">Sucursal<select value={branch} onChange={e=>change(setBranch,e.target.value)} className="mt-1 w-full rounded-xl border border-purple-100 p-2.5 text-sm"><option value="">Todas</option>{(listing?.branches||[]).map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label><label className="text-xs font-semibold text-slate-500">Obra social<select value={social} onChange={e=>change(setSocial,e.target.value)} className="mt-1 w-full rounded-xl border border-purple-100 p-2.5 text-sm"><option value="">Todas</option>{(listing?.social_works||[]).map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label><label className="text-xs font-semibold text-slate-500">Período<select value={days} onChange={e=>change(setDays,e.target.value)} className="mt-1 w-full rounded-xl border border-purple-100 p-2.5 text-sm"><option value="0">Todo el piloto</option><option value="1">24 horas</option><option value="7">7 días</option><option value="30">30 días</option></select></label></div>
  {(branch||social||device||question||day)&&<div className="flex flex-wrap items-center gap-2 text-xs"><span className="text-slate-500">Filtros activos:</span>{branch&&<button className="rounded-full bg-purple-100 px-3 py-1.5" onClick={()=>change(setBranch,'')}>Sucursal ×</button>}{social&&<button className="rounded-full bg-green-100 px-3 py-1.5" onClick={()=>change(setSocial,'')}>Obra social ×</button>}{device&&<button className="rounded-full bg-indigo-100 px-3 py-1.5" onClick={()=>change(setDevice,'')}>Dispositivo ×</button>}{day&&<button className="rounded-full bg-blue-100 px-3 py-1.5" onClick={()=>change(setDay,'')}>Día: {day} ×</button>}{question&&<button className="rounded-full bg-amber-100 px-3 py-1.5" onClick={()=>change(setQuestion,'')}>Pregunta: {question.slice(0,70)} ×</button>}<button className="underline text-[#8f2a85]" onClick={reset}>Limpiar todo</button></div>}
  {error&&<p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">{error}</p>}
