@@ -3463,9 +3463,52 @@ async function markAnalysisError({
     );
 }
 
+// Registramos una consulta de receta solamente si pertenece a una sesión real
+// de Sucursal, a la misma conversación y al mismo branch_id. Jamás clasificamos
+// una llamada anónima, administrativa o de batería como tráfico del piloto.
+async function logVisionPilotQuestion({request, conversation, activeImage, question, response, elapsedMs}) {
+  try {
+    if (!response?.ok || !String(response.answer || "").trim()) return;
+    const match = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") || "");
+    if (!match || !conversation?.user_id || !conversation?.branch_id) return;
+    const {data: {user} = {}, error: authError} = await supabaseAdmin.auth.getUser(match[1]);
+    if (authError || !user || String(user.id) !== String(conversation.user_id)) return;
+    const {data: profile, error: profileError} = await supabaseAdmin.from("profiles")
+      .select("id,role,active,branch_id").eq("id",user.id).maybeSingle();
+    if (profileError || profile?.active !== true || profile?.role !== "SUCURSAL") return;
+    if (Number(profile.branch_id) !== Number(conversation.branch_id)) return;
+    if (activeImage?.branch_id != null && Number(activeImage.branch_id) !== Number(conversation.branch_id)) return;
+
+    const normalized = String(question || "").normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+    const {error} = await supabaseAdmin.from("assistant_query_log").insert({
+      branch_id: conversation.branch_id,
+      device_id: conversation.device_id || null,
+      social_work_id: response.context?.social_work_id || response.social_work?.id || conversation.active_social_work_id || null,
+      traffic_type: "PILOT",
+      question,
+      normalized_question: normalized,
+      answer: String(response.answer),
+      source: response.source || "IMAGE_ANALYSIS",
+      route: response.route || "IMAGE_VISION_SAFE",
+      found: !["IMAGE_PRESCRIPTION_CHECK_NO_NORMATIVE", "IMAGE_NORMATIVE_NOT_FOUND"].includes(response.route),
+      input_tokens: response.usage?.input_tokens ?? 0,
+      output_tokens: response.usage?.output_tokens ?? 0,
+      total_tokens: response.usage?.total_tokens ?? 0,
+      elapsed_ms: elapsedMs,
+      openai_response_id: response.response_id || null,
+    });
+    if (error) console.error("No se pudo registrar consulta de receta digital en el piloto:", error.message);
+  } catch (error) {
+    // El registro estadístico no debe interrumpir una respuesta de receta válida.
+    console.error("Registro PILOT de receta digital:", error?.message || error);
+  }
+}
+
 export async function POST(
   request
 ) {
+  const startedAt = Date.now();
   let activeImage =
     null;
 
@@ -3626,6 +3669,14 @@ export async function POST(
         }
       );
     }
+
+    // Único punto de salida para respuestas exitosas del análisis visual.
+    // Se espera a guardar el log antes de enviar la respuesta; sin fire-and-forget.
+    const respondWithPilotLog = async (payload) => {
+      await logVisionPilotQuestion({request, conversation, activeImage, question,
+        response: payload, elapsedMs: Date.now() - startedAt});
+      return Response.json(payload);
+    };
 
     await supabaseAdmin
       .from(
@@ -3975,7 +4026,7 @@ export async function POST(
           activeImage.id,
       };
 
-      return Response.json({
+      return await respondWithPilotLog({
         ok: true,
 
         question,
@@ -4213,7 +4264,7 @@ export async function POST(
         !verification ||
         !verification.found
       ) {
-        return Response.json({
+        return await respondWithPilotLog({
           ok: true,
 
           question,
@@ -4238,7 +4289,7 @@ export async function POST(
         });
       }
 
-      return Response.json({
+      return await respondWithPilotLog({
         ok: true,
 
         question,
@@ -4360,7 +4411,7 @@ export async function POST(
     if (
       !targetSocialWork
     ) {
-      return Response.json({
+      return await respondWithPilotLog({
         ok: true,
 
         question,
@@ -4407,7 +4458,7 @@ export async function POST(
       !normative ||
       !normative.found
     ) {
-      return Response.json({
+      return await respondWithPilotLog({
         ok: true,
 
         question,
@@ -4432,7 +4483,7 @@ export async function POST(
       });
     }
 
-    return Response.json({
+    return await respondWithPilotLog({
       ok: true,
 
       question,

@@ -227,6 +227,18 @@ export default function FloatingAssistant() {
     };
   }
 
+  // Cada consulta debe llevar un JWT vigente; de lo contrario puede responder,
+  // pero el servidor no puede verificar que corresponde al tráfico PILOT.
+  async function getValidAssistantToken() {
+    const token = getLocalContext().accessToken;
+    if (!token) throw new Error("La sesión venció. Ingresá nuevamente para continuar.");
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
+      if (Number(payload?.exp || 0) * 1000 > Date.now() + 60_000) return token;
+    } catch {}
+    return await refreshStoredSession();
+  }
+
   // =========================================================
   // CREAR CONVERSACIÓN
   // =========================================================
@@ -560,6 +572,7 @@ export default function FloatingAssistant() {
     setError("");
 
     try {
+      const validAssistantToken = await getValidAssistantToken();
       const currentConversationId =
         await ensureConversation();
 
@@ -615,7 +628,7 @@ export default function FloatingAssistant() {
 
             headers: {
               "Content-Type": "application/json",
-              ...(getLocalContext().accessToken ? { Authorization: `Bearer ${getLocalContext().accessToken}` } : {}),
+              Authorization: `Bearer ${validAssistantToken}`,
             },
 
             body:
