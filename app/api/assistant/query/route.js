@@ -21,6 +21,7 @@ import {
 import { resolveInternalProcedure, isImmediateOperationalContingency, isSpecificNormativeQuestion } from "../../../../lib/assistant/internal-procedures";
 import { asksForPrescriptionChecklist, buildFichaPrescriptionChecklist } from "../../../../lib/assistant/prescription-safety.mjs";
 import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, isSpecificNormativeTopic } from "../../../../lib/assistant/linked-normatives.mjs";
+import { shouldPreferValidationProfile } from "../../../../lib/assistant/validation-profile-priority.mjs";
 
 export const runtime =
   "nodejs";
@@ -5766,13 +5767,17 @@ if (conversationId) {
 
 
 
-    const operationIntent =
-
-      detectOperationIntent(
-
-        question
-
-      );
+    // Una pregunta informativa sobre TYS/validador se responde desde
+    // Recordá/Ficha, aunque incluya «por dónde valido».
+    // Las preguntas por recepción, circuito o sucursal concreta mantienen
+    // prioridad operativa y sus controles de seguridad.
+    const detectedOperationIntent = detectOperationIntent(question);
+    const validationProfileIntent = detectSocialWorkProfileIntent(question);
+    const operationIntent = shouldPreferValidationProfile({
+      operationType: detectedOperationIntent?.operationType,
+      profileKey: validationProfileIntent?.key,
+      question,
+    }) ? null : detectedOperationIntent;
 
 
 
