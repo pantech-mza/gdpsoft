@@ -30,6 +30,8 @@ export async function GET(
           status,
           recipe_type,
           recipe_validity_days,
+          validator_name,
+          validator_type,
           letterhead,
           rp,
           diagnosis,

@@ -1,8 +1,9 @@
 "use client";
+import { formatMoneyUsd } from "../../../lib/assistant/format-money-usd.mjs";
 import {useCallback,useEffect,useMemo,useState} from 'react';
 import {refreshStoredSession} from '../../../lib/client/session';
 const palette=['#8f2a85','#93c01f','#5f76d0','#e7a53b','#189e91'];
-const money=v=>new Intl.NumberFormat('es-AR',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:4}).format(Number(v||0));
+const money=formatMoneyUsd;
 const num=v=>Number(v||0).toLocaleString('es-AR');
 async function get(days){let token=sessionStorage.getItem('gdpsoft_access_token')||await refreshStoredSession();const req=t=>fetch(`/api/admin/openai-usage?days=${days}`,{headers:{Authorization:`Bearer ${t}`},cache:'no-store'});let r=await req(token);if(r.status===401)r=await req(await refreshStoredSession());const j=await r.json().catch(()=>({}));if(!r.ok||!j.ok)throw Error(j.error||'Error consultando OpenAI');return j;}
 function Box({title,value,subtitle,accent='#8f2a85'}){return <div className="rounded-2xl border border-purple-100 bg-white p-5 shadow-sm"><p className="text-xs font-semibold text-slate-500">{title}</p><strong className="mt-2 block text-2xl font-black" style={{color:accent}}>{value}</strong>{subtitle&&<p className="mt-2 text-xs text-slate-400">{subtitle}</p>}</div>}

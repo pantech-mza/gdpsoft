@@ -1305,6 +1305,10 @@ function RememberTab({
 
   const fields = [
 
+    ["Plan", socialWork.plan],
+
+    ["Estado", socialWork.active ? "Activa" : "Inactiva"],
+
     ["Tipo de receta", socialWork.recipe_type],
 
     [
@@ -1318,6 +1322,10 @@ function RememberTab({
         : "-",
 
     ],
+
+    ["Validador", socialWork.validator_name],
+
+    ["¿Por dónde valida?", socialWork.validator_type],
 
     ["Membrete", socialWork.letterhead],
 

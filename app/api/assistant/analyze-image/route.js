@@ -1,8 +1,12 @@
+import { scopeLinkedNormatives } from "../../../../lib/assistant/linked-normatives.mjs";
 import OpenAI from "openai";
+import { resolveOperation } from "../../../../lib/operations/resolve-operation";
+import { formatCircuitResponse } from "../../../../lib/operations/camara-colegio-policy.mjs";
 
 import {
   supabaseAdmin,
 } from "../../../../lib/supabase/admin";
+import { needsManualPrescriptionReview, buildUncertainPrescriptionReply } from "../../../../lib/assistant/prescription-safety.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -1807,30 +1811,9 @@ function buildVisualAnswer({
       );
     }
 
-    const doubtful =
-      findField(
-        uncertain,
-        "affiliate_number"
-      );
-
+    const doubtful = findField(uncertain, "affiliate_number");
     if (doubtful) {
-      if (
-        doubtful
-          .raw_reading &&
-        String(
-          doubtful.raw_reading
-        ).includes("?")
-      ) {
-        return (
-          `No puedo confirmar el número completo. ` +
-          `Lectura parcial: ${doubtful.raw_reading}. ` +
-          `${doubtful.reason}`
-        );
-      }
-
-      return (
-        "No puedo confirmar con certeza el número completo de afiliado o socio."
-      );
+      return "No puedo confirmar con certeza el número completo de afiliado o socio. Verificalo manualmente en el original.";
     }
 
     return (
@@ -1881,19 +1864,8 @@ function buildVisualAnswer({
       const item of
         uncertain
     ) {
-      const partial =
-        item
-          ?.raw_reading &&
-        String(
-          item.raw_reading
-        ).includes("?")
-          ? ` Lectura parcial: ${item.raw_reading}.`
-          : "";
-
       lines.push(
-        `⚠ ${fieldLabel(
-          item.field
-        )}:${partial} ${item.reason}`
+        `⚠ ${fieldLabel(item.field)}: ${item.reason}`
       );
     }
   }
@@ -2286,14 +2258,7 @@ async function getNormativeCircuitScope(socialWorkId, requestedChannelId = null)
     .eq("social_work_id", Number(socialWorkId))
     .eq("normatives.is_current", true);
   if (error) return {ok:false,reason:"No pude verificar el circuito de las normativas."};
-  const rows = data || [];
-  const scopes = [...new Set(rows.map(x=>Number(x.billing_channel_id)).filter(x=>Number.isInteger(x) && x>0))];
-  if (scopes.length>1 && !requestedChannelId) return {ok:false,reason:"Esta obra social tiene normas de Cámara y Colegio. Indicá el circuito para revisar la receta con la fuente correcta."};
-  const ids = [...new Set(rows.filter(x=> x.billing_channel_id==null || !requestedChannelId || Number(x.billing_channel_id)===Number(requestedChannelId)).map(x=>Number(x.normative_id)).filter(x=>x>0))];
-  if (scopes.length>1 && !ids.length) return {ok:false,reason:"No hay normativa vigente para el circuito seleccionado."};
-  // Si hay muchas relaciones, no generar filtro mayor al límite operativo del buscador.
-  if (ids.length>10) return {ok:false,reason:"Hay varias normativas vigentes: requiere revisión de Administración para seleccionar la fuente."};
-  return {ok:true,normativeIds:ids,ambiguous:false};
+  return scopeLinkedNormatives(data || [], requestedChannelId);
 }
 
 // =========================================================
@@ -2449,58 +2414,23 @@ Respondé únicamente JSON:
             ],
 
             max_num_results:
-              6,
+              10,
 
-            filters: {
-              type:
-                "and",
-
-              filters: [
-                {
-                  type:
-                    "or",
-
-                  filters: [
-                    {
-                      type:
-                        "eq",
-
-                      key:
-                        "social_work_id",
-
-                      value:
-                        socialWorkId,
-                    },
-
-                    {
-                      type:
-                        "eq",
-
-                      key:
-                        "secondary_social_work_id",
-
-                      value:
-                        socialWorkId,
-                    },
-                  ],
-                },
-
-                {
-                  type:
-                    "eq",
-
-                  key:
-                    "is_current",
-
-                  value:
-                    true,
-                },
-                ...(normativeIds.length ? [{
-                  type:"or",
-                  filters:normativeIds.map(id=>({type:"eq",key:"normative_id",value:id})),
-                }] : []),
-              ],
-            },
+            // Vínculos vigentes aprobados en Supabase: incluye normas generales
+            // y extras unificadas (vacunas, insulinas), aunque el vector tenga
+            // un ID de obra social heredado diferente.
+            filters: normativeIds.length
+              ? {type:"and",filters:[
+                  {type:"eq",key:"is_current",value:true},
+                  {type:"or",filters:normativeIds.map(id=>({type:"eq",key:"normative_id",value:Number(id)}))},
+                ]}
+              : {type:"and",filters:[
+                  {type:"or",filters:[
+                    {type:"eq",key:"social_work_id",value:socialWorkId},
+                    {type:"eq",key:"secondary_social_work_id",value:socialWorkId},
+                  ]},
+                  {type:"eq",key:"is_current",value:true},
+                ]},
           },
         ],
 
@@ -3071,7 +3001,7 @@ async function verifyPrescriptionAgainstNormative({
         "OPTIONAL"
     );
 let result =
-  "Cumple los controles visibles verificables";
+  "Sin discrepancias en los controles visuales comprobables; requiere revisión humana";
 if (sourceConflicts.length || !normative.found) result = "Requiere revisión";
 
 if (
@@ -3882,6 +3812,20 @@ export async function POST(
         vision.responseId,
     });
 
+    // Si la OOSS escrita por el colaborador difiere de la detectada en
+    // el documento, NO seleccionar ninguna ni continuar la verificación.
+    if (questionSocialWork && imageSocialWork &&
+        Number(questionSocialWork.id) !== Number(imageSocialWork.id)) {
+      return await respondWithPilotLog({
+        ok:true, question,
+        answer:`La obra social indicada es ${questionSocialWork.name}, pero en la imagen parece figurar ${imageSocialWork.name}. No puedo confirmar cuál corresponde a esta receta. Revisá el documento original y volvé a preguntar indicando la obra social correcta. No se verificó la receta.`,
+        source:"IMAGE_ANALYSIS", route:"IMAGE_SOCIAL_WORK_CONFLICT",
+        context:{conversation_id:conversationId,branch_id:conversation.branch_id,
+          device_id:conversation.device_id,social_work_id:null,image_id:activeImage.id},
+        usage:vision.usage,ui:null,
+      });
+    }
+
     // =====================================================
     // DEFINIR OOSS OBJETIVO
     // =====================================================
@@ -4144,7 +4088,7 @@ export async function POST(
             error:
               `La consulta está actualmente en ${conversationSocialWork.name}, ` +
               `pero no puedo confirmar que esta receta corresponda a ${conversationSocialWork.name}. ` +
-              `Indicame la obra social de esta receta para verificarla correctamente.`,
+              `¿Me confirmás la obra social? Si la imagen es ilegible, te mostraré los requisitos de su Recordá/Ficha para que los controles manualmente.`,
 
             code:
               "SOCIAL_WORK_REQUIRED",
@@ -4187,7 +4131,7 @@ export async function POST(
             ok: false,
 
             error:
-              "No puedo validar esta receta todavía porque no puedo confirmar a qué obra social corresponde. Indicame la obra social y la verifico con los datos que sí puedo leer.",
+              buildUncertainPrescriptionReply(),
 
             code:
               "SOCIAL_WORK_REQUIRED",
@@ -4231,6 +4175,56 @@ export async function POST(
         if (selected) chosenChannelId = selected.id;
       }
 
+      // La modalidad operativa depende de sucursal + OOSS, no de interpretar
+      // un circuito en una letra manuscrita. No alteramos billingChannelId:
+      // Cámara–Colegio (procedimiento) no es sinónimo de canal documental.
+      let circuitAdvice = "";
+      if (conversation.branch_id && targetSocialWork?.id) {
+        try {
+          const operationResult = await resolveOperation({
+            branchId:conversation.branch_id,socialWorkId:targetSocialWork.id,
+          });
+          if (operationResult?.resolved) {
+            circuitAdvice = formatCircuitResponse(operationResult, "RECEPTION") || "";
+          }
+        } catch (circuitError) {
+          console.error("assistant prescription circuit resolution:", circuitError?.message);
+          circuitAdvice = "No pude consultar el circuito operativo de esta sucursal. Verificalo con Administración.";
+        }
+      }
+      const withCircuitAdvice = (answer) => circuitAdvice
+        ? `${answer}\n\n**Circuito de sucursal (independiente de la lectura de la receta):**\n${circuitAdvice}`
+        : answer;
+
+      // Si la escritura/imagen deja datos críticos sin verificar, no intentamos
+      // aprobarla ni calcular ausencia: ofrecemos Ficha para control HUMANO.
+      if (needsManualPrescriptionReview(analysis)) {
+        const {data:ficha, error:fichaError} = await supabaseAdmin
+          .from("social_works")
+          .select("name,recipe_type,recipe_validity_days,letterhead,rp,diagnosis,monodrug,commercial_name,substitution,observations")
+          .eq("id", targetSocialWork.id).maybeSingle();
+        if (fichaError) console.error("visual manual ficha:", fichaError.message);
+        const scope = await getNormativeCircuitScope(targetSocialWork.id, chosenChannelId);
+        return await respondWithPilotLog({
+          ok:true, question,
+          answer:withCircuitAdvice(buildUncertainPrescriptionReply({
+            socialWorkName:targetSocialWork.name,
+            ficha,
+            circuitWarning:scope.ok ? null : scope.reason,
+          })),
+          source:"SOCIAL_WORK_PROFILE",
+          route:"IMAGE_MANUAL_PRESCRIPTION_CHECKLIST",
+          found:Boolean(ficha),
+          social_work:targetSocialWork,
+          context:{conversation_id:conversationId,branch_id:conversation.branch_id,
+            device_id:conversation.device_id,social_work_id:targetSocialWork.id,
+            image_id:activeImage.id,social_work_source:targetSource},
+          image:{id:activeImage.id,document_type:analysis.document_type || "unknown"},
+          usage:vision.usage,
+          ui:null,
+        });
+      }
+
       const verification =
         await verifyPrescriptionAgainstNormative({
           analysis,
@@ -4269,8 +4263,8 @@ export async function POST(
 
           question,
 
-          answer:
-            verification?.answer || `Pude analizar la receta, pero no encontré normativa suficiente de ${targetSocialWork.name} para verificarla de forma segura.`,
+          answer:withCircuitAdvice(
+            verification?.answer || `Pude analizar la receta, pero no encontré normativa suficiente de ${targetSocialWork.name} para verificarla de forma segura.`),
 
           source:
             "IMAGE_ANALYSIS",
@@ -4295,7 +4289,7 @@ export async function POST(
         question,
 
         answer:
-          verification.answer,
+          withCircuitAdvice(verification.answer),
 
         source:
           "IMAGE_AND_NORMATIVE",

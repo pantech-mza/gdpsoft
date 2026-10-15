@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import {
   resolveOperation,
 } from "../../../../lib/operations/resolve-operation";
+import { formatCircuitResponse } from "../../../../lib/operations/camara-colegio-policy.mjs";
 
 import {
   supabaseAdmin,
@@ -18,6 +19,8 @@ import {
 } from "../../../../lib/assistant/socialWorkDetection";
 
 import { resolveInternalProcedure, isImmediateOperationalContingency, isSpecificNormativeQuestion } from "../../../../lib/assistant/internal-procedures";
+import { asksForPrescriptionChecklist, buildFichaPrescriptionChecklist } from "../../../../lib/assistant/prescription-safety.mjs";
+import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, isSpecificNormativeTopic } from "../../../../lib/assistant/linked-normatives.mjs";
 
 export const runtime =
   "nodejs";
@@ -1507,6 +1510,10 @@ function formatOperationAnswer(
   operationType
 
 ) {
+  // Toda respuesta operativa debe incluir circuito y límites de la evidencia.
+  // Nunca equivaler "circuito directo" a "receta válida".
+  const safeAnswer = formatCircuitResponse(result, operationType);
+  if (safeAnswer) return safeAnswer;
 
   const operation =
 
@@ -2871,6 +2878,16 @@ function detectSocialWorkProfileIntent(
   const q =
     normalize(question);
 
+  // La clase de validación (TYS / POR FUERA) no es el código TYS.
+  // Se conserva la obra social seleccionada en el chat para repreguntas breves.
+  const asksTysCode = containsAny(q, ["codigo tys", "código tys", "codigo de tys", "código de tys"]);
+  if (!asksTysCode && (
+    /\btys\b/.test(q) ||
+    containsAny(q, ["por donde valido", "por dónde valido", "tipo de validacion", "tipo de validación", "por donde se valida", "por dónde se valida", "que validador", "qué validador"])
+  )) {
+    return { field: "validator_type", key: "VALIDATION_METHOD" };
+  }
+
   // =====================================================
   // VIGENCIA DE RECETA
   // =====================================================
@@ -3239,6 +3256,8 @@ async function querySocialWorkProfile({
       id,
       name,
       tys_code,
+      validator_name,
+      validator_type,
       recipe_type,
       recipe_validity_days,
       letterhead,
@@ -3266,11 +3285,16 @@ async function querySocialWorkProfile({
   }
 
   const value = data[intent.field];
+  const hasValidator = Boolean(String(data.validator_name ?? "").trim());
+  const hasMethod = Boolean(String(data.validator_type ?? "").trim());
+  const hasValidationInfo = intent.key === "VALIDATION_METHOD" && (hasValidator || hasMethod);
 
   if (
+    !hasValidationInfo && (
     value === null ||
     value === undefined ||
     (typeof value === "string" && value.trim() === "")
+    )
   ) {
     return {
       found: false,
@@ -3318,6 +3342,14 @@ const cleanValue =
 
     case "SUBSTITUTION":
       answer = `Sustitución: ${value}.`;
+      break;
+
+    case "VALIDATION_METHOD":
+      answer = [
+        hasMethod ? `¿Por dónde valida?: ${String(data.validator_type).trim()}.` : "¿Por dónde valida?: sin dato confirmado en Ficha.",
+        hasValidator ? `Validador: ${String(data.validator_name).trim()}.` : "Validador: sin dato confirmado en Ficha.",
+        "Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta."
+      ].join("\n");
       break;
 
     case "TYS_CODE":
@@ -4444,6 +4476,12 @@ async function queryFileSearch({
 
   socialWorkId,
 
+  normativeIds = null,
+
+  maxResults = null,
+
+  maxOutputTokens = null,
+
 }) {
 
   if (
@@ -4500,6 +4538,7 @@ const instructions =
 Sos el asistente interno de normativas de Farmacias del Plata.
 
 Respondé exclusivamente usando la normativa recuperada.
+Para vacunas, insulinas, crónicos y otros planes especiales, considerá la normativa general y toda norma adicional vigente vinculada a ESTA obra social. Priorizá la norma específica del tema; si difieren, explicá el conflicto en vez de inventar.
 
 El usuario pidió detalle, pero eso NO significa explicar todos los temas relacionados.
 
@@ -4586,6 +4625,7 @@ No agregues preguntas opcionales en ese caso.
 Sos el asistente interno de normativas de Farmacias del Plata.
 
 Respondé exclusivamente usando la normativa recuperada.
+Para vacunas, insulinas, crónicos y otros planes especiales, considerá la normativa general y toda norma adicional vigente vinculada a ESTA obra social. Priorizá la norma específica del tema; si difieren, explicá el conflicto en vez de inventar.
 
 MODO RESPUESTA CORTA.
 
@@ -4667,7 +4707,7 @@ SEGURIDAD:
 
       max_output_tokens:
 
-        detailed
+        maxOutputTokens || (detailed
 
           ? 600
 
@@ -4675,7 +4715,7 @@ SEGURIDAD:
 
             ? 180
 
-            : 100,
+            : 100),
 
 
 
@@ -4711,102 +4751,22 @@ SEGURIDAD:
 
           max_num_results:
 
-            detailed
-
-              ? 4
-
-              : 3,
+            maxResults || (detailed ? 4 : 3),
 
 
 
-          filters: {
-
-            type: "and",
-
-
-
-            filters: [
-
-              {
-
-                type: "or",
-
-
-
-                filters: [
-
-                  {
-
-                    type:
-
-                      "eq",
-
-
-
-                    key:
-
-                      "social_work_id",
-
-
-
-                    value:
-
-                      socialWorkId,
-
-                  },
-
-
-
-                  {
-
-                    type:
-
-                      "eq",
-
-
-
-                    key:
-
-                      "secondary_social_work_id",
-
-
-
-                    value:
-
-                      socialWorkId,
-
-                  },
-
-                ],
-
-              },
-
-
-
-              {
-
-                type:
-
-                  "eq",
-
-
-
-                key:
-
-                  "is_current",
-
-
-
-                value:
-
-                  true,
-
-              },
-
-            ],
-
-          },
-
+          filters: Array.isArray(normativeIds) && normativeIds.length
+          ? {type:"and", filters:[
+              {type:"eq",key:"is_current",value:true},
+              {type:"or", filters:normativeIds.map(id=>({type:"eq",key:"normative_id",value:Number(id)}))},
+            ]}
+          : {type:"and", filters:[
+              {type:"or", filters:[
+                {type:"eq",key:"social_work_id",value:socialWorkId},
+                {type:"eq",key:"secondary_social_work_id",value:socialWorkId},
+              ]},
+              {type:"eq",key:"is_current",value:true},
+            ]},
         },
 
       ],
@@ -5862,7 +5822,7 @@ if (conversationId) {
 
         ) {
 
-          const answer =
+          let answer =
 
             formatOperationAnswer(
 
@@ -5872,6 +5832,19 @@ if (conversationId) {
 
             );
 
+          // El circuito es específico de sucursal; la ficha agrega tipo/validador,
+          // pero nunca reemplaza una excepción operativa ni una regla en revisión.
+          if (operationIntent.operationType === "VALIDATION" &&
+              operationResult.source !== "POLICY_REVIEW_REQUIRED") {
+            const fichaValidation = await querySocialWorkProfile({
+              socialWorkId,
+              intent: { field: "validator_type", key: "VALIDATION_METHOD" },
+            });
+            if (fichaValidation.found && answer) {
+              answer += `\n\n${fichaValidation.answer}\nSi el circuito indicado anteriormente difiere de la ficha, consultá con Administración antes de validar.`;
+            }
+          }
+
 
 
           const elapsedMs =
@@ -5879,6 +5852,11 @@ if (conversationId) {
             Date.now() -
 
             startedAt;
+          const operationSource = operationResult.source === "POLICY_REVIEW_REQUIRED"
+            ? "GDP_OPERATION_REVIEW"
+            : operationResult.source?.startsWith("DECLARED_")
+              ? "GDP_OPERATION_PROCEDURE" : "SUPABASE_OPERATION_RULE";
+          const operationFound = operationResult.source !== "POLICY_REVIEW_REQUIRED";
 
 
 
@@ -5896,7 +5874,7 @@ if (conversationId) {
 
             source:
 
-              "SUPABASE_OPERATION_RULE",
+              operationSource,
 
 
 
@@ -5906,7 +5884,7 @@ if (conversationId) {
 
 
 
-            found: true,
+            found: operationFound,
 
 
 
@@ -5942,7 +5920,7 @@ if (conversationId) {
 
             source:
 
-              "SUPABASE_OPERATION_RULE",
+              operationSource,
 
 
 
@@ -6026,29 +6004,28 @@ if (conversationId) {
 
 
 
-        /**
-
- * * Si detectamos una consulta operativa
-
- * * pero no existe regla aplicable,
-
- * * seguimos hacia:
-
- * *
-
- * * contactos
-
- * * reglas
-
- * * FAQ
-
- * * cache
-
- * * File Search
-
- */
-
+        // Si no existe una regla, impedir una respuesta de aprobación inventada.
+        const answer = !socialWorkId
+          ? "Indicame a qué obra social te referís para consultar el circuito habilitado para tu sucursal."
+          : "No encontré una regla operativa confirmada para esta combinación de sucursal y obra social. No puedo asegurar si se recibe ni por qué circuito. Consultá con Administración antes de recibir la receta.";
+        const elapsedMs = Date.now() - startedAt;
+        await logCurrentQuery({branchId,socialWorkId,question,answer,
+          source:"GDP_OPERATION_SAFETY",route:"OPERATION_NOT_CONFIRMED",found:false,
+          elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+        return Response.json({ok:true,question,answer,source:"GDP_OPERATION_SAFETY",
+          route:"OPERATION_NOT_CONFIRMED",found:false,context:responseContext,
+          elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
       }
+
+      // Sin sucursal tampoco se puede decidir Cámara/Colegio de forma segura.
+      const answer = "Necesito identificar la sucursal para verificar si puede recibir esta obra social y por qué circuito. No puedo confirmarlo sin ese dato.";
+      const elapsedMs = Date.now() - startedAt;
+      await logCurrentQuery({branchId,socialWorkId,question,answer,
+        source:"GDP_OPERATION_SAFETY",route:"OPERATION_BRANCH_REQUIRED",found:false,
+        elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+      return Response.json({ok:true,question,answer,source:"GDP_OPERATION_SAFETY",
+        route:"OPERATION_BRANCH_REQUIRED",found:false,context:responseContext,
+        elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
 
     }
 
@@ -6351,6 +6328,69 @@ if (
 }
 
 
+
+   // =====================================================
+// 2.9 LISTA COMPLETA DE REQUISITOS DE RECETA
+// Una pregunta amplia NO se responde con un único campo de Ficha.
+// =====================================================
+if (asksForPrescriptionChecklist(question)) {
+  const {data:ficha, error:fichaError} = await supabaseAdmin.from("social_works")
+    .select("id,name,recipe_type,recipe_validity_days,letterhead,rp,diagnosis,monodrug,commercial_name,substitution,observations")
+    .eq("id", socialWorkId).maybeSingle();
+  if (fichaError) console.error("ficha checklist:", fichaError.message);
+
+  // Los requisitos de Cámara y Colegio no se pueden mezclar.
+  const {data:relations, error:relationsError} = await supabaseAdmin
+    .from("normative_social_works")
+    .select("normative_id,billing_channel_id,normatives!inner(is_current)")
+    .eq("social_work_id", Number(socialWorkId))
+    .eq("normatives.is_current", true);
+  if (relationsError) console.error("checklist scope:", relationsError.message);
+  const scope = relationsError
+    ? {ok:false, reason:"No pude verificar las normativas vinculadas."}
+    : scopeLinkedNormatives(relations || [], activeBillingChannelId);
+  let answer;
+  let source = "SOCIAL_WORK_PROFILE";
+  let route = "PRESCRIPTION_CHECKLIST_SAFE";
+  let usage = {input_tokens:0, output_tokens:0, total_tokens:0};
+  const fichaLines = buildFichaPrescriptionChecklist(ficha);
+  if (!scope.ok) {
+    answer = scope.reason;
+    route = "PRESCRIPTION_CHECKLIST_CIRCUIT_CLARIFICATION";
+  } else {
+    const ids = scope.normativeIds;
+    const normative = ids.length
+      ? await queryFileSearch({
+          question: `Detallá exclusivamente todos los requisitos para aceptar una receta de ${ficha?.name || "esta obra social"}, diferenciando tipo de receta cuando la normativa lo indique. No inventes ni uses protocolos internos. Enumerá sólo requisitos respaldados por documentos recuperados; si no hay evidencia, decilo.`,
+          socialWorkId,
+          normativeIds: ids,
+          maxResults: isSpecificNormativeTopic(question) ? 12 : 8,
+          maxOutputTokens: 1200,
+        }) : null;
+    const hasDocument = Boolean(normative?.search?.results?.length && normative.answer && !isInsufficientAnswer(normative.answer));
+    const sections = [`Revisión de receta para ${ficha?.name || "esta obra social"}:`];
+    if (fichaLines.length) sections.push("Recordá/Ficha (datos registrados):", ...fichaLines);
+    else sections.push("No hay campos de receta disponibles en Recordá/Ficha.");
+    if (hasDocument) {
+      const documentNames = [...new Set((normative.search.results || [])
+        .map((r) => String(r.filename || "").trim()).filter(Boolean))].slice(0, 8);
+      sections.push("", "Normativa vigente (requisitos encontrados, lista no necesariamente exhaustiva):", normative.answer);
+      if (documentNames.length) sections.push("Documentos recuperados: " + documentNames.join("; "));
+      source = "SOCIAL_WORK_PROFILE_AND_NORMATIVE";
+      route = "PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE";
+      usage = normative.usage || usage;
+    } else {
+      sections.push("", "No pude recuperar un listado completo respaldado por la normativa vigente.");
+    }
+    sections.push("", "Comprobá el plan y circuito y revisá los campos directamente en la receta. Este resumen no autoriza por sí solo su recepción ni dispensación.");
+    answer = sections.join("\n");
+  }
+  const elapsedMs = Date.now() - startedAt;
+  await logCurrentQuery({branchId, socialWorkId, question, answer, source, route,
+    found: true, elapsedMs, usage});
+  return Response.json({ok:true, question, answer, source, route, found:true,
+    context:responseContext, elapsed_ms:elapsedMs, usage});
+}
 
    // =====================================================
 // 3. RECORDÁ / FICHA
@@ -7078,7 +7118,7 @@ if (
   const cachedAnswer =
   (
     branchId &&
-    !skipAnswerCache
+    !skipAnswerCache && !isSpecificNormativeTopic(question)
   )
     ? await getCachedAnswer({
         branchId,
@@ -7277,13 +7317,32 @@ if (
 
 
 
-const result =
-  await queryFileSearch({
-    question:
-      fileSearchQuestion,
-
-    socialWorkId,
-  });
+// Selección de documentos a partir de vínculos actuales en Supabase.
+// Incluye normas generales y anexos (vacunas, insulinas, etc.) del MISMO app_id.
+// Ante circuitos diferentes no se combinan normativas sin confirmar Cámara/Colegio.
+const normativeScope = await getLinkedCurrentNormativeScope(
+  supabaseAdmin, socialWorkId, activeBillingChannelId,
+);
+if (!normativeScope.ok) {
+  const answer = normativeScope.reason;
+  const elapsedMs = Date.now() - startedAt;
+  await logCurrentQuery({branchId,socialWorkId,question,answer,
+    source:"GDP_NORMATIVE_SCOPE",route:"NORMATIVE_SCOPE_UNVERIFIED",found:false,
+    elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+  return Response.json({ok:true,question,answer,source:"GDP_NORMATIVE_SCOPE",
+    route:"NORMATIVE_SCOPE_UNVERIFIED",found:false,context:responseContext,
+    elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+}
+const specialNormativeTopic = isSpecificNormativeTopic(fileSearchQuestion);
+const result = await queryFileSearch({
+  question: specialNormativeTopic
+    ? `${fileSearchQuestion} Revisá también los anexos o normativas específicas del tema, además de la normativa general, sin mezclar planes o circuitos.`
+    : fileSearchQuestion,
+  socialWorkId,
+  normativeIds: normativeScope.normativeIds,
+  maxResults: specialNormativeTopic ? 12 : 5,
+  maxOutputTokens: specialNormativeTopic ? 650 : null,
+});
 
 
 

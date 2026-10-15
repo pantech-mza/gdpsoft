@@ -568,6 +568,9 @@ function RememberView({
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 
+        <FichaCard label="Plan" value={socialWork.plan} />
+        <FichaCard label="Estado" value={socialWork.active ? "Activa" : "Inactiva"} />
+
         <FichaCard
           label="Tipo de receta"
           value={
@@ -583,6 +586,16 @@ function RememberView({
               ? `${socialWork.recipe_validity_days} días`
               : "-"
           }
+        />
+
+        <FichaCard
+          label="Validador"
+          value={socialWork.validator_name}
+        />
+
+        <FichaCard
+          label="¿Por dónde valida?"
+          value={socialWork.validator_type}
         />
 
         <FichaCard
