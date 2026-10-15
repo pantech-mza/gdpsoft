@@ -36,7 +36,7 @@ test('La ruta de PDF registra todas las respuestas exitosas y solamente actor SU
  assert.match(js,/device_id: conversation\.device_id/);
  assert.match(js,/\.from\("assistant_query_log"\)\.insert/);
  const sends=js.match(/return await respondWithPilotLog\(\{/g)||[];
- assert.equal(sends.length,6);
+ assert.equal(sends.length,8); // incluye revisión manual y conflicto de OOSS
 });
 test('Validación consulta las semillas congeladas y el tráfico PILOT y autoriza POST con la misma regla',()=>{
  const js=readFileSync(new URL('../../app/api/admin/validacion/route.js',import.meta.url),'utf8');
