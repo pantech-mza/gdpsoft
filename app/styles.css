@@ -1712,7 +1712,7 @@ h2{font-size:17px;letter-spacing:-.02em}
 @media (min-width: 1024px) {
   .gdpLoginPage {
     zoom: 65%;
-    width: 153.846154%;
+    width: 100%;
     min-height: 153.846154svh;
   }
 }
