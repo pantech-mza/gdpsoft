@@ -11,6 +11,8 @@ import {
 
 import { refreshStoredSession } from "../lib/client/session";
 
+import { interpretPrescriptionContextReply } from "../lib/assistant/recipe-context-clarification.mjs";
+
 import {
   useEffect,
   useRef,
@@ -78,6 +80,9 @@ export default function FloatingAssistant() {
   ] =
     useState(null);
 
+  // Solo para la confirmación puntual de una receta NUEVA sin OOSS.
+  const [pendingRecipeContext, setPendingRecipeContext] = useState(null);
+
   const [
     usedTopics,
     setUsedTopics,
@@ -120,6 +125,7 @@ export default function FloatingAssistant() {
         setActivePlan(saved.activePlan || null);
         setActiveImage(saved.activeImage || null);
         setPendingSocialWorkQuestion(saved.pendingSocialWorkQuestion || null);
+        setPendingRecipeContext(saved.pendingRecipeContext || null);
         setUsedTopics(Array.isArray(saved.usedTopics) ? saved.usedTopics : []);
         setQuestion(saved.question || "");
         setActiveActionMessageId(saved.activeActionMessageId || null);
@@ -141,13 +147,13 @@ export default function FloatingAssistant() {
       sessionStorage.setItem(CHAT_SNAPSHOT_KEY, JSON.stringify({
         owner, savedAt: Date.now(), open, messages: messages.slice(-100),
         conversationId, activeSocialWork, activePlan, activeImage,
-        pendingSocialWorkQuestion, usedTopics, question, activeActionMessageId,
+        pendingSocialWorkQuestion, pendingRecipeContext, usedTopics, question, activeActionMessageId,
       }));
     } catch (error) {
       console.warn("No se pudo guardar la conversación local:", error);
     }
   }, [chatRestored, open, messages, conversationId, activeSocialWork,
-      activePlan, activeImage, pendingSocialWorkQuestion, usedTopics,
+      activePlan, activeImage, pendingSocialWorkQuestion, pendingRecipeContext, usedTopics,
       question, activeActionMessageId]);
 
   const messagesEndRef =
@@ -493,6 +499,15 @@ export default function FloatingAssistant() {
       data
     );
 
+    if (data?.route === "RECIPE_SOCIAL_WORK_CONFIRMATION" && data?.clarification?.original_question) {
+      setPendingRecipeContext({
+        originalQuestion: data.clarification.original_question,
+        socialWorkId: Number(data?.context?.social_work_id),
+        socialWorkName: data?.social_work?.name || activeSocialWork?.name || "la obra social activa",
+        stage: "confirm",
+      });
+    }
+
     const messageId =
       crypto.randomUUID();
 
@@ -550,6 +565,7 @@ export default function FloatingAssistant() {
     question = "",
     topic = null,
     plan = null,
+    recipeClarification = null,
   }) {
     if (loading) {
       return;
@@ -617,6 +633,7 @@ export default function FloatingAssistant() {
                 null,
 
               usedTopics,
+              ...(recipeClarification ? {recipeClarification} : {}),
             };
 
       const response =
@@ -824,6 +841,7 @@ export default function FloatingAssistant() {
       processAssistantResponse(
         data
       );
+      return true;
     } catch (err) {
       console.error(
         "FloatingAssistant:",
@@ -852,11 +870,58 @@ export default function FloatingAssistant() {
           },
         ]
       );
+      return false;
     } finally {
       setLoading(
         false
       );
     }
+  }
+
+  // =========================================================
+  // RESPUESTA A UNA RECETA NUEVA SIN OOSS EXPLÍCITA
+  // =========================================================
+
+  async function answerRecipeContext(rawText) {
+    if (!pendingRecipeContext || loading) return;
+    const reply = String(rawText || "").trim();
+    if (!reply) return;
+    const pending = pendingRecipeContext;
+    const action = interpretPrescriptionContextReply(reply);
+    if (pending.stage === "confirm" && action === "ASK_OTHER") {
+      addUserMessage("No");
+      setPendingRecipeContext({...pending,stage:"new"});
+      setActiveActionMessageId(null);
+      setMessages(current => [...current, {
+        id: crypto.randomUUID(), role:"assistant",type:"text",
+        text:"¿A qué obra social pertenece la receta?",
+      }]);
+      setQuestion("");
+      return;
+    }
+    if (pending.stage === "new" && action === "ASK_OTHER") {
+      addUserMessage(reply);
+      setMessages(current => [...current, {
+        id: crypto.randomUUID(), role:"assistant",type:"text",
+        text:"Escribí el nombre de la obra social para poder continuar.",
+      }]);
+      setQuestion("");
+      return;
+    }
+    const confirm = pending.stage === "confirm" && action === "CONFIRM_ACTIVE";
+    // Al ingresar la nueva OOSS, el servidor la valida antes de cambiar el
+    // contexto. Si no la reconoce, conserva la pregunta para volver a intentar.
+    const recipeClarification = confirm
+      ? {action:"CONFIRM_ACTIVE",expectedSocialWorkId:pending.socialWorkId}
+      : {action:"SELECT_OTHER",socialWorkName:reply};
+    setQuestion("");
+    setActiveActionMessageId(null);
+    const ok = await requestAssistant({
+      displayText:reply,
+      question:pending.originalQuestion,
+      recipeClarification,
+    });
+    if (ok) setPendingRecipeContext(null);
   }
 
   // =========================================================
@@ -871,6 +936,11 @@ export default function FloatingAssistant() {
       !cleanQuestion ||
       loading
     ) {
+      return;
+    }
+
+    if (pendingRecipeContext) {
+      await answerRecipeContext(cleanQuestion);
       return;
     }
 
@@ -927,6 +997,12 @@ export default function FloatingAssistant() {
       message.id !==
         activeActionMessageId
     ) {
+      return;
+    }
+
+    if (message?.ui?.type === "CONFIRM_SOCIAL_WORK" && pendingRecipeContext) {
+      if (action.type === "YES") await answerRecipeContext("Sí");
+      if (action.type === "NO") await answerRecipeContext("No");
       return;
     }
 
@@ -1121,6 +1197,8 @@ export default function FloatingAssistant() {
     setPendingSocialWorkQuestion(
       null
     );
+
+    setPendingRecipeContext(null);
 
     setUsedTopics(
       []
@@ -1375,8 +1453,7 @@ export default function FloatingAssistant() {
                       {message.role ===
                         "assistant" &&
                         message?.ui
-                          ?.type ===
-                          "YES_NO" && (
+                          ?.type && ["YES_NO", "CONFIRM_SOCIAL_WORK"].includes(message.ui.type) && (
                           <div className="mt-2 max-w-[88%]">
 
                             {message.ui

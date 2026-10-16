@@ -24,10 +24,14 @@ test('general branch questions: varias formulaciones de usuarios DP1',()=>{
 });
 
 test('el endpoint chat evita validar socialWorkId antes de delegar preguntas de sucursal',()=>{
-  const guard=chat.indexOf('// SI SIGUE SIN OOSS');
-  const exception=chat.indexOf('if (originalQuestion && !topic && isGeneralBranchCircuitQuestion(originalQuestion))');
-  assert.ok(exception>0 && exception<guard);
-  assert.match(chat,/callAssistantQuery\(\{[\s\S]*?question: originalQuestion,[\s\S]*?\}\);/);
+  const guard = chat.indexOf('// SI SIGUE SIN OOSS');
+  // Desde v3.13.6 se agrega !recipeClarification para no interrumpir
+  // la confirmación de una receta; la excepción debe seguir ANTES del guard.
+  const branches = [...chat.matchAll(/if\s*\(\s*originalQuestion\s*&&\s*!topic\s*&&(?:\s*!recipeClarification\s*&&)?\s*isGeneralBranchCircuitQuestion\(originalQuestion\)\s*\)/g)];
+  assert.equal(branches.length, 1, 'Debe existir una sola excepción de circuito general');
+  const exception = branches[0].index;
+  assert.ok(exception > 0 && exception < guard, 'El circuito general debe resolverse antes de exigir OOSS');
+  assert.match(chat.slice(exception, guard), /callAssistantQuery\(\{[\s\S]*?question:\s*originalQuestion,/);
 });
 
 test('el endpoint query no exige socialWorkId para consulta general de sucursal',()=>{

@@ -12,6 +12,10 @@ import {
   detectSocialWorks,
 } from "../../../../lib/assistant/socialWorkDetection";
 
+import {
+  shouldConfirmNewPrescriptionContext,
+} from "../../../../lib/assistant/recipe-context-clarification.mjs";
+
 export const runtime = "nodejs";
 
 export const dynamic =
@@ -918,11 +922,48 @@ export async function POST(
       );
     }
 
+    // Excepción para UNA receta nueva sin OOSS explícita. No cambia
+    // la persistencia habitual de active_social_work_id.
+    const recipeClarification = body?.recipeClarification || null;
+    let namedSocialWorkInQuestion = false;
+
+    if (recipeClarification) {
+      const action = String(recipeClarification.action || "");
+      if (!shouldConfirmNewPrescriptionContext({
+        question: originalQuestion,
+        activeSocialWorkId: conversation.active_social_work_id,
+      }) || !["CONFIRM_ACTIVE", "SELECT_OTHER"].includes(action)) {
+        return Response.json({ok:false,code:"INVALID_RECIPE_CLARIFICATION",error:"Confirmación de receta no válida."},{status:400});
+      }
+
+      if (action === "CONFIRM_ACTIVE") {
+        // Si cambió el contexto mientras había una confirmación pendiente,
+        // jamás responder con otra OOSS por accidente.
+        if (Number(recipeClarification.expectedSocialWorkId) !== Number(conversation.active_social_work_id)) {
+          return Response.json({ok:false,code:"RECIPE_CONTEXT_CHANGED",error:"Cambió la obra social activa. Volvé a consultar la receta."},{status:409});
+        }
+      } else {
+        const candidate = String(recipeClarification.socialWorkName || "").trim();
+        if (!candidate || candidate.length > 120) {
+          return Response.json({ok:false,code:"RECIPE_SOCIAL_WORK_UNKNOWN",error:"Indicame el nombre de la nueva obra social."},{status:400});
+        }
+        const detected = await detectSocialWork(candidate);
+        if (detected.multiple || !detected.found || !detected.socialWork) {
+          return Response.json({ok:false,code:"RECIPE_SOCIAL_WORK_UNKNOWN",error:"No pude identificar esa obra social. Escribí el nombre completo para continuar con la receta."},{status:400});
+        }
+        const selectedId = Number(detected.socialWork.id);
+        if (selectedId !== Number(conversation.active_social_work_id)) {
+          await setConversationSocialWork({conversationId,socialWorkId:selectedId});
+          conversation = {...conversation,active_social_work_id:selectedId,active_billing_channel_id:null};
+        }
+      }
+    }
+
     // =====================================================
     // DETECTAR OOSS NOMBRADA
     // =====================================================
 
-    if (originalQuestion) {
+    if (originalQuestion && !recipeClarification) {
       const detection =
         await detectSocialWork(
           originalQuestion
@@ -961,6 +1002,7 @@ export async function POST(
       if (
         detection.found
       ) {
+        namedSocialWorkInQuestion = true;
         const detectedId =
           Number(
             detection
@@ -999,16 +1041,12 @@ export async function POST(
           .active_social_work_id
       );
 
-    // GDPSoft v3.12.5: la pertenencia de la sucursal a Cámara/Colegio
-    // no requiere seleccionar obra social. Consultar el router central para
-    // usar la sucursal guardada en la conversación, no datos del frontend.
-    if (originalQuestion && !topic && isGeneralBranchCircuitQuestion(originalQuestion)) {
+    // La consulta general de pertenencia Cámara/Colegio no pide una obra social.
+    if (originalQuestion && !topic && !recipeClarification && isGeneralBranchCircuitQuestion(originalQuestion)) {
       const { response, data } = await callAssistantQuery({
-        request,
-        conversationId,
-        question: originalQuestion,
+        request, conversationId, question: originalQuestion,
       });
-      return Response.json(data, { status: response.status });
+      return Response.json(data, {status: response.status});
     }
 
     // =====================================================
@@ -1041,6 +1079,27 @@ export async function POST(
       await loadSocialWork(
         socialWorkId
       );
+
+    // Solo repreguntar si se presentó una receta NUEVA con un dato
+    // faltante, sin nombrar otra OOSS. Una continuación normal no repregunta.
+    if (!recipeClarification && shouldConfirmNewPrescriptionContext({
+      question: originalQuestion,
+      activeSocialWorkId: socialWorkId,
+      namedSocialWork: namedSocialWorkInQuestion,
+      topic,
+    })) {
+      return Response.json({
+        ok: true,
+        answer: `¿La receta pertenece a ${socialWork?.name || "la obra social activa"}, la obra social que estás consultando actualmente?`,
+        source: "STRUCTURED_CLARIFICATION",
+        route: "RECIPE_SOCIAL_WORK_CONFIRMATION",
+        found: true,
+        context: { conversation_id: conversationId, social_work_id: socialWorkId },
+        social_work: socialWork,
+        clarification: { original_question: originalQuestion },
+        ui: {type: "CONFIRM_SOCIAL_WORK"},
+      });
+    }
 
     // =====================================================
     // PLANES
