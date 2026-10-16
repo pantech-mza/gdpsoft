@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "../../../../lib/supabase/admin";
+import { setGDPPageCookies } from "../../../../lib/server/gdp-session-cookies.mjs";
 
 export async function POST(request) {
   try {
@@ -252,7 +253,7 @@ export async function POST(request) {
     // 6. Respuesta
     // ---------------------------------------------------------
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
 
       session: {
@@ -280,6 +281,7 @@ export async function POST(request) {
 
       modules,
     });
+    return setGDPPageCookies(response, signInData.session);
   } catch (error) {
     console.error(
       "POST /api/auth/login unexpected error:",

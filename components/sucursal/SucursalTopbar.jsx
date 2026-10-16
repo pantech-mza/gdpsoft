@@ -108,9 +108,17 @@ export default function SucursalTopbar() {
     loadWeather();
   }, []);
 
-  function logout() {
-    sessionStorage.clear();
-    router.replace("/");
+  async function logout() {
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST", cache: "no-store" });
+      if (!response.ok) throw new Error("No se pudo cerrar la sesión en el servidor");
+      sessionStorage.clear();
+      router.replace("/");
+      router.refresh();
+    } catch (error) {
+      console.error("GDPSoft logout:", error);
+      alert("No se pudo cerrar sesión por completo. Intentá nuevamente.");
+    }
   }
 
   function contactSupport() {

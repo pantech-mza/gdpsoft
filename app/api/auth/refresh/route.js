@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { setGDPPageCookies } from "../../../../lib/server/gdp-session-cookies.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,7 +51,7 @@ export async function POST(request) {
       );
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ok: true,
       session: {
         access_token: data.session.access_token,
@@ -58,6 +59,7 @@ export async function POST(request) {
         expires_at: data.session.expires_at,
       },
     });
+    return setGDPPageCookies(response, data.session);
   } catch (error) {
     console.error("POST /api/auth/refresh:", error);
     return NextResponse.json(
