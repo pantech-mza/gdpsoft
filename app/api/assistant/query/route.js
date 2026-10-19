@@ -2891,15 +2891,17 @@ function detectSocialWorkProfileIntent(
   const asksValidatorName = !asksTysCode && /\bvalidador(?:es)?\b/.test(q) &&
     /\b(?:como se llama|nombre del validador|nombre de validador|cual es el validador|cual validador|que validador|validador (?:usa|utiliza|tiene|de|para))\b/.test(q) &&
     !/\b(?:se cayo|no funciona|no anda|sin servicio|caido|caida|falla|error|rechaza|rechazo|circuito|camara|colegio)\b/.test(q);
-  const asksWhere = /\b(?:por donde valido|donde valido|por donde se valida|tipo de validacion|por donde validar)\b/.test(q);
+  // GDPSoft v3.13.17: prioridades fijas de Ficha para nombre y medio de validación.
+  // Sólo el nombre del validador y su medio (TYS, etc.) vienen de social_works.
+  // "por dónde valida" y "por dónde valido" son consultas sobre la Ficha,
+  // no direcciones físicas, documentación normativa ni circuitos de sucursal.
+  const asksWhere = /\b(?:por donde (?:valido|valida|validamos|validan|validar|se valida)|donde (?:valido|valida|validamos|validan|validar|se valida)|en que (?:sistema|plataforma|medio) (?:se )?valida|tipo de validacion|medio de validacion)\b/.test(q);
+  const isValidationProblem = /\b(?:se cayo|caido|caida|no funciona|no anda|falla|fallando|error|rechazo|rechaza|fuera de servicio|sin servicio|no puedo validar|no valida|no me valida)\b/.test(q);
   if (asksValidatorName && !asksWhere) {
     return { field: "validator_name", key: "VALIDATOR_NAME" };
   }
-
-  if (!asksTysCode && (
-    /\btys\b/.test(q) ||
-    containsAny(q, ["por donde valido", "por dónde valido", "tipo de validacion", "tipo de validación", "por donde se valida", "por dónde se valida", "que validador", "qué validador"])
-  )) {
+  // Sin dato cargado en Ficha: informar que falta, NUNCA ir a File Search.
+  if (!asksTysCode && !isValidationProblem && (asksWhere || /\btys\b/.test(q) || containsAny(q, ["que validador", "qué validador"]))) {
     return { field: "validator_type", key: "VALIDATION_METHOD" };
   }
 
@@ -3302,7 +3304,9 @@ async function querySocialWorkProfile({
   const value = data[intent.field];
   const hasValidator = Boolean(String(data.validator_name ?? "").trim());
   const hasMethod = Boolean(String(data.validator_type ?? "").trim());
-  const hasValidationInfo = (intent.key === "VALIDATION_METHOD" && (hasValidator || hasMethod)) || intent.key === "VALIDATOR_NAME";
+  // Campos de validador: la Ficha es autoritativa aun cuando no esté completo el dato.
+  // Una ausencia jamás habilita una búsqueda normativa como sustituto.
+  const hasValidationInfo = ["VALIDATION_METHOD", "VALIDATOR_NAME"].includes(intent.key);
 
   if (
     !hasValidationInfo && (
@@ -3367,7 +3371,7 @@ const cleanValue =
 
     case "VALIDATION_METHOD":
       answer = [
-        hasMethod ? `¿Por dónde valida?: ${String(data.validator_type).trim()}.` : "¿Por dónde valida?: sin dato confirmado en Ficha.",
+        hasMethod ? `Por dónde valida: ${String(data.validator_type).trim()}.` : "Por dónde valida: sin dato confirmado en Recordá/Ficha.",
         hasValidator ? `Validador: ${String(data.validator_name).trim()}.` : "Validador: sin dato confirmado en Ficha.",
         "Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta."
       ].join("\n");
