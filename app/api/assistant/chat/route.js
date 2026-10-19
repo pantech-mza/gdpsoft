@@ -2,6 +2,8 @@ import {
   supabaseAdmin,
 } from "../../../../lib/supabase/admin";
 import { isGeneralBranchCircuitQuestion } from "../../../../lib/assistant/branch-circuit-membership.mjs";
+import { isSocialWorkStatusQuestion } from "../../../../lib/assistant/social-work-status.mjs";
+import { unresolvedExplicitSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
 
 import {
   buildTopicQuestion,
@@ -14,6 +16,7 @@ import {
 
 import {
   shouldConfirmNewPrescriptionContext,
+  buildConfirmedMissingFieldQuestion,
 } from "../../../../lib/assistant/recipe-context-clarification.mjs";
 
 export const runtime = "nodejs";
@@ -178,6 +181,8 @@ async function detectSocialWork(
       dictionary,
     });
 
+  const unresolvedName = unresolvedExplicitSocialWork({question:cleanQuestion,dictionary,matches});
+
   if (
     matches.length === 0
   ) {
@@ -193,6 +198,7 @@ async function detectSocialWork(
 
       matches:
         [],
+      unresolvedName,
     };
   }
 
@@ -210,6 +216,7 @@ async function detectSocialWork(
         null,
 
       matches,
+      unresolvedName,
     };
   }
 
@@ -224,6 +231,7 @@ async function detectSocialWork(
       matches[0],
 
     matches,
+    unresolvedName,
   };
 }
 
@@ -922,6 +930,13 @@ export async function POST(
       );
     }
 
+    // Consultas sobre el chip de estado: delegar al router estructurado.
+    // No seleccionar otra OOSS ni cambiar el contexto de la conversación.
+    if (originalQuestion && !topic && isSocialWorkStatusQuestion(originalQuestion)) {
+      const {response, data} = await callAssistantQuery({request,conversationId,question:originalQuestion});
+      return Response.json(data, {status:response.status});
+    }
+
     // Excepción para UNA receta nueva sin OOSS explícita. No cambia
     // la persistencia habitual de active_social_work_id.
     const recipeClarification = body?.recipeClarification || null;
@@ -968,6 +983,11 @@ export async function POST(
         await detectSocialWork(
           originalQuestion
         );
+      if (detection.unresolvedName) {
+        // Nunca cambiar el contexto a una OOSS distinta tras una sigla no reconocida.
+        const {response,data} = await callAssistantQuery({request,conversationId,question:originalQuestion});
+        return Response.json(data,{status:response.status});
+      }
 
       if (
         detection.multiple
@@ -1224,6 +1244,16 @@ export async function POST(
 
     let effectiveQuestion =
       originalQuestion;
+
+    // Una respuesta "Sí" o la selección de otra OOSS solo CONFIRMA el contexto.
+    // Para resolver la receta sin fecha/firma/etc. consultamos requisitos normativos,
+    // sin volver a clasificar "¿la puedo recibir?" como recepción por circuito.
+    if (recipeClarification && !topic) {
+      effectiveQuestion = buildConfirmedMissingFieldQuestion({
+        question: originalQuestion,
+        socialWorkName: socialWork?.name,
+      }) || originalQuestion;
+    }
 
     if (topic) {
       /*

@@ -62,7 +62,7 @@ SELECT jsonb_build_object(
   'totals',(SELECT to_jsonb(t) FROM totals t),
   'daily',coalesce((SELECT jsonb_agg(jsonb_build_object('name',r.day::text,'day',r.day::text,'count',r.n) ORDER BY r.day) FROM (
     SELECT
-    (f.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date AS "day",COUNT(*)::int AS n FROM filtered f GROUP BY 1
+    (f.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date AS "day",COUNT(*)::int AS n FROM filtered fGROUP BY 1
   ) r),'[]'::jsonb),
   'by_branch',coalesce((SELECT jsonb_agg(jsonb_build_object('id',r.branch_id,'name',coalesce(b.name,'Sin sucursal'),'count',r.n) ORDER BY r.n DESC) FROM (
     SELECT branch_id,count(*)::int n FROM filtered GROUP BY branch_id ORDER BY n DESC LIMIT 20

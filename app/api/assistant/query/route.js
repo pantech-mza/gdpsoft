@@ -19,11 +19,13 @@ import {
 } from "../../../../lib/assistant/socialWorkDetection";
 
 import { resolveInternalProcedure, isImmediateOperationalContingency, isSpecificNormativeQuestion } from "../../../../lib/assistant/internal-procedures";
-import { asksForPrescriptionChecklist, buildFichaPrescriptionChecklist } from "../../../../lib/assistant/prescription-safety.mjs";
-import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, isSpecificNormativeTopic } from "../../../../lib/assistant/linked-normatives.mjs";
+import { asksForPrescriptionChecklist, buildFichaPrescriptionChecklist, isPrescriptionMissingFieldQuestion, buildMissingFieldNormativeQuestion } from "../../../../lib/assistant/prescription-safety.mjs";
+import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, scopeNormativeTopic, isSpecificNormativeTopic } from "../../../../lib/assistant/linked-normatives.mjs";
 import { shouldPreferValidationProfile } from "../../../../lib/assistant/validation-profile-priority.mjs";
 import { isGeneralBranchCircuitQuestion, resolveGeneralBranchMembership, formatGeneralBranchMembershipResponse } from "../../../../lib/assistant/branch-circuit-membership.mjs";
 import { isOperationalCircuitQuestion } from "../../../../lib/assistant/operational-circuit-intent.mjs";
+import { isSocialWorkStatusQuestion, hasExplicitStatusSubject, formatSocialWorkStatus } from "../../../../lib/assistant/social-work-status.mjs";
+import { unresolvedExplicitSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
 
 export const runtime =
   "nodejs";
@@ -5016,6 +5018,7 @@ async function detectSocialWorkFromQuestion(
 
       dictionary,
     });
+  const unresolvedName = unresolvedExplicitSocialWork({question:cleanQuestion,dictionary,matches});
 
   // =====================================================
   // SIN OOSS DETECTADA
@@ -5036,6 +5039,7 @@ async function detectSocialWorkFromQuestion(
 
       matches:
         [],
+      unresolvedName,
     };
   }
 
@@ -5075,6 +5079,7 @@ async function detectSocialWorkFromQuestion(
       matches[0],
 
     matches,
+    unresolvedName,
   };
 }
 // =========================================================
@@ -5500,6 +5505,14 @@ if (conversationId) {
       question
     );
 
+  // Si hay sigla explícita desconocida, bloquear el fallback a la OOSS previa.
+  if (detectedSocialWork.unresolvedName && !isSocialWorkStatusQuestion(question)) {
+    const name = detectedSocialWork.unresolvedName;
+    const answer = `No pude identificar ${name} en las obras sociales activas de GDPSoft. Confirmá cómo figura en el listado; no voy a utilizar la Ficha de otra obra social.`;
+    const elapsedMs = Date.now()-startedAt;
+    await logCurrentQuery({branchId,socialWorkId,question,answer,source:"SOCIAL_WORK_IDENTITY",route:"UNKNOWN_EXPLICIT_SOCIAL_WORK",found:false,elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+    return Response.json({ok:true,question,answer,source:"SOCIAL_WORK_IDENTITY",route:"UNKNOWN_EXPLICIT_SOCIAL_WORK",found:false,elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+  }
   // ---------------------------------------------------
   // MÁS DE UNA OOSS EN LA MISMA CONSULTA
   // ---------------------------------------------------
@@ -5622,7 +5635,9 @@ if (conversationId) {
     if (
 
       !isGeneralBranchCircuitQuestion(question) && (
-        !Number.isInteger(socialWorkId) || socialWorkId <= 0
+        !isSocialWorkStatusQuestion(question) && (
+          !Number.isInteger(socialWorkId) || socialWorkId <= 0
+        )
       )
 
     ) {
@@ -5725,6 +5740,44 @@ if (conversationId) {
 
 
 
+    // El chip «Activa» del listado y Recordá/Ficha usan social_works.active.
+    // Resolver consultas de estado directamente desde Supabase y SIN OpenAI.
+    // No modificar la OOSS activa del chat cuando se consulta otra por nombre.
+    if (isSocialWorkStatusQuestion(question)) {
+      const {data: statusWorks, error: statusError} = await supabaseAdmin
+        .from("social_works").select("id,name,active");
+      if (statusError) throw new Error(statusError.message);
+      const {data: statusAliases, error: statusAliasesError} = await supabaseAdmin
+        .from("social_work_aliases").select("*");
+      if (statusAliasesError) console.error("social work status aliases:", statusAliasesError.message);
+      const dictionary = buildSocialWorkDictionary({
+        socialWorks: statusWorks || [], aliases: statusAliasesError ? [] : (statusAliases || []),
+      });
+      const matches = detectSocialWorks({text:question, dictionary});
+      const namedWork = matches.length === 1
+        ? (statusWorks || []).find(item => Number(item.id) === Number(matches[0].id))
+        : null;
+      const contextWork = !matches.length && !hasExplicitStatusSubject(question)
+        ? (statusWorks || []).find(item => Number(item.id) === Number(socialWorkId))
+        : null;
+      const targetWork = namedWork || contextWork || null;
+      const answer = matches.length > 1
+        ? "Hay más de una obra social posible. Indicame su nombre completo para verificar el estado."
+        : targetWork ? formatSocialWorkStatus(targetWork)
+        : hasExplicitStatusSubject(question)
+          ? "No encontré una obra social con ese nombre en GDPSoft. Confirmá cómo figura en el listado."
+          : "Indicame de qué obra social querés consultar el estado.";
+      const found = Boolean(targetWork && typeof targetWork.active === "boolean");
+      const elapsedMs = Date.now() - startedAt;
+      await logCurrentQuery({branchId, socialWorkId: targetWork?.id || socialWorkId, question, answer,
+        source:"SOCIAL_WORK_PROFILE", route:"STRUCTURED_SOCIAL_WORK_STATUS",
+        found, elapsedMs, usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+      return Response.json({ok:true,question,answer,found,source:"SOCIAL_WORK_PROFILE",
+        route:"STRUCTURED_SOCIAL_WORK_STATUS",context:responseContext,elapsed_ms:elapsedMs,
+        structured_data:targetWork ? {social_work_id:targetWork.id,active:targetWork.active} : null,
+        usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+    }
+
     // =====================================================
 
     // PROCEDIMIENTO INTERNO APROBADO (PRIORITARIO ANTES DE FAQ Y CACHE)
@@ -5815,11 +5868,13 @@ if (conversationId) {
 
     const detectedOperationIntent = detectOperationIntent(question);
     const validationProfileIntent = detectSocialWorkProfileIntent(question);
+    const prescriptionMissingField = isPrescriptionMissingFieldQuestion(question);
+    // Receta incompleta -> requisito normativo, NO recepción por circuito.
     const operationIntent = shouldPreferValidationProfile({
       operationType: detectedOperationIntent?.operationType,
       profileKey: validationProfileIntent?.key,
       question,
-    }) ? null : detectedOperationIntent;
+    }) || prescriptionMissingField ? null : detectedOperationIntent;
 
 
 
@@ -6389,13 +6444,13 @@ if (asksForPrescriptionChecklist(question)) {
   // Los requisitos de Cámara y Colegio no se pueden mezclar.
   const {data:relations, error:relationsError} = await supabaseAdmin
     .from("normative_social_works")
-    .select("normative_id,billing_channel_id,normatives!inner(is_current)")
+    .select("normative_id,billing_channel_id,normatives!inner(is_current,title)")
     .eq("social_work_id", Number(socialWorkId))
     .eq("normatives.is_current", true);
   if (relationsError) console.error("checklist scope:", relationsError.message);
   const scope = relationsError
     ? {ok:false, reason:"No pude verificar las normativas vinculadas."}
-    : scopeLinkedNormatives(relations || [], activeBillingChannelId);
+    : scopeNormativeTopic(scopeLinkedNormatives(relations || [], activeBillingChannelId), relations || [], question);
   let answer;
   let source = "SOCIAL_WORK_PROFILE";
   let route = "PRESCRIPTION_CHECKLIST_SAFE";
@@ -6666,6 +6721,14 @@ if (
   }
 }
 
+// Si pregunta por un dato faltante, mantener la OOSS activa y consultar
+// sus requisitos (sin reusar una respuesta genérica de circuitos).
+if (prescriptionMissingField) {
+  const socialWorkName = await getSocialWorkName(socialWorkId);
+  const specificQuestion = buildMissingFieldNormativeQuestion({ question, socialWorkName });
+  if (specificQuestion) fileSearchQuestion = specificQuestion;
+  skipAnswerCache = true;
+}
 
     // =====================================================
     // 4. REGLAS ESTRUCTURADAS
@@ -6887,16 +6950,12 @@ if (
 
 
     const approvedFaq =
-
-      await getApprovedFaq({
-
-        branchId,
-
-        socialWorkId,
-
-        question,
-
-      });
+      // Una pregunta sobre un dato faltante y los anexos específicos nunca
+      // deben recibir una FAQ genérica posiblemente obsoleta.
+      (prescriptionMissingField || isSpecificNormativeTopic(question))
+        ? null : await getApprovedFaq({
+            branchId, socialWorkId, question,
+          });
 
 
 
@@ -7368,7 +7427,7 @@ if (
 // Incluye normas generales y anexos (vacunas, insulinas, etc.) del MISMO app_id.
 // Ante circuitos diferentes no se combinan normativas sin confirmar Cámara/Colegio.
 const normativeScope = await getLinkedCurrentNormativeScope(
-  supabaseAdmin, socialWorkId, activeBillingChannelId,
+  supabaseAdmin, socialWorkId, activeBillingChannelId, fileSearchQuestion,
 );
 if (!normativeScope.ok) {
   const answer = normativeScope.reason;
@@ -7499,7 +7558,7 @@ const result = await queryFileSearch({
 
     // Protocolo interno SOLO como último recurso si no hay evidencia de ficha/normativa.
     // No se usa para completar vigencia, RP, cobertura ni otros requisitos específicos.
-    if (!found && !isSpecificNormativeQuestion(question)) {
+    if (!found && !isSpecificNormativeQuestion(question) && !prescriptionMissingField) {
       const lastResortProcedure = await resolveInternalProcedure({
         question, socialWorkId, billingChannelId: activeBillingChannelId,
       });
