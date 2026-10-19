@@ -24,6 +24,35 @@ export default function ResourcesPanel({ socialWorkId, kind, editable = false })
     if (!response.ok || !result.ok) throw new Error(result.error || "No se pudo completar la solicitud");
     return result;
   }
+  async function uploadBillingMaterial() {
+    const file = fileData.file;
+    if (!file) throw new Error("Seleccioná un archivo");
+    if (file.size > 100 * 1024 * 1024) throw new Error("El archivo supera el límite de 100 MB");
+    const prepare = await api(`${endpoint}/upload`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "prepare", title: fileData.title,
+        description: fileData.description, fileName: file.name,
+        mimeType: file.type, bytes: file.size }),
+    });
+    // No se envían los bytes del video a Vercel: se suben a Supabase Storage.
+    const upload = await fetch(prepare.signedUrl, {
+      method: "PUT", headers: { "content-type": file.type || (file.name.toLowerCase().endsWith(".mp4") ? "video/mp4" : file.name.toLowerCase().endsWith(".webm") ? "video/webm" : "application/pdf"),
+        "cache-control": "max-age=3600" },
+      body: file,
+    });
+    if (!upload.ok) {
+      const detail = await upload.text().catch(() => "");
+      let message = "No se pudo subir el archivo a Supabase";
+      try { const parsed = JSON.parse(detail); message = parsed.message || parsed.error || message; } catch { /* respuesta no JSON */ }
+      throw new Error(`${message} (HTTP ${upload.status}). Verificá el límite del bucket y la conexión.`);
+    }
+    await api(`${endpoint}/upload`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "finalize", ticket: prepare.ticket }),
+    });
+    setFileData({ title: "", description: "", file: null });
+  }
+
   async function load() {
     try {
       setLoading(true); setError("");
@@ -184,12 +213,7 @@ return (
         onSubmit={(e) => {
           e.preventDefault();
           act(async () => {
-            const form = new FormData();
-            form.set("title", fileData.title);
-            form.set("description", fileData.description);
-            form.set("file", fileData.file);
-            await api(`${endpoint}/upload`, { method: "POST", body: form });
-            setFileData({ title: "", description: "", file: null });
+            await uploadBillingMaterial();
             e.target.reset();
           }, "Archivo publicado correctamente");
         }}
@@ -199,7 +223,7 @@ return (
           <input className={inputStyle} required maxLength={200} placeholder="Título del material" value={fileData.title} onChange={(e) => setFileData((v) => ({ ...v, title: e.target.value }))} />
           <textarea className={inputStyle} rows={2} maxLength={1000} placeholder="Descripción opcional" value={fileData.description} onChange={(e) => setFileData((v) => ({ ...v, description: e.target.value }))} />
           <label className="block text-sm text-zinc-600">
-            PDF o video MP4/WebM (máx. 50 MB)
+            PDF o video MP4/WebM (máx. 100 MB)
             <input className="mt-2 block w-full text-sm" required type="file" accept=".pdf,.mp4,.webm,application/pdf,video/mp4,video/webm" onChange={(e) => setFileData((v) => ({ ...v, file: e.target.files?.[0] || null }))} />
           </label>
           <button className={primary} disabled={busy || !fileData.file}>{busy ? "Guardando…" : "Publicar material"}</button>
