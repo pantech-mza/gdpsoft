@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { refreshStoredSession } from "../../lib/client/session";
 const inputStyle = "w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-800 focus:border-[#8f2a85] focus:outline-none";
@@ -15,6 +15,8 @@ export default function ResourcesPanel({ socialWorkId, kind, editable = false })
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(null);
   const [fileData, setFileData] = useState({ title: "", description: "", file: null });
+  const fileInputRef = useRef(null);
+  const uploadFormRef = useRef(null);
   async function api(url, opts = {}) {
     let token = sessionStorage.getItem("gdpsoft_access_token") || await refreshStoredSession();
     const make = t => fetch(url, { ...opts, headers: { ...(opts.headers || {}), Authorization: `Bearer ${t}` } });
@@ -85,6 +87,13 @@ return (
       {editable && kind === "contact" && (
         <button className={primary} onClick={() => setEditing({ ...BLANK })}>
           + Agregar contacto
+        </button>
+      )}
+      {editable && kind === "billing" && (
+        <button type="button" className={primary}
+          onClick={() => uploadFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}>
+          <Icon icon="fluent:arrow-upload-20-regular" width="18" className="mr-2" />
+          Subir archivo
         </button>
       )}
     </div>
@@ -182,10 +191,11 @@ return (
               )}
               {editable && (
                 <button
-                  className={secondary}
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
                   disabled={busy}
                   onClick={() => {
-                    if (window.confirm(`¿Eliminar ${f.title}?`)) {
+                    if (window.confirm(`¿Eliminar definitivamente «${f.title}»? Se quitará de GDPSoft y de Supabase Storage. Esta acción no se puede deshacer.`)) {
                       act(
                         () =>
                           api(endpoint, {
@@ -198,7 +208,7 @@ return (
                     }
                   }}
                 >
-                  Eliminar
+                  Eliminar archivo
                 </button>
               )}
             </div>
@@ -208,25 +218,39 @@ return (
     )}
 
     {editable && kind === "billing" && (
-      <form
+      <form ref={uploadFormRef} data-gdp-billing-upload-v31315="true"
         className="rounded-[17px] border border-zinc-200 bg-white p-4 shadow-sm sm:p-5"
         onSubmit={(e) => {
           e.preventDefault();
+          const formElement = e.currentTarget;
           act(async () => {
             await uploadBillingMaterial();
-            e.target.reset();
+            formElement.reset();
           }, "Archivo publicado correctamente");
         }}
       >
-        <h3 className="text-[15px] font-bold text-zinc-900">Agregar material de facturación</h3>
+        <h3 className="text-[16px] font-bold text-zinc-900">Subir archivo de facturación</h3>
+        <p className="mt-1 text-sm text-zinc-500">PDF o video MP4/WebM (máx. 100 MB)</p>
         <div className="mt-4 space-y-3">
           <input className={inputStyle} required maxLength={200} placeholder="Título del material" value={fileData.title} onChange={(e) => setFileData((v) => ({ ...v, title: e.target.value }))} />
           <textarea className={inputStyle} rows={2} maxLength={1000} placeholder="Descripción opcional" value={fileData.description} onChange={(e) => setFileData((v) => ({ ...v, description: e.target.value }))} />
-          <label className="block text-sm text-zinc-600">
-            PDF o video MP4/WebM (máx. 100 MB)
-            <input className="mt-2 block w-full text-sm" required type="file" accept=".pdf,.mp4,.webm,application/pdf,video/mp4,video/webm" onChange={(e) => setFileData((v) => ({ ...v, file: e.target.files?.[0] || null }))} />
-          </label>
-          <button className={primary} disabled={busy || !fileData.file}>{busy ? "Guardando…" : "Publicar material"}</button>
+          <input ref={fileInputRef} className="sr-only" required type="file"
+            accept=".pdf,.mp4,.webm,application/pdf,video/mp4,video/webm"
+            onChange={(e) => setFileData((v) => ({ ...v, file: e.target.files?.[0] || null }))} />
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" className={secondary} disabled={busy}
+              onClick={() => fileInputRef.current?.click()}>
+              <Icon icon="fluent:folder-open-20-regular" width="18" className="mr-2" />
+              Seleccionar archivo
+            </button>
+            <span className="min-w-0 break-all text-sm text-zinc-600" aria-live="polite">
+              {fileData.file ? `${fileData.file.name} (${(fileData.file.size / 1024 / 1024).toFixed(1)} MB)` : "Ningún archivo seleccionado"}
+            </span>
+          </div>
+          <button type="submit" className={primary} disabled={busy || !fileData.file || !fileData.title.trim()}>
+            <Icon icon="fluent:arrow-upload-20-regular" width="18" className="mr-2" />
+            {busy ? "Subiendo archivo…" : "Subir archivo"}
+          </button>
         </div>
       </form>
     )}
