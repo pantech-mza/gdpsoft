@@ -24,6 +24,9 @@ export default function SucursalObrasSocialesPage() {
   const [search, setSearch] =
     useState("");
 
+  const [statusFilter, setStatusFilter] =
+    useState("ALL");
+
   const [page, setPage] =
     useState(1);
 
@@ -54,15 +57,8 @@ export default function SucursalObrasSocialesPage() {
           );
         }
 
-        setSocialWorks(
-          (
-            result.social_works ||
-            []
-          ).filter(
-            (item) =>
-              item.active === true
-          )
-        );
+        // La API devuelve activas e inactivas. La selección es visual.
+        setSocialWorks(result.social_works || []);
       } catch (err) {
         setError(
           err?.message ||
@@ -76,38 +72,34 @@ export default function SucursalObrasSocialesPage() {
     load();
   }, []);
 
-  const filtered =
-    useMemo(() => {
-      const q =
-        search
-          .trim()
-          .toLowerCase();
+  const activeCount = useMemo(
+    () => socialWorks.filter((item) => item.active === true).length,
+    [socialWorks]
+  );
+  const inactiveCount = useMemo(
+    () => socialWorks.filter((item) => item.active === false).length,
+    [socialWorks]
+  );
 
-      if (!q) {
-        return socialWorks;
-      }
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
 
-      return socialWorks.filter(
-        (item) =>
-          [
-            item.name,
-            item.plan,
-            item.recipe_type,
-            item.tys_code,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase()
-            .includes(q)
-      );
-    }, [
-      socialWorks,
-      search,
-    ]);
+    return socialWorks.filter((item) => {
+      if (statusFilter === "ACTIVE" && item.active !== true) return false;
+      if (statusFilter === "INACTIVE" && item.active !== false) return false;
+      if (!q) return true;
+
+      return [item.name, item.plan, item.recipe_type, item.tys_code]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q);
+    });
+  }, [socialWorks, search, statusFilter]);
 
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [search, statusFilter]);
 
   const totalPages =
     Math.max(
@@ -165,7 +157,8 @@ export default function SucursalObrasSocialesPage() {
 
       <div className="mb-5 w-full rounded-[15px] border border-zinc-200 bg-white p-3 shadow-sm sm:mb-6 sm:p-4">
 
-        <div className="relative min-w-0">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1">
 
           <Icon
             icon="fluent:search-20-regular"
@@ -184,6 +177,24 @@ export default function SucursalObrasSocialesPage() {
             className="h-11 w-full min-w-0 rounded-xl border border-zinc-200 pl-10 pr-3 text-[13px] outline-none focus:border-[#8f2a85] sm:h-12 sm:pl-11 sm:text-sm"
           />
 
+          </div>
+
+          <div className="w-full shrink-0 sm:w-52">
+            <label htmlFor="sw-status-filter" className="sr-only">
+              Filtrar obras sociales por estado
+            </label>
+            <select
+              id="sw-status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-[13px] text-zinc-700 outline-none focus:border-[#8f2a85] sm:h-12 sm:text-sm"
+            >
+              <option value="ALL">Todas ({socialWorks.length})</option>
+              <option value="ACTIVE">Activas ({activeCount})</option>
+              <option value="INACTIVE">Inactivas ({inactiveCount})</option>
+            </select>
+          </div>
+
         </div>
 
       </div>
@@ -196,7 +207,7 @@ export default function SucursalObrasSocialesPage() {
             <strong className="text-zinc-700">
               {filtered.length}
             </strong>{" "}
-            obras sociales disponibles
+            obras sociales encontradas
           </p>
 
           {filtered.length >
@@ -244,9 +255,21 @@ export default function SucursalObrasSocialesPage() {
 
                   <div className="min-w-0 flex-1">
 
-                    <h2 className="break-words text-[15px] font-bold leading-5 text-[#21142b]">
-                      {item.name}
-                    </h2>
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <h2 className="break-words text-[15px] font-bold leading-5 text-[#21142b]">
+                        {item.name}
+                      </h2>
+                      <span
+                        className={item.active === true
+                          ? "inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700"
+                          : "inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700"}
+                      >
+                        <span className={item.active === true
+                          ? "h-1.5 w-1.5 rounded-full bg-emerald-500"
+                          : "h-1.5 w-1.5 rounded-full bg-rose-500"} />
+                        {item.active === true ? "Activa" : "Inactiva"}
+                      </span>
+                    </div>
 
                     <p className="mt-1 break-words text-[12px] leading-4 text-zinc-400">
                       {item.recipe_type ||
@@ -312,6 +335,12 @@ export default function SucursalObrasSocialesPage() {
             )
           )}
 
+        </div>
+      )}
+
+      {!loading && !error && filtered.length === 0 && (
+        <div className="rounded-xl border border-zinc-200 bg-white px-4 py-8 text-center text-sm text-zinc-500">
+          No se encontraron obras sociales con estos filtros.
         </div>
       )}
 

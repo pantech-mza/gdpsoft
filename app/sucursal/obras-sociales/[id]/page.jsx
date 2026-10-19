@@ -513,17 +513,14 @@ export default function SucursalSocialWorkDetailPage() {
 
 
 
-                {socialWork.active && (
-
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
-
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-
-                    Activa
-
-                  </span>
-
-                )}
+                <span className={socialWork.active === true
+                  ? "inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700"
+                  : "inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-semibold text-rose-700"}>
+                  <span className={socialWork.active === true
+                    ? "h-1.5 w-1.5 rounded-full bg-emerald-500"
+                    : "h-1.5 w-1.5 rounded-full bg-rose-500"} />
+                  {socialWork.active === true ? "Activa" : "Inactiva"}
+                </span>
 
 
 
@@ -536,6 +533,12 @@ export default function SucursalSocialWorkDetailPage() {
                 Información operativa de solo lectura
 
               </p>
+
+              {socialWork.active !== true && (
+                <p role="status" className="mt-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-[12px] text-rose-800">
+                  Obra social inactiva en GDPSoft. La información es de consulta y no autoriza recepción ni dispensación.
+                </p>
+              )}
 
 
 
