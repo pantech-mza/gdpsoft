@@ -2886,6 +2886,16 @@ function detectSocialWorkProfileIntent(
   // La clase de validación (TYS / POR FUERA) no es el código TYS.
   // Se conserva la obra social seleccionada en el chat para repreguntas breves.
   const asksTysCode = containsAny(q, ["codigo tys", "código tys", "codigo de tys", "código de tys"]);
+  // Preguntas por el NOMBRE del validador: Recordá/Ficha, no File Search.
+  // La validación de circuitos y las contingencias mantienen su propio enrutamiento.
+  const asksValidatorName = !asksTysCode && /\bvalidador(?:es)?\b/.test(q) &&
+    /\b(?:como se llama|nombre del validador|nombre de validador|cual es el validador|cual validador|que validador|validador (?:usa|utiliza|tiene|de|para))\b/.test(q) &&
+    !/\b(?:se cayo|no funciona|no anda|sin servicio|caido|caida|falla|error|rechaza|rechazo|circuito|camara|colegio)\b/.test(q);
+  const asksWhere = /\b(?:por donde valido|donde valido|por donde se valida|tipo de validacion|por donde validar)\b/.test(q);
+  if (asksValidatorName && !asksWhere) {
+    return { field: "validator_name", key: "VALIDATOR_NAME" };
+  }
+
   if (!asksTysCode && (
     /\btys\b/.test(q) ||
     containsAny(q, ["por donde valido", "por dónde valido", "tipo de validacion", "tipo de validación", "por donde se valida", "por dónde se valida", "que validador", "qué validador"])
@@ -3292,7 +3302,7 @@ async function querySocialWorkProfile({
   const value = data[intent.field];
   const hasValidator = Boolean(String(data.validator_name ?? "").trim());
   const hasMethod = Boolean(String(data.validator_type ?? "").trim());
-  const hasValidationInfo = intent.key === "VALIDATION_METHOD" && (hasValidator || hasMethod);
+  const hasValidationInfo = (intent.key === "VALIDATION_METHOD" && (hasValidator || hasMethod)) || intent.key === "VALIDATOR_NAME";
 
   if (
     !hasValidationInfo && (
@@ -3347,6 +3357,12 @@ const cleanValue =
 
     case "SUBSTITUTION":
       answer = `Sustitución: ${value}.`;
+      break;
+
+    case "VALIDATOR_NAME":
+      answer = hasValidator
+        ? "El validador de " + data.name + " es " + String(data.validator_name).trim() + "." + (hasMethod ? "\nPor dónde valida: " + String(data.validator_type).trim() + "." : "")
+        : "No hay un nombre de validador confirmado en Recordá/Ficha de " + data.name + ".";
       break;
 
     case "VALIDATION_METHOD":
