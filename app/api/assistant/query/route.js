@@ -27,6 +27,9 @@ import { isOperationalCircuitQuestion } from "../../../../lib/assistant/operatio
 import { isSocialWorkStatusQuestion, hasExplicitStatusSubject, formatSocialWorkStatus } from "../../../../lib/assistant/social-work-status.mjs";
 import { unresolvedExplicitSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
 
+import { resolveCommonAuthorizationAmount } from "../../../../lib/assistant/common-authorization-rules.mjs";
+const isAuthorizationAmountQuestionForCommonRule = (question) => /(?:autoriz|\btopes?\b|\blimites?\b|\bimportes?\b|\bprecios?\b|\bmontos?\b|\$\s*\d|\b20\s*000\b|\b80\s*000\b)/i.test(String(question || "").normalize("NFD").replace(/[\u0300-\u036f]/g,""));
+
 export const runtime =
   "nodejs";
 
@@ -5884,6 +5887,24 @@ if (conversationId) {
         } : null,
         context:responseContext,elapsed_ms:elapsedMs,
         usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+    }
+
+// v3.13.19: reglas documentales comunes de autorización por importes (TODAS las sucursales).
+    // Separar autorizaciones POR IMPORTE de circuitos Cámara/Colegio.
+    // La regla es común a ambas normativas y a todas las sucursales.
+    if (isAuthorizationAmountQuestionForCommonRule(question)) {
+      const ruleWorkName = await getSocialWorkName(socialWorkId);
+      const commonAuthorization = resolveCommonAuthorizationAmount({question, socialWorkName: ruleWorkName});
+      if (commonAuthorization) {
+        const answer = commonAuthorization.answer;
+        const elapsedMs = Date.now() - startedAt;
+        await logCurrentQuery({branchId, socialWorkId, question, answer,
+          source: "DOCUMENTED_COMMON_NORMATIVE", route: "COMMON_AUTHORIZATION_LIMITS", found:true,
+          elapsedMs, usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+        return Response.json({ok:true,question,answer,source:"DOCUMENTED_COMMON_NORMATIVE",
+          route:"COMMON_AUTHORIZATION_LIMITS",found:true,rule_id:commonAuthorization.ruleId,
+          context:responseContext,elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+      }
     }
 
     const detectedOperationIntent = detectOperationIntent(question);
