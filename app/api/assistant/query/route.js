@@ -31,6 +31,10 @@ import {
   resolveChannelIdForGroup, resolveFollowUp, saveConversationState,
 } from "../../../../lib/assistant/conversation-context.mjs";
 import { buildSuggestionAnswer, suggestSocialWorks } from "../../../../lib/assistant/social-work-suggestions.mjs";
+import {
+  buildCredentialAnswer, buildNotesInstructions, extractEmails, formatNotesAnswer, isCredentialQuestion,
+  loadApprovedNotes, parseNotesAnswer,
+} from "../../../../lib/assistant/approved-notes.mjs";
 import { buildConstraintsPrompt, splitUserConstraints, stripOfferLine } from "../../../../lib/assistant/user-constraints.mjs";
 import {
   appendObservation, buildCorrectionsPrompt, findExactCorrection, findExactObservation,
@@ -2853,6 +2857,27 @@ function buildNormativeRequirementFallbackQuestion({
   }
 }
 
+
+// v3.13.36 — apoyo con observaciones operativas APROBADAS cuando la normativa no responde.
+async function answerFromApprovedNotes({ question, socialWorkId }) {
+  try {
+    const notes = await loadApprovedNotes(supabaseAdmin, socialWorkId);
+    if (!notes.length) return null;
+    const socialWorkName = await getSocialWorkName(socialWorkId);
+    const response = await openai.responses.create({
+      model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+      instructions: buildNotesInstructions(socialWorkName, notes),
+      input: question,
+      temperature: 0,
+      max_output_tokens: 500,
+    });
+    const answer = parseNotesAnswer(response.output_text);
+    return answer ? { answer: formatNotesAnswer(answer), usage: response.usage || null } : null;
+  } catch (notesError) {
+    console.warn("observaciones de apoyo no disponibles:", notesError?.message);
+    return null;
+  }
+}
 
 // v3.13.22 — excepción de validador por sucursal (p. ej. OSECAC en DP1).
 async function getBranchValidatorException({ branchId, branchCode, socialWorkId }) {
@@ -5996,6 +6021,25 @@ if (conversationId) {
       }
     }
 
+    // v3.13.37 — usuarios y claves: están cifrados, el bot no los ve ni los dice.
+    // Los correos registrados en observaciones aprobadas sí se informan.
+    if (Number.isInteger(socialWorkId) && socialWorkId > 0 && isCredentialQuestion(question)) {
+      const credentialWorkName = await getSocialWorkName(socialWorkId);
+      const { count: accessCount } = await supabaseAdmin.from("social_work_notes")
+        .select("id", { count: "exact", head: true })
+        .eq("social_work_id", socialWorkId).eq("kind", "ACCESS");
+      const credentialEmails = extractEmails(await loadApprovedNotes(supabaseAdmin, socialWorkId));
+      const credentialAnswer = buildCredentialAnswer({
+        socialWorkName: credentialWorkName, hasAccessNotes: (accessCount || 0) > 0, emails: credentialEmails,
+      });
+      const elapsedMs = Date.now() - startedAt;
+      const usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+      await logCurrentQuery({ branchId, socialWorkId, question, answer: credentialAnswer,
+        source: "SOCIAL_WORK_NOTES", route: "CREDENTIALS_PROTECTED", found: true, elapsedMs, usage });
+      return Response.json({ ok: true, question, answer: credentialAnswer, source: "SOCIAL_WORK_NOTES",
+        route: "CREDENTIALS_PROTECTED", found: true, context: responseContext, elapsed_ms: elapsedMs, usage });
+    }
+
     // v3.13.22 — validador externo por sucursal (p. ej. OSECAC en DP1 → San Francisco).
     // La sucursal que consulta (autenticada) manda: se responde primero con su circuito.
     if ((branchId || branchCode) && !isSocialWorkStatusQuestion(question)) {
@@ -7790,6 +7834,19 @@ const normativeScope = await getLinkedCurrentNormativeScope(
 );
 activeBillingChannelId = channelBeforeBranchResolution;
 if (!normativeScope.ok) {
+  // v3.13.36 — sin normativas vinculadas: se intenta con observaciones aprobadas.
+  if (!normativeScope.ambiguous) {
+    const notesSupport = await answerFromApprovedNotes({ question: fileSearchQuestion, socialWorkId });
+    if (notesSupport) {
+      const notesElapsedMs = Date.now() - startedAt;
+      await logCurrentQuery({ branchId, socialWorkId, question, answer: notesSupport.answer,
+        source: "SOCIAL_WORK_NOTES", route: "APPROVED_NOTES_FALLBACK", found: true,
+        elapsedMs: notesElapsedMs, usage: notesSupport.usage || { input_tokens: 0, output_tokens: 0, total_tokens: 0 } });
+      return Response.json({ ok: true, question, answer: notesSupport.answer, source: "SOCIAL_WORK_NOTES",
+        route: "APPROVED_NOTES_FALLBACK", found: true, context: responseContext,
+        elapsed_ms: notesElapsedMs, usage: notesSupport.usage || { input_tokens: 0, output_tokens: 0, total_tokens: 0 } });
+    }
+  }
   const answer = normativeScope.reason;
   const elapsedMs = Date.now() - startedAt;
   await logCurrentQuery({branchId,socialWorkId,question,answer,
@@ -7937,6 +7994,19 @@ if (followUp.isFollowUp && isNotFoundAnswer(result?.answer)) {
 
     // Protocolo interno SOLO como último recurso si no hay evidencia de ficha/normativa.
     // No se usa para completar vigencia, RP, cobertura ni otros requisitos específicos.
+    // v3.13.36 — la normativa no respondió: se intenta con observaciones aprobadas.
+    if (!found && !prescriptionMissingField) {
+      const notesSupport = await answerFromApprovedNotes({ question: fileSearchQuestion, socialWorkId });
+      if (notesSupport) {
+        const notesElapsedMs = Date.now() - startedAt;
+        await logCurrentQuery({ branchId, socialWorkId, question, answer: notesSupport.answer,
+          source: "SOCIAL_WORK_NOTES", route: "APPROVED_NOTES_FALLBACK", found: true,
+          elapsedMs: notesElapsedMs, usage: notesSupport.usage || result.usage || { input_tokens: 0, output_tokens: 0, total_tokens: 0 } });
+        return Response.json({ ok: true, question, answer: notesSupport.answer, source: "SOCIAL_WORK_NOTES",
+          route: "APPROVED_NOTES_FALLBACK", found: true, context: responseContext,
+          elapsed_ms: notesElapsedMs, usage: notesSupport.usage || result.usage || { input_tokens: 0, output_tokens: 0, total_tokens: 0 } });
+      }
+    }
     if (!found && !isSpecificNormativeQuestion(question) && !prescriptionMissingField) {
       const lastResortProcedure = await resolveInternalProcedure({
         question, socialWorkId, billingChannelId: activeBillingChannelId,

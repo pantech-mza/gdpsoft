@@ -81,3 +81,74 @@ test('analyze: los documentos de texto (DOCX) se marcan listos para indexar en m
   assert.match(src, /signature !== "%PDF-"/);
   assert.ok(src.indexOf('isTextDocument') < src.indexOf('El archivo almacenado no parece ser un PDF válido'));
 });
+
+test('Cómo facturar: el bucket se iguala a los 100 MB que anuncia la app', () => {
+  const sql = fs.readFileSync(new URL('../../supabase/migrations/20261020_billing_files_limit_100mb.sql', import.meta.url), 'utf8');
+  assert.match(sql, /file_size_limit = 104857600/);
+  assert.match(sql, /id = 'gdp-billing-files'/);
+  const ui = fs.readFileSync(new URL('../../components/social-works/ResourcesPanel.jsx', import.meta.url), 'utf8');
+  assert.match(ui, /exceeded the maximum allowed size/);
+});
+
+import {
+  buildNotesInstructions, formatNotesAnswer, loadApprovedNotes, parseNotesAnswer, pickApprovedNotes,
+} from '../../lib/assistant/approved-notes.mjs';
+test('observaciones de apoyo: solo GENERAL y APROBADAS; nunca accesos ni históricas pendientes', () => {
+  const notes = pickApprovedNotes([
+    { kind: 'GENERAL', review_status: 'APPROVED', body: '1° unión personal (40%)\n2° bonos pap (30%)' },
+    { kind: 'GENERAL', review_status: 'PENDING', body: 'histórica sin revisar' },
+    { kind: 'ACCESS', review_status: 'APPROVED', body: 'usuario: x clave: y' },
+    { kind: 'GENERAL', review_status: 'APPROVED', body: '   ' },
+  ]);
+  assert.deepEqual(notes, ['1° unión personal (40%)\n2° bonos pap (30%)']);
+  const prompt = buildNotesInstructions('SECASFPI', notes);
+  assert.match(prompt, /EXCLUSIVAMENTE las observaciones/);
+  assert.match(prompt, /NO_APLICA/);
+  assert.match(prompt, /Los correos electrónicos sí podés incluirlos/);
+  assert.match(prompt, /NUNCA incluyas usuarios, claves[^]*Ver credenciales/);
+  assert.ok(!/histórica sin revisar|clave: y/.test(prompt));
+});
+
+test('observaciones de apoyo: NO_APLICA se descarta y la respuesta aclara su origen', () => {
+  assert.equal(parseNotesAnswer('NO_APLICA'), null);
+  assert.equal(parseNotesAnswer(' no_aplica. '), null);
+  assert.equal(parseNotesAnswer(''), null);
+  assert.equal(parseNotesAnswer('1. Unión personal'), '1. Unión personal');
+  assert.match(formatNotesAnswer('1. Unión personal'), /Fuente: observación operativa aprobada por Administración \(no es normativa oficial\)\.$/);
+});
+
+test('observaciones de apoyo: degradan sin romper y la consulta filtra por GENERAL + APPROVED', async () => {
+  assert.deepEqual(await loadApprovedNotes({ from() { throw new Error('boom'); } }, 5), []);
+  assert.deepEqual(await loadApprovedNotes({}, null), []);
+  const calls = [];
+  const chain = { select() { return chain; }, eq(k, v) { calls.push([k, v]); return chain; }, order() { return chain; },
+    then(res) { res({ data: [{ kind: 'GENERAL', review_status: 'APPROVED', body: 'ok' }], error: null }); } };
+  assert.deepEqual(await loadApprovedNotes({ from: () => chain }, 5), ['ok']);
+  assert.deepEqual(calls, [['social_work_id', 5], ['kind', 'GENERAL'], ['review_status', 'APPROVED']]);
+});
+
+test('route.js usa las observaciones solo si no hay normativa o no respondió', () => {
+  const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.equal((src.match(/route: "APPROVED_NOTES_FALLBACK"/g) || []).length, 4); // 2 puntos de uso × (log + respuesta)
+  assert.match(src, /if \(!normativeScope\.ambiguous\) \{\n\s+const notesSupport/);
+  assert.ok(src.indexOf('v3.13.36 — la normativa no respondió') < src.indexOf('resolveInternalProcedure({\n        question, socialWorkId, billingChannelId: activeBillingChannelId,'));
+});
+
+import { buildCredentialAnswer, extractEmails, isCredentialQuestion } from '../../lib/assistant/approved-notes.mjs';
+test('usuarios y claves: el bot no los dice, indica «Ver credenciales» y sí pasa los correos', () => {
+  for (const q of ['cual es el usuario de secasfpi', 'me pasas la clave?', 'contraseña de ingreso', 'credenciales de OSDE', 'password del validador']) {
+    assert.equal(isCredentialQuestion(q), true, q);
+  }
+  for (const q of ['como valido osecac', 'requisitos de receta', 'acceso a la web de validacion']) {
+    assert.equal(isCredentialQuestion(q), false, q);
+  }
+  assert.deepEqual(extractEmails(['* mail: mterraza@gdpsalud.com.ar, F108', 'otra nota', 'mterraza@gdpsalud.com.ar']), ['mterraza@gdpsalud.com.ar']);
+  const withAccess = buildCredentialAnswer({ socialWorkName: 'SECASFPI', hasAccessNotes: true, emails: ['a@b.com'] });
+  assert.match(withAccess, /cifrados y no puedo verlos/);
+  assert.match(withAccess, /«Ver credenciales»/);
+  assert.match(withAccess, /Correo registrado: a@b\.com\./);
+  assert.match(buildCredentialAnswer({ socialWorkName: 'X', hasAccessNotes: false }), /No hay credenciales cargadas/);
+  const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(src, /route: "CREDENTIALS_PROTECTED"/);
+  assert.ok(src.indexOf('isCredentialQuestion(question)') < src.indexOf('const cachedAnswer'));
+});

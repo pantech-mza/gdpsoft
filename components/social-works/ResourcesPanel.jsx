@@ -46,6 +46,9 @@ export default function ResourcesPanel({ socialWorkId, kind, editable = false })
       const detail = await upload.text().catch(() => "");
       let message = "No se pudo subir el archivo a Supabase";
       try { const parsed = JSON.parse(detail); message = parsed.message || parsed.error || message; } catch { /* respuesta no JSON */ }
+      if (/exceeded the maximum allowed size/i.test(String(message))) {
+        throw new Error("Supabase rechazó el archivo por su tamaño (límite del bucket o del plan de Supabase). Comprimí el video o pedí a Administración que suba el límite de almacenamiento.");
+      }
       throw new Error(`${message} (HTTP ${upload.status}). Verificá el límite del bucket y la conexión.`);
     }
     await api(`${endpoint}/upload`, {
