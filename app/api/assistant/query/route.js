@@ -4567,6 +4567,12 @@ function isInsufficientAnswer(answer = "") {
     "no puedo confirmar",
   ];
 
+  // v3.13.42 — «No encuentro esa información en la normativa vigente» (y variantes)
+  // también es una respuesta sin respaldo: habilita observaciones y protocolos.
+  if (/\bno (?:encuentro|encontre|hallo|figura|aparece)\s+(?:esa|esta|la|dicha|ninguna|mas|ese|este|el)?\s*(?:informacion|normativa|dato|referencia|indicacion)/.test(text)) {
+    return true;
+  }
+
   return patterns.some((pattern) => text.includes(pattern));
 }
 

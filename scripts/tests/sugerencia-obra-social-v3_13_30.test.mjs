@@ -189,3 +189,25 @@ test('protocolos internos: el modelo solo elige el código y la respuesta es el 
   assert.match(src, /\(!found && prescriptionMissingField\)/);
   assert.match(src, /\|\| await answerFromProceduresByMeaning\(/);
 });
+
+import { isValidIntent, toIntentKey, validDraft } from '../../lib/procedimientos/config.mjs';
+test('procedimientos: el admin puede crear intenciones nuevas', () => {
+  assert.equal(toIntentKey('Receta con obra social en observaciones'), 'RECETA_CON_OBRA_SOCIAL_EN_OBSERVACIONES');
+  assert.equal(isValidIntent('RECETA_CON_OOSS'), true);
+  assert.equal(isValidIntent('FORMAT'), true);
+  for (const bad of ['', 'x', 'minuscula', '1ABC', 'CON ESPACIO']) assert.equal(isValidIntent(bad), false, bad);
+  const ok = validDraft({ title: 'Receta con OOSS en observaciones', question: 'Receta con la obra social en observaciones', answer: 'Se puede recibir si está aclarada debajo.', intent: 'RECETA_CON_OOSS', scope: 'GENERAL', source_document: 'Guía 08/10/2026' });
+  assert.ok(ok.value, JSON.stringify(ok));
+  const ui = fs.readFileSync(new URL('../../app/admin/procedimientos/page.jsx', import.meta.url), 'utf8');
+  assert.match(ui, /Crear nueva intención/);
+});
+test('«No encuentro esa información en la normativa vigente» cuenta como sin respuesta', () => {
+  const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const m = src.match(/if \((\/\\bno \(\?:encuentro[^\n]*\/)\.test\(text\)\)/);
+  assert.ok(m, 'regex no encontrada');
+  const re = eval(m[1]);
+  const fold = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  assert.equal(re.test(fold('No encuentro esa información en la normativa vigente. Te sugiero derivar')), true);
+  assert.equal(re.test(fold('No encontré la información solicitada')), true);
+  assert.equal(re.test(fold('Debés facturar con el validador y no encuentro problema')), false);
+});
