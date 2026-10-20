@@ -1,0 +1,15 @@
+/* ==============================================================
+   GDPSoft v3.13.4 · Login al 65 % SOLO en escritorio
+
+   - Afecta exclusivamente la clase .gdpLoginPage de la ruta /.
+   - El tamaño de Admin y Sucursal permanece sin modificaciones.
+   - Se compensa el ancho y alto para que el fondo llene el viewport.
+   - Tablet y móvil mantienen su tamaño y accesibilidad anteriores.
+   =============================================================== */
+@media (min-width: 1024px) {
+  .gdpLoginPage {
+    zoom: 65%;
+    width: 153.846154%;
+    min-height: 153.846154svh;
+  }
+}

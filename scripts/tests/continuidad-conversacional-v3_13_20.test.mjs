@@ -56,7 +56,8 @@ test('el caso del Formulario 4: «Y por dónde se registra» continúa el tema',
 
 test('repreguntas y confirmaciones breves', () => {
   const state = f4State();
-  for (const text of ['Y por donde se registra', 'sí', 'dale, mostrame', 'y si está vencido?', 'y eso donde se anota', 'más detalle']) {
+  for (const text of ['Y por donde se registra', 'sí', 'dale, mostrame', 'y si está vencido?', 'y eso donde se anota', 'más detalle',
+    'Cual es el sistema?', 'Donde se anota?', '¿Cómo se hace?']) {
     assert.equal(isFollowUpMessage(text, state, { socialWorkId: 77, now: NOW + 5_000 }), true, text);
   }
 });
@@ -65,6 +66,7 @@ test('NO es repregunta: consulta nueva, otra obra social, estado vencido o sin e
   const state = f4State();
   const opts = { socialWorkId: 77, now: NOW + 5_000 };
   assert.equal(isFollowUpMessage('¿Cuál es el código TYS de OSDE?', state, opts), false);
+  assert.equal(isFollowUpMessage('¿Qué hago si no tiene firma?', state, opts), false); // 6 palabras: consulta propia
   assert.equal(isFollowUpMessage('Tengo una receta sin fecha, ¿la puedo recibir?', state, opts), false);
   assert.equal(isFollowUpMessage('Y por donde se registra', state, { socialWorkId: 78, now: NOW + 5_000 }), false);
   assert.equal(isFollowUpMessage('Y por donde se registra', state, { socialWorkId: 77, now: NOW + 21 * 60_000 }), false);
@@ -121,6 +123,10 @@ test('isBareSocialWorkMention: casos del piloto', () => {
   assert.equal(isBareSocialWorkMention('¿OSEP requiere membrete?', 'OSEP'), false);
   assert.equal(isBareSocialWorkMention('osde', 'OSDEPYM'), false); // OSDE no es OSDEPYM
   assert.equal(isBareSocialWorkMention('', 'OSDE'), false);
+  assert.equal(isBareSocialWorkMention('GDPsotf, necesito ayuda con la obra social Ospelsym', 'OSPELSYM'), true);
+  assert.equal(isBareSocialWorkMention('Hola, tengo una consulta sobre OSDE', 'OSDE'), true);
+  assert.equal(isBareSocialWorkMention('Qué es OSDE', 'OSDE'), false);
+  assert.equal(isBareSocialWorkMention('Hola necesito ayuda', 'OSDE'), false);
   assert.match(buildBareMentionAnswer('HIGEA SALUD'), /^¿Qué necesitás saber sobre HIGEA SALUD\?/);
 });
 

@@ -30,7 +30,7 @@ export default function AssistantRichMessage({ text }) {
   }
 
   return (
-    <div className="min-w-0 space-y-2.5 text-[13px] leading-[1.55] text-zinc-700">
+    <div className="min-w-0 space-y-2.5 text-[14.5px] leading-[1.55] text-zinc-700">
       {stepsCount > 0 && (
         <div className="mb-2 flex items-center gap-2 px-1.5 text-[11px] font-semibold tracking-[0.02em] text-[#8f2a85]">
           <Icon icon="fluent:clipboard-task-list-20-regular" width={16} aria-hidden="true" />

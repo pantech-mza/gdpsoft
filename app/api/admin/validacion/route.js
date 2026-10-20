@@ -1,11 +1,12 @@
 import { requireAdminActor, jsonError } from "../../../../lib/server/gdp-actor";
 import { supabaseAdmin } from "../../../../lib/supabase/admin";
+import { deactivateCachedAnswers } from "../../../../lib/assistant/admin-corrections.mjs";
 import { isPilotReviewable, mergePilotReviewQueue } from "../../../../lib/assistant/pilot-review-scope.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const ALLOWED = new Set(["CORRECT", "INCORRECT", "PARTIAL"]);
-const SELECT = "id,branch_id,social_work_id,question,answer,created_at,source,route,elapsed_ms,found,traffic_type";
+const SELECT = "id,branch_id,social_work_id,question,answer,created_at,source,route,elapsed_ms,found,traffic_type,normalized_question";
 
 async function pilotScope() {
   const {data,error} = await supabaseAdmin.from("gdp_activity_pilot_scope")
@@ -23,16 +24,21 @@ export async function GET(request) {
   try {
     const scope = await pilotScope();
     const seeds = (scope.seed_query_ids || []).map(Number).filter(Number.isSafeInteger);
-    const [pilotRows,seedRows] = await Promise.all([
+    const [pilotRows,seedRows,adminRows] = await Promise.all([
       supabaseAdmin.from("assistant_query_log").select(SELECT)
         .eq("traffic_type", "PILOT").not("branch_id","is",null)
         .gte("created_at",scope.started_at)
         .order("created_at",{ascending:false}).limit(100),
       seeds.length ? supabaseAdmin.from("assistant_query_log").select(SELECT)
         .in("id",seeds).not("branch_id","is",null) : {data:[],error:null},
+      // Consultas hechas por el administrador (probar el bot también se revisa).
+      supabaseAdmin.from("assistant_query_log").select(SELECT)
+        .eq("traffic_type", "ADMIN")
+        .gte("created_at",scope.started_at)
+        .order("created_at",{ascending:false}).limit(100),
     ]);
-    if (pilotRows.error || seedRows.error) throw pilotRows.error || seedRows.error;
-    const rows = mergePilotReviewQueue(pilotRows.data || [],seedRows.data || [],scope,100);
+    if (pilotRows.error || seedRows.error || adminRows.error) throw pilotRows.error || seedRows.error || adminRows.error;
+    const rows = mergePilotReviewQueue([...(pilotRows.data || []),...(adminRows.data || [])],seedRows.data || [],scope,100);
     const ids = rows.map(r=>r.id);
     let reviewRows = [];
     if (ids.length) {
@@ -54,7 +60,7 @@ export async function GET(request) {
     const workMap = new Map((works.data || []).map(w=>[String(w.id),w.name]));
     return Response.json({ok:true,limit:100,rows:rows.map(r=>({
       ...r,
-      branch_name:branchMap.get(String(r.branch_id)) || "Sucursal",
+      branch_name:r.traffic_type === "ADMIN" ? "Administración (prueba)" : (branchMap.get(String(r.branch_id)) || "Sucursal"),
       social_work_name:workMap.get(String(r.social_work_id)) || "No identificada",
       review:reviewMap.get(String(r.id)) || null,
     }))}, {headers:{"Cache-Control":"no-store"}});
@@ -87,7 +93,14 @@ export async function POST(request) {
         {onConflict:"query_id,reviewer_profile_id"})
       .select("query_id,verdict").single();
     if (error) throw error;
-    return Response.json({ok:true,review:data});
+    // v3.13.21 — una respuesta incorrecta/parcial no debe seguir sirviéndose
+    // desde la caché; la corrección sugerida pasa a usarse en las próximas respuestas.
+    let correctionActive = false;
+    if (verdict !== "CORRECT") {
+      await deactivateCachedAnswers(supabaseAdmin,result.data.social_work_id,result.data.normalized_question);
+      correctionActive = Boolean(suggested);
+    }
+    return Response.json({ok:true,review:data,correction_active:correctionActive});
   } catch(error) {
     console.error("POST validacion operativa",error);
     return jsonError("No se pudo guardar la revisión",500);

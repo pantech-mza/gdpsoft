@@ -3,7 +3,9 @@ import OpenAI from "openai";
 import {
   resolveOperation,
 } from "../../../../lib/operations/resolve-operation";
-import { formatCircuitResponse } from "../../../../lib/operations/camara-colegio-policy.mjs";
+import {
+  answerValidatorChallenge, describeBranchValidatorException, formatBranchValidatorNote, formatCircuitResponse,
+} from "../../../../lib/operations/camara-colegio-policy.mjs";
 
 import {
   supabaseAdmin,
@@ -28,6 +30,9 @@ import {
   isFreshState, loadConversationState, pendingRealQuestion, resolveBranchBillingChannelId,
   resolveChannelIdForGroup, resolveFollowUp, saveConversationState,
 } from "../../../../lib/assistant/conversation-context.mjs";
+import {
+  buildCorrectionsPrompt, findExactCorrection, loadSocialWorkCorrections,
+} from "../../../../lib/assistant/admin-corrections.mjs";
 import { isOperationalCircuitQuestion } from "../../../../lib/assistant/operational-circuit-intent.mjs";
 import { isSocialWorkStatusQuestion, hasExplicitStatusSubject, formatSocialWorkStatus } from "../../../../lib/assistant/social-work-status.mjs";
 import { unresolvedExplicitSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
@@ -291,6 +296,9 @@ async function getCachedAnswer({
         true
 
       )
+      // v3.13.20 — permite ignorar respuestas cacheadas antes de una fecha
+      // (p. ej. tras cambiar los prompts) sin borrar nada.
+      .gte("updated_at", process.env.GDP_ANSWER_CACHE_MIN_DATE || "1970-01-01T00:00:00Z")
 
       .maybeSingle();
 
@@ -2843,6 +2851,22 @@ function buildNormativeRequirementFallbackQuestion({
 }
 
 
+// v3.13.22 — excepción de validador por sucursal (p. ej. OSECAC en DP1).
+async function getBranchValidatorException({ branchId, branchCode, socialWorkId }) {
+  try {
+    if (!(branchId || branchCode) || !socialWorkId) return null;
+    const base = supabaseAdmin.from("branches").select("id,name,code");
+    const { data: branchRow } = await (branchId ? base.eq("id", branchId) : base.eq("code", branchCode)).maybeSingle();
+    const socialWorkName = await getSocialWorkName(socialWorkId);
+    if (!branchRow || !socialWorkName) return null;
+    return describeBranchValidatorException({
+      branchName: branchRow.name, branchCode: branchRow.code, socialWorkName,
+    });
+  } catch {
+    return null;
+  }
+}
+
 async function getSocialWorkName(
   socialWorkId
 ) {
@@ -4515,7 +4539,7 @@ async function queryFileSearch({
 
   maxOutputTokens = null,
   forceDetailed = false,
-
+  adminCorrections = "",
 }) {
 
   if (
@@ -4723,8 +4747,11 @@ REPREGUNTA SOBRE EL MISMO TEMA (esta sección tiene prioridad sobre las reglas d
 - Respondé la repregunta ampliando lo que la normativa recuperada indique sobre ese tema: condiciones, restricciones, excepciones y pasos.
 - Si la normativa no agrega nada sobre lo repreguntado, decilo en una oración y resumí brevemente lo que sí indica sobre el tema. No respondas solo "No encuentro esa información".
 - No uses información de otra obra social ni de otro tema.
+- No afirmes que algo se registra, valida o presenta en un sistema o lugar si el texto recuperado no lo dice. Si la normativa indica que algo NO se valida, NO se registra o NO se acepta, decilo de forma explícita.
 `;
-  const instructions = forceDetailed ? baseInstructions + followUpAddendum : baseInstructions;
+  const instructions =
+    (forceDetailed ? baseInstructions + followUpAddendum : baseInstructions) +
+    (adminCorrections || "");
 
 
 
@@ -4835,6 +4862,24 @@ REPREGUNTA SOBRE EL MISMO TEMA (esta sección tiene prioridad sobre las reglas d
         "file_search_call"
 
     );
+
+  // v3.13.20 — diagnóstico opcional: qué fragmentos recuperó File Search.
+  // Se activa con GDP_DEBUG_RETRIEVAL=1; no cambia ninguna respuesta.
+  if (process.env.GDP_DEBUG_RETRIEVAL === "1") {
+    try {
+      console.log("[GDP_DEBUG_RETRIEVAL]", JSON.stringify({
+        question, socialWorkId, normativeIds, forceDetailed,
+        results: (searchCall?.results || []).map((r) => ({
+          file: r.filename,
+          normative_id: r.attributes?.normative_id ?? null,
+          score: r.score,
+          text: String(r.text || "").replace(/\s+/g, " ").slice(0, 400),
+        })),
+      }, null, 2));
+    } catch {
+      // el diagnóstico nunca debe romper una consulta
+    }
+  }
 
 
 
@@ -5129,6 +5174,22 @@ async function detectSocialWorkFromQuestion(
 // v3.13.20 — envoltorio: carga el estado conversacional, delega en el motor
 // existente y persiste el estado a partir de la respuesta final (cubre todas las rutas).
 // Si la columna conversation_state no existe, todo se comporta como antes.
+const NOTE_SKIP_ROUTES = new Set([
+  "BRANCH_VALIDATOR_EXCEPTION", "UNKNOWN_EXPLICIT_SOCIAL_WORK", "CLARIFICATION_NEEDED",
+  "CHANNEL_CONFIRMED", "ADMIN_CORRECTION", "NORMATIVE_SCOPE_UNVERIFIED",
+]);
+async function appendBranchValidatorNote(json, rawQuestion) {
+  if (!json || json.ok !== true || json.found !== true || !json.answer) return null;
+  if (NOTE_SKIP_ROUTES.has(json.route) || /SUC:/.test(json.answer)) return null;
+  if (!/\b(?:tramit\w*|valid\w*|gestion\w*)\b/i.test(String(rawQuestion || ""))) return null;
+  const ctx = json.context || {};
+  const exception = await getBranchValidatorException({
+    branchId: ctx.branch_id, branchCode: null, socialWorkId: ctx.social_work_id,
+  });
+  const note = formatBranchValidatorNote(exception);
+  return note ? { ...json, answer: `${json.answer}\n\n${note}` } : null;
+}
+
 export async function POST(request) {
   let conversationState = null;
   let rawQuestion = "";
@@ -5141,7 +5202,16 @@ export async function POST(request) {
   } catch {
     // El motor valida el cuerpo y devuelve el error correspondiente.
   }
-  const response = await handleAssistantQuery(request, { conversationState });
+  let response = await handleAssistantQuery(request, { conversationState });
+  // v3.13.22 — consultas de trámite/validación: si la sucursal tiene una excepción
+  // de validador para esa obra social, se aclara aunque la respuesta venga de la normativa.
+  try {
+    const original = await response.clone().json();
+    const noted = await appendBranchValidatorNote(original, rawQuestion);
+    if (noted) response = Response.json(noted, { status: response.status });
+  } catch {
+    // la aclaración es opcional: nunca debe romper la respuesta
+  }
   if (wrapperConversationId) {
     try {
       const json = await response.clone().json();
@@ -5162,16 +5232,23 @@ async function handleAssistantQuery(request, { conversationState = null } = {}) 
     // Solo una sesión real de Sucursal puede marcar tráfico PILOT.
     // Las baterías técnicas sin token de sucursal no ingresan a la cola Admin.
     let verifiedPilotBranch = null;
+    // v3.13.21 — las consultas del administrador se registran como ADMIN
+    // (visibles en Validación de respuestas, fuera de las métricas del piloto).
+    let verifiedAdmin = false;
     try {
       const auth = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") || "");
       if (auth) {
         const session = await supabaseAdmin.auth.getUser(auth[1]);
         if (session?.data?.user?.id) {
           const profileResult = await supabaseAdmin.from("profiles")
-            .select("role,branch_id,active").eq("id", session.data.user.id).maybeSingle();
+            .select("role,branch_id,active,is_super_admin").eq("id", session.data.user.id).maybeSingle();
           const profile = profileResult.data;
           if (!profileResult.error && profile?.active === true && profile?.role === "SUCURSAL") {
             verifiedPilotBranch = Number(profile.branch_id) || null;
+          } else if (!profileResult.error && profile?.active === true &&
+            (profile?.is_super_admin === true ||
+              ["ADMIN", "SUPERADMIN", "SUPER_ADMIN"].includes(String(profile?.role || "").toUpperCase()))) {
+            verifiedAdmin = true;
           }
         }
       }
@@ -5181,7 +5258,9 @@ async function handleAssistantQuery(request, { conversationState = null } = {}) 
     const logCurrentQuery = (payload) => logAssistantQuery({
       ...payload,
       deviceId: verifiedPilotBranch && Number(payload.branchId) === verifiedPilotBranch ? deviceId : null,
-      trafficType: verifiedPilotBranch && Number(payload.branchId) === verifiedPilotBranch ? "PILOT" : "OTHER",
+      trafficType: verifiedPilotBranch && Number(payload.branchId) === verifiedPilotBranch
+        ? "PILOT"
+        : verifiedAdmin ? "ADMIN" : "OTHER",
     });
 
 
@@ -5840,6 +5919,43 @@ if (conversationId) {
         return Response.json({ ok: true, question, answer, source: "GDP_CONVERSATION",
           route: "CLARIFICATION_NEEDED", found: false, context: responseContext,
           elapsed_ms: elapsedMs, usage });
+      }
+    }
+
+    // v3.13.21 — correcciones aprobadas por el administrador (Validación de
+    // respuestas). Misma obra social + misma pregunta => se responde con el
+    // texto aprobado. Si no coincide exacto, se pasan al prompt como contexto.
+    let adminCorrections = [];
+    if (Number.isInteger(socialWorkId) && socialWorkId > 0) {
+      adminCorrections = await loadSocialWorkCorrections(supabaseAdmin, socialWorkId);
+      const exactCorrection = findExactCorrection(adminCorrections, normalizeQuestion(question));
+      if (exactCorrection) {
+        const answer = exactCorrection.suggested;
+        const elapsedMs = Date.now() - startedAt;
+        const usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+        await logCurrentQuery({ branchId, socialWorkId, question, answer,
+          source: "ADMIN_CORRECTION", route: "ADMIN_CORRECTION", found: true, elapsedMs, usage });
+        return Response.json({ ok: true, question, answer, source: "ADMIN_CORRECTION",
+          route: "ADMIN_CORRECTION", found: true, context: responseContext,
+          elapsed_ms: elapsedMs, usage });
+      }
+    }
+
+    // v3.13.22 — «¿Por Econo Más?» dentro de una consulta sobre una obra social
+    // con validador externo en esta sucursal: se aclara cuál es el validador.
+    if (Number.isInteger(socialWorkId) && socialWorkId > 0 && (branchId || branchCode) &&
+        String(question).trim().split(/\s+/).length <= 8) {
+      const validatorException = await getBranchValidatorException({ branchId, branchCode, socialWorkId });
+      const challengeAnswer = validatorException
+        ? answerValidatorChallenge(validatorException, question) : null;
+      if (challengeAnswer) {
+        const elapsedMs = Date.now() - startedAt;
+        const usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+        await logCurrentQuery({ branchId, socialWorkId, question, answer: challengeAnswer,
+          source: "GDP_OPERATION_PROCEDURE", route: "BRANCH_VALIDATOR_EXCEPTION", found: true, elapsedMs, usage });
+        return Response.json({ ok: true, question, answer: challengeAnswer,
+          source: "GDP_OPERATION_PROCEDURE", route: "BRANCH_VALIDATOR_EXCEPTION", found: true,
+          context: responseContext, elapsed_ms: elapsedMs, usage });
       }
     }
 
@@ -6651,6 +6767,12 @@ if (
         profileIntent,
     });
 
+  // v3.13.22 — la ficha de validación no debe contradecir la excepción de la sucursal.
+  if (result.found && ["VALIDATION_METHOD", "VALIDATOR_NAME"].includes(profileIntent.key)) {
+    const validatorException = await getBranchValidatorException({ branchId, branchCode, socialWorkId });
+    const validatorNote = formatBranchValidatorNote(validatorException);
+    if (validatorNote) result.answer = `${result.answer}\n\n${validatorNote}`;
+  }
   // =====================================================
   // DATO ESTRUCTURADO DISPONIBLE
   // =====================================================
@@ -7599,6 +7721,7 @@ const result = await queryFileSearch({
   maxResults: specialNormativeTopic ? 12 : 5,
   maxOutputTokens: specialNormativeTopic ? 650 : null,
   forceDetailed: followUp.isFollowUp,
+  adminCorrections: buildCorrectionsPrompt(adminCorrections),
 });
 
 

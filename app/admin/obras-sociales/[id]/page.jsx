@@ -949,6 +949,45 @@ function NormativesView({
     setUploadOpen,
   ] = useState(false);
 
+  const [processingId, setProcessingId] = useState(null);
+  const [processMessage, setProcessMessage] = useState("");
+
+  // v3.13.21 — las normativas quedan "Pendientes" cuando el análisis/indexación
+  // no se completó. No las valida otra persona: el administrador las procesa acá.
+  const processNormative = async (normativeId) => {
+    const id = Number(normativeId);
+    if (!Number.isInteger(id) || id <= 0) return;
+    setProcessingId(id);
+    setProcessMessage("Analizando el documento...");
+    try {
+      const call = async (url, options = {}) => {
+        const response = await treeApiFetch(url, { method: "POST", ...options });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || payload.ok === false) {
+          throw new Error(payload.error || `Error HTTP ${response.status}`);
+        }
+        return payload;
+      };
+      const analysis = await call(`/api/normatives/analyze?normativeId=${id}`);
+      if (analysis.recommendation !== "DIRECT") {
+        setProcessMessage(`El análisis recomienda ${analysis.recommendation || "revisión"} (por ejemplo OCR): el documento no se puede indexar de forma directa y requiere ese procesamiento previo.`);
+      } else {
+        setProcessMessage("Confirmando e indexando en OpenAI... puede tardar unos minutos.");
+        await call("/api/normatives/confirm-processing", {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ normativeId: id, mode: "DIRECT" }),
+        });
+        await call(`/api/normatives/process?normativeId=${id}`);
+        setProcessMessage("Normativa indexada correctamente.");
+      }
+    } catch (err) {
+      setProcessMessage(`No se pudo procesar la normativa: ${err?.message || "error desconocido"}`);
+    } finally {
+      setProcessingId(null);
+      await loadNormatives();
+    }
+  };
+
   const loadNormatives =
     async () => {
       try {
@@ -1041,6 +1080,12 @@ function NormativesView({
               {error}
             </div>
           )}
+
+        {processMessage && (
+          <div className="rounded-xl border border-purple-200 bg-purple-50 p-4 text-sm text-[#5b2a63]">
+            {processMessage}
+          </div>
+        )}
 
         {/* VACÍO */}
 
@@ -1206,6 +1251,11 @@ function NormativesView({
                                   "Pendiente"
                                 }
                               </span>
+                              {!normative.processing_selected && (
+                                <span className="max-w-[150px] text-[11px] leading-4 text-zinc-400">
+                                  Sin procesar. No la valida otra persona: usá «Analizar e indexar».
+                                </span>
+                              )}
 
                               {normative.analysis_progress !=
                                 null && (
@@ -1265,6 +1315,17 @@ function NormativesView({
                                 </a>
                               )}
 
+                              {String(normative.status || "").toUpperCase() !== "INDEXED" &&
+                                String(normative.status || "").toUpperCase() !== "ARCHIVED" && (
+                                <button
+                                  type="button"
+                                  disabled={processingId !== null}
+                                  onClick={() => processNormative(normative.id)}
+                                  className="rounded-lg bg-[#8f2a85] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#7a2272] disabled:opacity-50"
+                                >
+                                  {processingId === Number(normative.id) ? "Procesando..." : "Analizar e indexar"}
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 className="rounded-lg border border-[#8f2a85]/20 bg-[#8f2a85]/5 px-3 py-2 text-xs font-semibold text-[#8f2a85] transition hover:bg-[#8f2a85]/10"
@@ -1802,21 +1863,27 @@ function UploadNormativeModal({
                   className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-800 outline-none transition focus:border-[#8f2a85]"
                 >
                   <option value="INITIAL">
-                    Normativa inicial
+                    Normativa inicial (convenio, manual de prestadores)
                   </option>
 
                   <option value="FULL_REPLACEMENT">
-                    Reemplazo completo
+                    Reemplazo completo (nueva versión que anula la anterior)
                   </option>
 
                   <option value="AMENDMENT">
-                    Modificación
+                    Modificación (resolución o anexo que cambia puntos)
                   </option>
 
                   <option value="CIRCULAR">
-                    Circular
+                    Circular (comunicado, aviso, novedad)
                   </option>
                 </select>
+                <p className="mt-1 text-xs leading-5 text-zinc-500">
+                  {documentKind === "INITIAL" && "Ej.: Manual operativo OSDE 2026, convenio marco. Es el documento base de la obra social."}
+                  {documentKind === "FULL_REPLACEMENT" && "Ej.: Nuevo manual de prestadores que reemplaza al anterior completo."}
+                  {documentKind === "AMENDMENT" && "Ej.: Resolución 123/26 que modifica la cobertura de un plan, o un anexo con cambios parciales."}
+                  {documentKind === "CIRCULAR" && "Ej.: Comunicado de novedades, aviso de cambio de validador o de cierre de facturación."}
+                </p>
 
               </div>
 
@@ -2088,6 +2155,12 @@ function NormativeStatusBadge({
   return (
     <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
       {
+        {
+          PENDING_ANALYSIS: "Pendiente de análisis",
+          ANALYZED: "Analizada, falta indexar",
+          PROCESSING: "Procesando",
+          ERROR: "Error al procesar",
+        }[normalized] ||
         status ||
         "-"
       }

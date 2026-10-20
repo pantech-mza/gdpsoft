@@ -35,14 +35,14 @@ test('OSTES/OSPAV/PASTEUR/OSFYHC requieren Cámara–Colegio solo en grupo Cáma
   }
 });
 
-test('OSECAC: DP1 externo por Econo Más, Econo Más y San Rafael directo, resto Cámara–Colegio',()=>{
+test('OSECAC: DP1 externo por San Francisco, Econo Más y San Rafael directo, resto Cámara–Colegio',()=>{
   for(const branch of [...CAMARA_BRANCHES,...COLEGIO_BRANCHES]) {
     const r=caseOf(branch,'OSECAC');
     assert.equal(r.canReceive,true);
     assert.equal(r.mode,branch==='DP1'?'EXTERNAL_VALIDATOR':
       ['ECONO_MAS','SAN_RAFAEL'].includes(branch)?'DIRECT':'CAMARA_COLEGIO');
   }
-  assert.match(caseOf('DP1','OSECAC').validatorBranchName,/Econo Más/);
+  assert.match(caseOf('DP1','OSECAC').validatorBranchName,/San Francisco/);
 });
 
 test('OSDE: únicamente Lavalle, Del Centro, Rodríguez Peña, Andina hacen Cámara–Colegio',()=>{

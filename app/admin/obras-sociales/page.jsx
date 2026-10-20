@@ -3,6 +3,7 @@
 
 
 import Link from "next/link";
+import { treeApiFetch } from "../../../lib/decision-trees/client";
 
 
 
@@ -264,9 +265,7 @@ export default function AdminSocialWorksPage() {
 
         const response =
 
-          await fetch(
-
-            `/api/social-works/${id}`,
+          await treeApiFetch(`/api/social-works/${id}`,
 
             {
 

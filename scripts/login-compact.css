@@ -1,0 +1,108 @@
+/* ==========================================================
+   GDPSoft · Login compacto y responsive (14/10/2026)
+   Solo modifica la pantalla /; no altera Sucursal/Admin.
+   Agregar AL FINAL de app/styles.css.
+   ========================================================== */
+.gdpLoginPage {
+  min-height: 100svh;
+  padding: 38px 18px 40px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.gdpLoginScene {
+  width: min(100%, 520px);
+  padding-top: 158px;
+}
+
+.gdpBotArea {
+  top: -7px;
+  height: 185px;
+}
+
+.gdpLoginBot {
+  width: 198px;
+  max-height: 208px;
+}
+
+.gdpBotBubble {
+  top: 26px;
+  left: calc(50% + 112px);
+  min-width: 148px;
+  padding: 12px 15px;
+  border-radius: 19px 19px 19px 7px;
+  font-size: 12px;
+}
+
+.gdpLoginCard {
+  width: 100%;
+  max-width: 520px;
+  padding: 43px 42px 24px;
+  border-radius: 22px;
+}
+
+.gdpLoginHeader { margin-bottom: 20px; }
+.gdpLoginHeader h1 {
+  font-size: clamp(25px, 2.1vw, 30px);
+  line-height: 1.15;
+  letter-spacing: -0.7px;
+}
+.gdpLoginHeader p {
+  margin-top: 7px;
+  font-size: 14px;
+}
+.gdpLoginGroup { margin-bottom: 13px; }
+.gdpLoginGroup label { margin-bottom: 6px; font-size: 12px; }
+.gdpLoginInput { height: 46px; }
+.gdpLoginInputIcon { width: 47px; flex: 0 0 47px; }
+.gdpLoginInputIcon svg, .gdpLoginEye svg { width: 20px; height: 20px; }
+.gdpLoginInput input { min-width: 0; font-size: 14px; }
+.gdpLoginEye { width: 45px; }
+.gdpLoginButton { height: 49px; font-size: 15px; }
+.gdpLoginArrow { right: 12px; width: 30px; height: 30px; }
+.gdpLoginHelpTitle { margin: 17px 0 10px; }
+.gdpLoginSupport { min-height: 56px; padding: 8px 12px; }
+.gdpSupportIcon { width: 37px; height: 37px; }
+.gdpSupportIcon svg { width: 23px; height: 23px; }
+.gdpSupportText strong { font-size: 12px; }
+.gdpSupportText small { font-size: 10px; }
+.gdpLoginTopBrand { top: 23px; right: 3.5%; }
+.gdpLoginFooter { bottom: 12px; font-size: 9px; }
+
+/* Pantallas de escritorio con poca altura: priorizar formulario completo. */
+@media (min-width: 601px) and (max-height: 700px) {
+  .gdpLoginPage { padding-top: 18px; padding-bottom: 26px; }
+  .gdpLoginScene { padding-top: 127px; }
+  .gdpLoginBot { width: 167px; max-height: 177px; }
+  .gdpBotBubble { top: 16px; left: calc(50% + 99px); }
+  .gdpLoginCard { padding-top: 35px; padding-bottom: 18px; }
+  .gdpLoginHeader { margin-bottom: 15px; }
+  .gdpLoginHelpTitle { margin-top: 11px; margin-bottom: 7px; }
+  .gdpLoginGroup { margin-bottom: 9px; }
+  .gdpLoginFooter { position: relative; left: auto; bottom: auto; transform: none; margin: 14px auto 0; }
+}
+
+@media (max-width: 600px) {
+  .gdpLoginPage {
+    padding: 14px 14px 24px;
+    align-items: center;
+    justify-content: flex-start;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  .gdpLoginScene { width: 100%; max-width: 400px; padding-top: 128px; }
+  .gdpBotArea { top: 0; height: 146px; }
+  .gdpLoginBot { width: 170px; max-height: 180px; }
+  .gdpBotBubble { display: none; }
+  .gdpLoginCard { width: 100%; max-width: 400px; padding: 47px 19px 20px; border-radius: 20px; }
+  .gdpLoginHeader { margin-bottom: 19px; }
+  .gdpLoginHeader h1 { font-size: clamp(23px, 6.5vw, 29px); }
+  .gdpLoginHeader p { font-size: 13px; }
+  .gdpLoginGroup { margin-bottom: 13px; }
+  .gdpLoginInput { height: 49px; }
+  .gdpLoginInput input { font-size: 16px; } /* Evita zoom automático de iOS */
+  .gdpLoginButton { height: 49px; font-size: 15px; }
+  .gdpLoginHelpTitle { margin: 17px 0 9px; }
+  .gdpLoginSupport { min-height: 55px; padding: 8px 12px; }
+  .gdpLoginFooter { position: relative; bottom: auto; left: auto; margin: 15px auto 0; transform: none; }
+}
