@@ -189,7 +189,7 @@ test('route.js: el estado se persiste en un único punto y la repregunta no enve
   assert.match(route, /export async function POST\(request\)[\s\S]*?handleAssistantQuery\(request, \{ conversationState \}\)/);
   assert.match(route, /branchId && !followUp\.isFollowUp/);
   assert.match(route, /forceDetailed: followUp\.isFollowUp/);
-  assert.match(route, /const detailed = forceDetailed \|\| wantsDetailedAnswer\(question\)/);
+  assert.match(route, /const detailed = forceDetailed \|\| Boolean\(userConstraints\) \|\| wantsDetailedAnswer\(question\)/);
 });
 
 test('route.js: el modo corto conserva las restricciones críticas y la repregunta tiene instrucciones propias', () => {

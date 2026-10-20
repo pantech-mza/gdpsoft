@@ -30,6 +30,7 @@ import {
   isFreshState, loadConversationState, pendingRealQuestion, resolveBranchBillingChannelId,
   resolveChannelIdForGroup, resolveFollowUp, saveConversationState,
 } from "../../../../lib/assistant/conversation-context.mjs";
+import { buildConstraintsPrompt, splitUserConstraints, stripOfferLine } from "../../../../lib/assistant/user-constraints.mjs";
 import {
   buildCorrectionsPrompt, findExactCorrection, loadSocialWorkCorrections,
 } from "../../../../lib/assistant/admin-corrections.mjs";
@@ -4540,6 +4541,7 @@ async function queryFileSearch({
   maxOutputTokens = null,
   forceDetailed = false,
   adminCorrections = "",
+  userConstraints = "",
 }) {
 
   if (
@@ -4560,7 +4562,7 @@ async function queryFileSearch({
 
 
 
-  const detailed = forceDetailed || wantsDetailedAnswer(question);
+  const detailed = forceDetailed || Boolean(userConstraints) || wantsDetailedAnswer(question);
 
   const normalizedQuestionForPrecision =
     normalize(question);
@@ -4751,7 +4753,8 @@ REPREGUNTA SOBRE EL MISMO TEMA (esta sección tiene prioridad sobre las reglas d
 `;
   const instructions =
     (forceDetailed ? baseInstructions + followUpAddendum : baseInstructions) +
-    (adminCorrections || "");
+    (adminCorrections || "") +
+    (userConstraints || "");
 
 
 
@@ -4887,7 +4890,7 @@ REPREGUNTA SOBRE EL MISMO TEMA (esta sección tiene prioridad sobre las reglas d
 
     answer:
 
-      response.output_text,
+      userConstraints ? stripOfferLine(response.output_text) : response.output_text,
 
 
 
@@ -6777,6 +6780,12 @@ if (followUp.isFollowUp) {
   fileSearchQuestion = followUp.searchQuestion;
   skipAnswerCache = true;
 }
+// v3.13.26 — condiciones del usuario («únicamente…», «no agregues…»): se busca solo
+// el tema y las condiciones se le exigen al modelo, para cualquier obra social.
+const userConstraintSplit = splitUserConstraints(question);
+if (userConstraintSplit.hasConstraints && !followUp.isFollowUp) {
+  fileSearchQuestion = userConstraintSplit.topic;
+}
 
 const profileIntent =
   detectSocialWorkProfileIntent(
@@ -7749,6 +7758,7 @@ const result = await queryFileSearch({
   maxOutputTokens: specialNormativeTopic ? 650 : null,
   forceDetailed: followUp.isFollowUp,
   adminCorrections: buildCorrectionsPrompt(adminCorrections),
+  userConstraints: buildConstraintsPrompt(userConstraintSplit),
 });
 
 
