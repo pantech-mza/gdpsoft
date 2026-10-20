@@ -5193,7 +5193,8 @@ async function appendAdminObservation(json) {
   const socialWorkId = json.context?.social_work_id;
   if (!socialWorkId) return null;
   const observations = await loadSocialWorkObservations(supabaseAdmin, socialWorkId);
-  const observation = findExactObservation(observations, normalizeQuestion(json.question));
+  const observationWorkName = observations.length ? await getSocialWorkName(socialWorkId) : "";
+  const observation = findExactObservation(observations, normalizeQuestion(json.question), observationWorkName || "");
   return observation ? { ...json, answer: appendObservation(json.answer, observation) } : null;
 }
 
@@ -5955,7 +5956,8 @@ if (conversationId) {
     let adminCorrections = [];
     if (Number.isInteger(socialWorkId) && socialWorkId > 0) {
       adminCorrections = await loadSocialWorkCorrections(supabaseAdmin, socialWorkId);
-      const exactCorrection = findExactCorrection(adminCorrections, normalizeQuestion(question));
+      const correctionWorkName = adminCorrections.length ? await getSocialWorkName(socialWorkId) : "";
+      const exactCorrection = findExactCorrection(adminCorrections, normalizeQuestion(question), correctionWorkName || "");
       if (exactCorrection) {
         const answer = exactCorrection.suggested;
         const elapsedMs = Date.now() - startedAt;

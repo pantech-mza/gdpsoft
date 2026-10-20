@@ -64,7 +64,7 @@ test('Validación: las consultas ADMIN entran a la cola, sin sucursal y respetan
 
 test('route.js: usa correcciones del admin antes de buscar y clasifica tráfico ADMIN', () => {
   const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(src, /findExactCorrection\(adminCorrections, normalizeQuestion\(question\)\)/);
+  assert.match(src, /findExactCorrection\(adminCorrections, normalizeQuestion\(question\), correctionWorkName/);
   assert.match(src, /route: "ADMIN_CORRECTION"/);
   assert.match(src, /adminCorrections: buildCorrectionsPrompt\(adminCorrections\)/);
   assert.match(src, /verifiedAdmin \? "ADMIN" : "OTHER"/);
@@ -135,4 +135,30 @@ test('Validación sin tope de 100 y sin la leyenda de baterías', () => {
   assert.match(api, /fetchAll\(/);
   const ui = fs.readFileSync(new URL('../../components/admin/AdminBranchValidation.jsx', import.meta.url), 'utf8');
   assert.ok(!/Máximo 100/.test(ui) && !/4\.446/.test(ui));
+});
+
+import { canonicalQuestion } from '../../lib/assistant/admin-corrections.mjs';
+import { buildFollowUpSearchQuestion, buildNextState, extractOffer } from '../../lib/assistant/conversation-context.mjs';
+
+test('la pregunta con o sin el nombre de la obra social es la misma consulta', () => {
+  assert.equal(canonicalQuestion('Premedic debe venir autorizado por la obra social?', 'PREMEDIC'),
+    canonicalQuestion('debe venir autorizado por la obra social?', 'PREMEDIC'));
+  const obs = pickObservations([{ comment: 'obs', updated_at: '2026-10-20T10:00:00Z',
+    assistant_query_log: { normalized_question: 'debe venir autorizado por la obra social' } }]);
+  assert.equal(findExactObservation(obs, 'premedic debe venir autorizado por la obra social', 'PREMEDIC')?.comment, 'obs');
+  assert.equal(findExactObservation(obs, 'premedic requiere membrete', 'PREMEDIC'), null);
+  assert.equal(findExactCorrection([], 'x', 'PREMEDIC'), null);
+});
+
+test('«Sí» a una oferta: se responde exactamente lo ofrecido', () => {
+  const answer = 'Pasos...\n\n¿Querés que te muestre los pasos para validar o los requisitos?';
+  assert.equal(extractOffer(answer), '¿Querés que te muestre los pasos para validar o los requisitos?');
+  assert.equal(extractOffer('Sin oferta'), null);
+  const state = buildNextState({ prev: null, rawQuestion: 'como valido osecac?',
+    json: { ok: true, question: 'como valido osecac?', answer, route: 'BRANCH_VALIDATION_GUIDE', found: true, context: { social_work_id: 5 } } });
+  assert.match(state.last_offer, /pasos para validar o los requisitos/);
+  const q = buildFollowUpSearchQuestion('Sí', state);
+  assert.match(q, /aceptó esta oferta/);
+  assert.match(q, /primero los pasos y después los requisitos/);
+  assert.ok(!/aceptó esta oferta/.test(buildFollowUpSearchQuestion('y si esta vencida?', state)));
 });
