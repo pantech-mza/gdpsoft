@@ -20,7 +20,8 @@ import {
   detectSocialWorks,
 } from "../../../../lib/assistant/socialWorkDetection";
 
-import { resolveInternalProcedure, isImmediateOperationalContingency, isSpecificNormativeQuestion } from "../../../../lib/assistant/internal-procedures";
+import { resolveInternalProcedure, isImmediateOperationalContingency, isSpecificNormativeQuestion, listApplicableProcedures } from "../../../../lib/assistant/internal-procedures";
+import { buildProcedureSelectionInstructions, formatProcedureAnswer, parseProcedureSelection } from "../../../../lib/assistant/procedure-match.mjs";
 import { asksForPrescriptionChecklist, buildFichaPrescriptionChecklist, isPrescriptionMissingFieldQuestion, buildMissingFieldNormativeQuestion } from "../../../../lib/assistant/prescription-safety.mjs";
 import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, scopeNormativeTopic, isSpecificNormativeTopic } from "../../../../lib/assistant/linked-normatives.mjs";
 import { shouldPreferValidationProfile } from "../../../../lib/assistant/validation-profile-priority.mjs";
@@ -2875,6 +2876,28 @@ async function answerFromApprovedNotes({ question, socialWorkId }) {
     return answer ? { answer: formatNotesAnswer(answer), usage: response.usage || null } : null;
   } catch (notesError) {
     console.warn("observaciones de apoyo no disponibles:", notesError?.message);
+    return null;
+  }
+}
+
+// v3.13.42 — protocolo interno aprobado elegido por significado (no solo por palabras clave).
+async function answerFromProceduresByMeaning({ question, socialWorkId, billingChannelId }) {
+  try {
+    const procedures = await listApplicableProcedures({ socialWorkId, billingChannelId });
+    if (!procedures.length) return null;
+    const response = await openai.responses.create({
+      model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+      instructions: buildProcedureSelectionInstructions(procedures),
+      input: question,
+      temperature: 0,
+      max_output_tokens: 30,
+    });
+    const procedure = parseProcedureSelection(response.output_text, procedures);
+    return procedure
+      ? { answer: formatProcedureAnswer(procedure), code: procedure.code, procedure_id: procedure.id, usage: response.usage || null }
+      : null;
+  } catch (procedureError) {
+    console.warn("protocolos por significado no disponibles:", procedureError?.message);
     return null;
   }
 }
@@ -7846,6 +7869,17 @@ if (!normativeScope.ok) {
         route: "APPROVED_NOTES_FALLBACK", found: true, context: responseContext,
         elapsed_ms: notesElapsedMs, usage: notesSupport.usage || { input_tokens: 0, output_tokens: 0, total_tokens: 0 } });
     }
+    const meaningProcedure = await answerFromProceduresByMeaning({ question: fileSearchQuestion, socialWorkId, billingChannelId: activeBillingChannelId });
+    if (meaningProcedure) {
+      const meaningElapsedMs = Date.now() - startedAt;
+      const meaningUsage = meaningProcedure.usage || { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+      await logCurrentQuery({ branchId, socialWorkId, question, answer: meaningProcedure.answer,
+        source: "GDP_INTERNAL_PROCEDURE", route: "INTERNAL_PROCEDURE_BY_MEANING", found: true,
+        elapsedMs: meaningElapsedMs, usage: meaningUsage });
+      return Response.json({ ok: true, question, answer: meaningProcedure.answer, source: "GDP_INTERNAL_PROCEDURE",
+        route: "INTERNAL_PROCEDURE_BY_MEANING", procedure_id: meaningProcedure.procedure_id, procedure_code: meaningProcedure.code,
+        found: true, context: responseContext, elapsed_ms: meaningElapsedMs, usage: meaningUsage });
+    }
   }
   const answer = normativeScope.reason;
   const elapsedMs = Date.now() - startedAt;
@@ -7863,7 +7897,7 @@ let result = await queryFileSearch({
     : fileSearchQuestion,
   socialWorkId,
   normativeIds: normativeScope.normativeIds,
-  maxResults: specialNormativeTopic ? 12 : 5,
+  maxResults: specialNormativeTopic ? 12 : 8,
   maxOutputTokens: specialNormativeTopic ? 650 : null,
   forceDetailed: followUp.isFollowUp,
   adminCorrections: buildCorrectionsPrompt(adminCorrections),
@@ -7995,7 +8029,7 @@ if (followUp.isFollowUp && isNotFoundAnswer(result?.answer)) {
     // Protocolo interno SOLO como último recurso si no hay evidencia de ficha/normativa.
     // No se usa para completar vigencia, RP, cobertura ni otros requisitos específicos.
     // v3.13.36 — la normativa no respondió: se intenta con observaciones aprobadas.
-    if (!found && !prescriptionMissingField) {
+    if (!found) {
       const notesSupport = await answerFromApprovedNotes({ question: fileSearchQuestion, socialWorkId });
       if (notesSupport) {
         const notesElapsedMs = Date.now() - startedAt;
@@ -8007,9 +8041,11 @@ if (followUp.isFollowUp && isNotFoundAnswer(result?.answer)) {
           elapsed_ms: notesElapsedMs, usage: notesSupport.usage || result.usage || { input_tokens: 0, output_tokens: 0, total_tokens: 0 } });
       }
     }
-    if (!found && !isSpecificNormativeQuestion(question) && !prescriptionMissingField) {
+    if ((!found && !isSpecificNormativeQuestion(question)) || (!found && prescriptionMissingField)) {
       const lastResortProcedure = await resolveInternalProcedure({
         question, socialWorkId, billingChannelId: activeBillingChannelId,
+      }) || await answerFromProceduresByMeaning({
+        question: fileSearchQuestion, socialWorkId, billingChannelId: activeBillingChannelId,
       });
       if (lastResortProcedure) {
         const procedureElapsedMs = Date.now() - startedAt;

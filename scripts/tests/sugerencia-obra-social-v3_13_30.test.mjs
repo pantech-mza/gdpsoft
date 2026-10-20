@@ -171,3 +171,21 @@ test('receta con la obra social en Observaciones se consulta en normativa, no co
     assert.equal(isPrescriptionMissingFieldQuestion(other), false, other);
   }
 });
+
+import { buildProcedureSelectionInstructions, formatProcedureAnswer, parseProcedureSelection } from '../../lib/assistant/procedure-match.mjs';
+test('protocolos internos: el modelo solo elige el código y la respuesta es el texto aprobado', () => {
+  const procs = [
+    { code: 'GDP-DATOS', title: 'Receta con datos incompletos', question: 'datos faltantes', answer: 'En recetas electrónicas se puede recibir si la obra social está aclarada debajo.' },
+    { code: 'GDP-VENC', title: 'Vigencia', question: 'vencida', answer: 'Se cuenta desde la fecha de prescripción.' },
+  ];
+  assert.match(buildProcedureSelectionInstructions(procs), /\[GDP-DATOS\][^]*\[GDP-VENC\]/);
+  assert.equal(parseProcedureSelection('[GDP-DATOS]', procs).code, 'GDP-DATOS');
+  assert.equal(parseProcedureSelection('gdp-venc', procs).code, 'GDP-VENC');
+  assert.equal(parseProcedureSelection('NINGUNO', procs), null);
+  assert.equal(parseProcedureSelection('GDP-INVENTADO', procs), null);
+  assert.match(formatProcedureAnswer(procs[0]), /aclarada debajo[^]*Prevalece la normativa específica/);
+  const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(src, /route: "INTERNAL_PROCEDURE_BY_MEANING"/);
+  assert.match(src, /\(!found && prescriptionMissingField\)/);
+  assert.match(src, /\|\| await answerFromProceduresByMeaning\(/);
+});
