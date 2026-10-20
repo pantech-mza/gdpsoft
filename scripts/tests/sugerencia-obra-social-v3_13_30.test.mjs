@@ -211,3 +211,12 @@ test('«No encuentro esa información en la normativa vigente» cuenta como sin 
   assert.equal(re.test(fold('No encontré la información solicitada')), true);
   assert.equal(re.test(fold('Debés facturar con el validador y no encuentro problema')), false);
 });
+
+test('receta con la obra social en observaciones dispara el protocolo de datos de la receta', () => {
+  const src = fs.readFileSync(new URL('../../lib/assistant/internal-procedures.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const m = src.match(/\/\\b\(receta\|recetas\)\\b\/\.test\(q\) && \/\\bobra social\\b\/\.test\(q\) &&\n\s*(\/[^\n]+\/)\.test\(q\)\) return 'RECIPE_DATA'/);
+  assert.ok(m, 'regla RECIPE_DATA no encontrada');
+  const re = eval(m[1]);
+  assert.equal(re.test('tiene el nombre de la obra social en observaciones'), true);
+  assert.equal(re.test('como valido osecac en dp1'), false);
+});

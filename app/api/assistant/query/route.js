@@ -2893,6 +2893,9 @@ async function answerFromProceduresByMeaning({ question, socialWorkId, billingCh
       max_output_tokens: 30,
     });
     const procedure = parseProcedureSelection(response.output_text, procedures);
+    if (process.env.GDP_DEBUG_RETRIEVAL === "1") {
+      console.log("[GDP_DEBUG_PROCEDURES]", JSON.stringify({ candidates: procedures.map((p) => p.code), model_output: response.output_text, picked: procedure?.code || null }));
+    }
     return procedure
       ? { answer: formatProcedureAnswer(procedure), code: procedure.code, procedure_id: procedure.id, usage: response.usage || null }
       : null;
@@ -8051,7 +8054,9 @@ if (followUp.isFollowUp && isNotFoundAnswer(result?.answer)) {
       const lastResortProcedure = await resolveInternalProcedure({
         question, socialWorkId, billingChannelId: activeBillingChannelId,
       }) || await answerFromProceduresByMeaning({
-        question: fileSearchQuestion, socialWorkId, billingChannelId: activeBillingChannelId,
+        // Con dato en un campo, fileSearchQuestion lleva instrucciones de búsqueda: se clasifica la consulta original.
+        question: prescriptionMissingField ? question : fileSearchQuestion,
+        socialWorkId, billingChannelId: activeBillingChannelId,
       });
       if (lastResortProcedure) {
         const procedureElapsedMs = Date.now() - startedAt;
