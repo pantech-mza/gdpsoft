@@ -32,7 +32,8 @@ import {
 } from "../../../../lib/assistant/conversation-context.mjs";
 import { buildConstraintsPrompt, splitUserConstraints, stripOfferLine } from "../../../../lib/assistant/user-constraints.mjs";
 import {
-  buildCorrectionsPrompt, findExactCorrection, loadSocialWorkCorrections,
+  appendObservation, buildCorrectionsPrompt, findExactCorrection, findExactObservation,
+  loadSocialWorkCorrections, loadSocialWorkObservations,
 } from "../../../../lib/assistant/admin-corrections.mjs";
 import { isOperationalCircuitQuestion } from "../../../../lib/assistant/operational-circuit-intent.mjs";
 import { isSocialWorkStatusQuestion, hasExplicitStatusSubject, formatSocialWorkStatus } from "../../../../lib/assistant/social-work-status.mjs";
@@ -4634,6 +4635,15 @@ VALIDACIÓN:
 
 - Si pregunta cómo validar, respondé solamente sobre validación.
 - No agregues presentación, facturación o auditoría salvo que sean indispensables para entender la validación.
+- Si pregunta cómo se valida, respondé en este orden: (1) cómo se realiza (modalidades y pasos concretos) y (2) los requisitos para validar (datos que se cargan, documentación y condiciones que la normativa exige).
+
+ESTILO CONCRETO (aplica a toda respuesta):
+
+- Cada paso es una acción: qué hacer, con qué dato y dónde. Sin explicaciones de ventajas.
+
+- No incluyas descripciones evidentes ni promocionales («es un sistema sencillo e intuitivo», «requiere conexión a Internet», «es fácil de usar»). Mencioná un requisito técnico solo si distingue una modalidad de otra (por ejemplo «para quienes no tienen conexión»).
+
+- No repitas la misma idea en pasos distintos.
 
 COBERTURA Y TOPES:
 
@@ -5177,6 +5187,16 @@ async function detectSocialWorkFromQuestion(
 // v3.13.20 — envoltorio: carga el estado conversacional, delega en el motor
 // existente y persiste el estado a partir de la respuesta final (cubre todas las rutas).
 // Si la columna conversation_state no existe, todo se comporta como antes.
+async function appendAdminObservation(json) {
+  if (!json || json.ok !== true || json.found !== true || !json.answer) return null;
+  if (json.route === "ADMIN_CORRECTION" || /\n\nObservación: /.test(json.answer)) return null;
+  const socialWorkId = json.context?.social_work_id;
+  if (!socialWorkId) return null;
+  const observations = await loadSocialWorkObservations(supabaseAdmin, socialWorkId);
+  const observation = findExactObservation(observations, normalizeQuestion(json.question));
+  return observation ? { ...json, answer: appendObservation(json.answer, observation) } : null;
+}
+
 const NOTE_SKIP_ROUTES = new Set([
   "BRANCH_VALIDATOR_EXCEPTION", "BRANCH_VALIDATION_GUIDE", "UNKNOWN_EXPLICIT_SOCIAL_WORK", "CLARIFICATION_NEEDED",
   "CHANNEL_CONFIRMED", "ADMIN_CORRECTION", "NORMATIVE_SCOPE_UNVERIFIED",
@@ -5212,6 +5232,10 @@ export async function POST(request) {
     const original = await response.clone().json();
     const noted = await appendBranchValidatorNote(original, rawQuestion);
     if (noted) response = Response.json(noted, { status: response.status });
+    // v3.13.28 — observación del administrador sobre una respuesta Correcta:
+    // se agrega debajo, sin modificar la respuesta del bot.
+    const withObservation = await appendAdminObservation(noted || original);
+    if (withObservation) response = Response.json(withObservation, { status: response.status });
   } catch {
     // la aclaración es opcional: nunca debe romper la respuesta
   }

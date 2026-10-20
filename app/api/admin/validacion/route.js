@@ -8,6 +8,21 @@ export const dynamic = "force-dynamic";
 const ALLOWED = new Set(["CORRECT", "INCORRECT", "PARTIAL"]);
 const SELECT = "id,branch_id,social_work_id,question,answer,created_at,source,route,elapsed_ms,found,traffic_type,normalized_question";
 
+const PAGE = 1000;       // máximo por consulta de Supabase
+const HARD_CAP = 10000;  // tope de seguridad, muy por encima de la actividad real
+
+// Lee TODAS las filas (en páginas) para que la cola coincida con Actividad del bot.
+async function fetchAll(makeQuery) {
+  const out = [];
+  for (let from = 0; from < HARD_CAP; from += PAGE) {
+    const { data, error } = await makeQuery().range(from, from + PAGE - 1);
+    if (error) return { data: null, error };
+    out.push(...(data || []));
+    if (!data || data.length < PAGE) break;
+  }
+  return { data: out, error: null };
+}
+
 async function pilotScope() {
   const {data,error} = await supabaseAdmin.from("gdp_activity_pilot_scope")
     .select("started_at,seed_query_ids").eq("id",1).maybeSingle();
@@ -25,28 +40,28 @@ export async function GET(request) {
     const scope = await pilotScope();
     const seeds = (scope.seed_query_ids || []).map(Number).filter(Number.isSafeInteger);
     const [pilotRows,seedRows,adminRows] = await Promise.all([
-      supabaseAdmin.from("assistant_query_log").select(SELECT)
+      fetchAll(() => supabaseAdmin.from("assistant_query_log").select(SELECT)
         .eq("traffic_type", "PILOT").not("branch_id","is",null)
         .gte("created_at",scope.started_at)
-        .order("created_at",{ascending:false}).limit(100),
+        .order("created_at",{ascending:false}).order("id",{ascending:false})),
       seeds.length ? supabaseAdmin.from("assistant_query_log").select(SELECT)
         .in("id",seeds).not("branch_id","is",null) : {data:[],error:null},
       // Consultas hechas por el administrador (probar el bot también se revisa).
-      supabaseAdmin.from("assistant_query_log").select(SELECT)
+      fetchAll(() => supabaseAdmin.from("assistant_query_log").select(SELECT)
         .eq("traffic_type", "ADMIN")
         .gte("created_at",scope.started_at)
-        .order("created_at",{ascending:false}).limit(100),
+        .order("created_at",{ascending:false}).order("id",{ascending:false})),
     ]);
     if (pilotRows.error || seedRows.error || adminRows.error) throw pilotRows.error || seedRows.error || adminRows.error;
-    const rows = mergePilotReviewQueue([...(pilotRows.data || []),...(adminRows.data || [])],seedRows.data || [],scope,100);
+    const rows = mergePilotReviewQueue([...(pilotRows.data || []),...(adminRows.data || [])],seedRows.data || [],scope,HARD_CAP);
     const ids = rows.map(r=>r.id);
     let reviewRows = [];
-    if (ids.length) {
+    for (let i = 0; i < ids.length; i += 200) {
       const result = await supabaseAdmin.from("branch_response_reviews")
         .select("query_id,verdict,suggested_answer,comment,updated_at")
-        .eq("reviewer_profile_id",access.actor.id).in("query_id",ids);
+        .eq("reviewer_profile_id",access.actor.id).in("query_id",ids.slice(i,i + 200));
       if (result.error) throw result.error;
-      reviewRows = result.data || [];
+      reviewRows.push(...(result.data || []));
     }
     const reviewMap = new Map(reviewRows.map(r=>[String(r.query_id),r]));
     const branchIds = [...new Set(rows.map(r=>r.branch_id).filter(Boolean))];
@@ -58,7 +73,7 @@ export async function GET(request) {
     if (branches.error || works.error) throw branches.error || works.error;
     const branchMap = new Map((branches.data || []).map(b=>[String(b.id),b.name]));
     const workMap = new Map((works.data || []).map(w=>[String(w.id),w.name]));
-    return Response.json({ok:true,limit:100,rows:rows.map(r=>({
+    return Response.json({ok:true,total:rows.length,rows:rows.map(r=>({
       ...r,
       branch_name:r.traffic_type === "ADMIN" ? "Administración (prueba)" : (branchMap.get(String(r.branch_id)) || "Sucursal"),
       social_work_name:workMap.get(String(r.social_work_id)) || "No identificada",

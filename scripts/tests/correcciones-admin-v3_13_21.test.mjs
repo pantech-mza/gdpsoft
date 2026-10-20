@@ -113,3 +113,26 @@ test('route.js: la sucursal que consulta define el circuito (guía + validador d
   assert.match(src, /¿Querés que te muestre los pasos para validar o los requisitos\?/);
   assert.match(src, /conversationState\.social_work_id/);
 });
+
+import { appendObservation, findExactObservation, pickObservations } from '../../lib/assistant/admin-corrections.mjs';
+test('observaciones de respuestas correctas: se agregan debajo, sin cambiar la respuesta', () => {
+  const obs = pickObservations([
+    { verdict: 'CORRECT', comment: '  ', updated_at: '2026-10-20T10:00:00Z', assistant_query_log: { normalized_question: 'a' } },
+    { comment: 'vieja', updated_at: '2026-10-20T10:00:00Z', assistant_query_log: { normalized_question: 'q' } },
+    { comment: '*Toda receta sin validador viene autorizada.', updated_at: '2026-10-20T12:00:00Z', assistant_query_log: [{ normalized_question: 'q' }] },
+  ]);
+  assert.equal(obs.length, 2);
+  const found = findExactObservation(obs, 'q');
+  assert.match(found.comment, /^\*Toda receta/);
+  assert.equal(findExactObservation(obs, 'otra'), null);
+  assert.equal(appendObservation('Sí, requiere autorización.', found), 'Sí, requiere autorización.\n\nObservación: *Toda receta sin validador viene autorizada.');
+  assert.equal(appendObservation('Respuesta', null), 'Respuesta');
+});
+
+test('Validación sin tope de 100 y sin la leyenda de baterías', () => {
+  const api = fs.readFileSync(new URL('../../app/api/admin/validacion/route.js', import.meta.url), 'utf8');
+  assert.ok(!/limit\(100\)/.test(api));
+  assert.match(api, /fetchAll\(/);
+  const ui = fs.readFileSync(new URL('../../components/admin/AdminBranchValidation.jsx', import.meta.url), 'utf8');
+  assert.ok(!/Máximo 100/.test(ui) && !/4\.446/.test(ui));
+});

@@ -25,7 +25,7 @@ test("Cola Admin no incluye assistant_qa_results ni batería QA",()=>{
  const api=read("app/api/admin/validacion/route.js");
  assert.match(api,/requireAdminActor\(request\)/);
  assert.match(api,/\.eq\("traffic_type", "PILOT"\)/);
- assert.match(api,/\.limit\(100\)/);
+ assert.match(api,/fetchAll\(/); // v3.13.28: la cola ya no tiene tope de 100
  assert.doesNotMatch(api,/\.from\("assistant_qa_results"\)/);
  assert.match(read("lib/review/review-auth.js"),/reservada a Superadmin/);
 });
