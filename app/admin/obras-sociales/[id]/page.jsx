@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import NormativeFileButton from "../../../../components/social-works/NormativeFileButton";
 
 import {
   useEffect,
@@ -1301,6 +1302,10 @@ function NormativesView({
                           <td className="px-5 py-4 align-top">
 
                             <div className="flex justify-end gap-2">
+
+                              {!normative.source_url && normative.storage_path_original && (
+<NormativeFileButton id={normative.id} label="Ver fuente" className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50" />
+)}
 
                               {normative.source_url && (
                                 <a

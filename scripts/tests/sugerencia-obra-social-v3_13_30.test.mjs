@@ -152,3 +152,22 @@ test('usuarios y claves: el bot no los dice, indica «Ver credenciales» y sí p
   assert.match(src, /route: "CREDENTIALS_PROTECTED"/);
   assert.ok(src.indexOf('isCredentialQuestion(question)') < src.indexOf('const cachedAnswer'));
 });
+
+test('«Ver fuente» abre el archivo subido con un enlace generado al hacer clic', () => {
+  const rd = (p) => fs.readFileSync(new URL('../../' + p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(rd('app/api/normatives/[id]/file/route.js'), /createSignedUrl\(data\.storage_path_original/);
+  assert.match(rd('components/social-works/NormativeFileButton.jsx'), /\/api\/normatives\/\$\{id\}\/file/);
+  for (const p of ['app/admin/obras-sociales/[id]/page.jsx', 'app/sucursal/obras-sociales/[id]/page.jsx', 'app/sucursal/normativas/page.jsx']) {
+    assert.match(rd(p), /<NormativeFileButton/, p);
+  }
+});
+
+import { isPrescriptionMissingFieldQuestion, buildMissingFieldNormativeQuestion } from '../../lib/assistant/prescription-safety.mjs';
+test('receta con la obra social en Observaciones se consulta en normativa, no como recepción por circuito', () => {
+  const q = 'Hola tengo una receta de DAMSU, que tiene el nombre de la obra social en observaciones, puedo recibirla?';
+  assert.equal(isPrescriptionMissingFieldQuestion(q), true);
+  assert.match(buildMissingFieldNormativeQuestion({ question: q, socialWorkName: 'DAMSU' }), /campo Observaciones[^]*NO respondas sobre circuito/);
+  for (const other of ['puedo recibir recetas de DAMSU en DP1', 'como valido osecac en mi suc', 'tengo una receta de OSDE puedo recibirla']) {
+    assert.equal(isPrescriptionMissingFieldQuestion(other), false, other);
+  }
+});

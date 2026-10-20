@@ -4866,7 +4866,7 @@ REPREGUNTA SOBRE EL MISMO TEMA (esta sección tiene prioridad sobre las reglas d
 
           max_num_results:
 
-            maxResults || (detailed ? 4 : 3),
+            maxResults || (detailed ? 8 : 6),
 
 
 

@@ -1,5 +1,6 @@
 "use client";
 import FichaNotesPanel from "../../../../components/social-works/FichaNotesPanel";
+import NormativeFileButton from "../../../../components/social-works/NormativeFileButton";
 import ResourcesPanel from "../../../../components/social-works/ResourcesPanel";
 import DecisionTreesPanel from "../../../../components/social-works/DecisionTreesPanel";
 
@@ -1239,6 +1240,10 @@ function NormativesTab({
                   </div>
 
 
+
+                  {!item.source_url && item.storage_path_original && (
+<NormativeFileButton id={item.id} label="Ver documento" className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 px-3 text-[12px] font-semibold text-zinc-600 sm:w-auto" />
+)}
 
                   {item.source_url && (
 

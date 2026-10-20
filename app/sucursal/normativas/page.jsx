@@ -5,6 +5,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import NormativeFileButton from "../../../components/social-works/NormativeFileButton";
 
 import { Icon } from "@iconify/react";
 
@@ -842,6 +843,10 @@ function NormativeCard({
       )}
 
       {/* DOCUMENT */}
+
+      {!item.source_url && item.storage_path_original && (
+<NormativeFileButton id={item.id} label="Ver documento" className="inline-flex h-9 items-center justify-center rounded-lg border border-zinc-200 px-3 text-[12px] font-semibold text-zinc-600" />
+)}
 
       {item.source_url && (
         <a
