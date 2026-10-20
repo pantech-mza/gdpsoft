@@ -26,10 +26,11 @@ import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, scopeNormativeTo
 import { shouldPreferValidationProfile } from "../../../../lib/assistant/validation-profile-priority.mjs";
 import { isGeneralBranchCircuitQuestion, resolveGeneralBranchMembership, formatGeneralBranchMembershipResponse } from "../../../../lib/assistant/branch-circuit-membership.mjs";
 import {
-  buildBareMentionAnswer, buildNextState, detectChannelReply, isBareSocialWorkMention,
+  applySuggestion, buildBareMentionAnswer, buildNextState, detectChannelReply, isBareSocialWorkMention, isSuggestionConfirmation,
   isFreshState, loadConversationState, pendingRealQuestion, resolveBranchBillingChannelId,
   resolveChannelIdForGroup, resolveFollowUp, saveConversationState,
 } from "../../../../lib/assistant/conversation-context.mjs";
+import { buildSuggestionAnswer, suggestSocialWorks } from "../../../../lib/assistant/social-work-suggestions.mjs";
 import { buildConstraintsPrompt, splitUserConstraints, stripOfferLine } from "../../../../lib/assistant/user-constraints.mjs";
 import {
   appendObservation, buildCorrectionsPrompt, findExactCorrection, findExactObservation,
@@ -5599,6 +5600,12 @@ async function handleAssistantQuery(request, { conversationState = null } = {}) 
 
         conversation.active_billing_channel_id;
 
+      // v3.13.30 — «Sí» / «OSTES» tras «¿Quizás quisiste consultar por OSTES?»:
+      // se continúa la consulta original con la obra social corregida.
+      if (isSuggestionConfirmation(question, conversationState)) {
+        question = applySuggestion(conversationState.pending);
+      }
+
       // v3.13.20 — respuesta a «¿Cámara o Colegio?»: continúa la pregunta original.
       const channelReply =
         conversationState?.pending?.kind === "NEEDS_CHANNEL" && isFreshState(conversationState)
@@ -5703,10 +5710,21 @@ if (conversationId) {
   // Si hay sigla explícita desconocida, bloquear el fallback a la OOSS previa.
   if (detectedSocialWork.unresolvedName && !isSocialWorkStatusQuestion(question)) {
     const name = detectedSocialWork.unresolvedName;
-    const answer = `No pude identificar ${name} en las obras sociales activas de GDPSoft. Confirmá cómo figura en el listado; no voy a utilizar la Ficha de otra obra social.`;
+    // v3.13.30 — «¿Quisiste decir…?»: se ofrece la obra social más parecida.
+    let suggestions = [];
+    try {
+      const { data: activeWorks } = await supabaseAdmin.from("social_works").select("name").eq("active", true);
+      suggestions = suggestSocialWorks(name, (activeWorks || []).map((w) => w.name));
+    } catch {
+      suggestions = [];
+    }
+    const answer = buildSuggestionAnswer(name, suggestions) ||
+      `No pude identificar ${name} en las obras sociales activas de GDPSoft. Confirmá cómo figura en el listado; no voy a utilizar la Ficha de otra obra social.`;
     const elapsedMs = Date.now()-startedAt;
     await logCurrentQuery({branchId,socialWorkId,question,answer,source:"SOCIAL_WORK_IDENTITY",route:"UNKNOWN_EXPLICIT_SOCIAL_WORK",found:false,elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
-    return Response.json({ok:true,question,answer,source:"SOCIAL_WORK_IDENTITY",route:"UNKNOWN_EXPLICIT_SOCIAL_WORK",found:false,elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+    return Response.json({ok:true,question,answer,source:"SOCIAL_WORK_IDENTITY",route:"UNKNOWN_EXPLICIT_SOCIAL_WORK",found:false,
+      ...(suggestions.length ? { suggestion: { unresolved: name, name: suggestions[0], options: suggestions } } : {}),
+      elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
   }
   // ---------------------------------------------------
   // MÁS DE UNA OOSS EN LA MISMA CONSULTA
