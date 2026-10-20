@@ -66,3 +66,18 @@ test('repregunta sin respuesta literal: se reintenta con lo que la normativa sí
   const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   assert.match(src, /followUp\.isFollowUp && isNotFoundAnswer\(result\?\.answer\)/);
 });
+
+test('route.js: el prompt exige decir qué dato específico no figura', () => {
+  const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(src, /DATOS ESPECÍFICOS QUE NO FIGURAN/);
+  assert.match(src, /Nunca reemplaces el dato pedido por una descripción general/);
+});
+
+test('analyze: los documentos de texto (DOCX) se marcan listos para indexar en modo DIRECT', () => {
+  const src = fs.readFileSync(new URL('../../app/api/normatives/analyze/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(src, /extension === "docx" && looksLikeZip/);
+  assert.match(src, /processing_recommended: "DIRECT"/);
+  // el PDF sigue validándose igual
+  assert.match(src, /signature !== "%PDF-"/);
+  assert.ok(src.indexOf('isTextDocument') < src.indexOf('El archivo almacenado no parece ser un PDF válido'));
+});

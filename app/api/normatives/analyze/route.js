@@ -353,6 +353,40 @@ export async function POST(request) {
         bytes.slice(0, 5)
       );
 
+    // v3.13.34 — documentos de texto (DOCX, TXT, MD, HTML) no necesitan OCR ni
+    // análisis de páginas: se marcan listos para indexar de forma DIRECTA.
+    const lowerName = String(normative.original_filename || "").toLowerCase();
+    const extension = lowerName.includes(".") ? lowerName.split(".").pop() : "";
+    const looksLikeZip = bytes[0] === 0x50 && bytes[1] === 0x4b;
+    const isTextDocument =
+      signature !== "%PDF-" &&
+      ((extension === "docx" && looksLikeZip) || ["txt", "md", "html", "htm"].includes(extension));
+    if (isTextDocument) {
+      const analyzedAtText = new Date().toISOString();
+      await updateAnalysis(normativeId, {
+        status: "READY_TO_PROCESS",
+        analysis_stage: "COMPLETED",
+        analysis_progress: 100,
+        processing_recommended: "DIRECT",
+        analysis_confidence: 1,
+        analysis_reason: `Documento ${extension.toUpperCase()}: contiene texto digital, no requiere OCR.`,
+        analysis_details: { engine: "text-document", extension, analyzed_at: analyzedAtText, analysis_version: "1.0" },
+        analyzed_at: analyzedAtText,
+        error_message: null,
+      });
+      return Response.json({
+        ok: true,
+        normative_id: normative.id,
+        filename: normative.original_filename,
+        recommendation: "DIRECT",
+        confidence: 1,
+        reason: `Documento ${extension.toUpperCase()}: contiene texto digital, no requiere OCR.`,
+        metrics: { extension },
+        processing_selected: normative.processing_selected ?? null,
+        requires_admin_confirmation: true,
+      });
+    }
+
     if (
       signature !== "%PDF-"
     ) {
