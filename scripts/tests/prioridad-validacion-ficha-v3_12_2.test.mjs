@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import fs from 'node:fs';
 import { shouldPreferValidationProfile as preferFicha } from '../../lib/assistant/validation-profile-priority.mjs';
 
-const bot = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8');
+const bot = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const fichaIntent = 'VALIDATION_METHOD';
 const validation = (q) => preferFicha({ operationType:'VALIDATION', profileKey:fichaIntent, question:q });
 

@@ -23,6 +23,11 @@ import { asksForPrescriptionChecklist, buildFichaPrescriptionChecklist, isPrescr
 import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, scopeNormativeTopic, isSpecificNormativeTopic } from "../../../../lib/assistant/linked-normatives.mjs";
 import { shouldPreferValidationProfile } from "../../../../lib/assistant/validation-profile-priority.mjs";
 import { isGeneralBranchCircuitQuestion, resolveGeneralBranchMembership, formatGeneralBranchMembershipResponse } from "../../../../lib/assistant/branch-circuit-membership.mjs";
+import {
+  buildBareMentionAnswer, buildNextState, detectChannelReply, isBareSocialWorkMention,
+  isFreshState, loadConversationState, pendingRealQuestion, resolveBranchBillingChannelId,
+  resolveChannelIdForGroup, resolveFollowUp, saveConversationState,
+} from "../../../../lib/assistant/conversation-context.mjs";
 import { isOperationalCircuitQuestion } from "../../../../lib/assistant/operational-circuit-intent.mjs";
 import { isSocialWorkStatusQuestion, hasExplicitStatusSubject, formatSocialWorkStatus } from "../../../../lib/assistant/social-work-status.mjs";
 import { unresolvedExplicitSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
@@ -4509,6 +4514,7 @@ async function queryFileSearch({
   maxResults = null,
 
   maxOutputTokens = null,
+  forceDetailed = false,
 
 }) {
 
@@ -4530,13 +4536,7 @@ async function queryFileSearch({
 
 
 
-  const detailed =
-
-    wantsDetailedAnswer(
-
-      question
-
-    );
+  const detailed = forceDetailed || wantsDetailedAnswer(question);
 
   const normalizedQuestionForPrecision =
     normalize(question);
@@ -4560,7 +4560,7 @@ async function queryFileSearch({
 
 
 
-const instructions =
+const baseInstructions =
   detailed
     ? `
 Sos el asistente interno de normativas de Farmacias del Plata.
@@ -4670,6 +4670,7 @@ REGLAS OBLIGATORIAS:
 - No repitas la pregunta.
 - No uses introducciones como "Para validar..." o "Según la normativa...".
 - No mezcles temas distintos.
+- RESTRICCIONES CRÍTICAS: si la normativa establece que, para lo preguntado, algo NO se valida, NO se acepta, carece de validez, vence, o que solo es válido un documento o procedimiento específico, incluí esa condición aunque supere el límite de palabras (hasta 60 palabras en total). No la omitas por brevedad.
 
 SEPARACIÓN DE TEMAS:
 
@@ -4713,6 +4714,18 @@ SEGURIDAD:
   "No encuentro esa información en la normativa vigente."
 - En ese caso NO hagas preguntas adicionales.
 `;
+  // v3.13.20 — repreguntas: la respuesta se amplía sobre el mismo tema.
+  const followUpAddendum = `
+
+REPREGUNTA SOBRE EL MISMO TEMA (esta sección tiene prioridad sobre las reglas de brevedad y sobre "respondé únicamente No encuentro"):
+
+- La consulta incluye "Contexto de la consulta anterior". Usalo solo para saber de qué tema se trata.
+- Respondé la repregunta ampliando lo que la normativa recuperada indique sobre ese tema: condiciones, restricciones, excepciones y pasos.
+- Si la normativa no agrega nada sobre lo repreguntado, decilo en una oración y resumí brevemente lo que sí indica sobre el tema. No respondas solo "No encuentro esa información".
+- No uses información de otra obra social ni de otro tema.
+`;
+  const instructions = forceDetailed ? baseInstructions + followUpAddendum : baseInstructions;
+
 
 
   const response =
@@ -4743,7 +4756,7 @@ SEGURIDAD:
 
             ? 180
 
-            : 100),
+            : 160),
 
 
 
@@ -5113,14 +5126,37 @@ async function detectSocialWorkFromQuestion(
 
 
 
+// v3.13.20 — envoltorio: carga el estado conversacional, delega en el motor
+// existente y persiste el estado a partir de la respuesta final (cubre todas las rutas).
+// Si la columna conversation_state no existe, todo se comporta como antes.
 export async function POST(request) {
-
-  const startedAt = Date.now();
-
-
-
+  let conversationState = null;
+  let rawQuestion = "";
+  let wrapperConversationId = null;
   try {
+    const peek = await request.clone().json();
+    wrapperConversationId = peek?.conversationId ? String(peek.conversationId).trim() : null;
+    rawQuestion = String(peek?.question || "").trim();
+    conversationState = await loadConversationState(supabaseAdmin, wrapperConversationId);
+  } catch {
+    // El motor valida el cuerpo y devuelve el error correspondiente.
+  }
+  const response = await handleAssistantQuery(request, { conversationState });
+  if (wrapperConversationId) {
+    try {
+      const json = await response.clone().json();
+      const next = buildNextState({ prev: conversationState, rawQuestion, json });
+      if (next) await saveConversationState(supabaseAdmin, wrapperConversationId, next);
+    } catch (stateError) {
+      console.warn("conversation_state no persistido:", stateError?.message);
+    }
+  }
+  return response;
+}
 
+async function handleAssistantQuery(request, { conversationState = null } = {}) {
+  const startedAt = Date.now();
+  try {
     const body = await request.json();
 
     // Solo una sesión real de Sucursal puede marcar tráfico PILOT.
@@ -5158,11 +5194,7 @@ export async function POST(request) {
 
 
 
-    const question = String(
-
-      body.question || ""
-
-    ).trim();
+    let question = String(body.question || "").trim();
 
 
 
@@ -5459,6 +5491,39 @@ export async function POST(request) {
       activeBillingChannelId =
 
         conversation.active_billing_channel_id;
+
+      // v3.13.20 — respuesta a «¿Cámara o Colegio?»: continúa la pregunta original.
+      const channelReply =
+        conversationState?.pending?.kind === "NEEDS_CHANNEL" && isFreshState(conversationState)
+          ? detectChannelReply(question)
+          : null;
+      if (channelReply) {
+        const channelId = await resolveChannelIdForGroup(supabaseAdmin, channelReply);
+        if (channelId) {
+          const { error: channelUpdateError } = await supabaseAdmin
+            .from("conversations")
+            .update({ active_billing_channel_id: channelId, updated_at: new Date().toISOString() })
+            .eq("id", conversationId);
+          if (!channelUpdateError) {
+            activeBillingChannelId = channelId;
+            const pendingQuestion = pendingRealQuestion(conversationState);
+            if (pendingQuestion) {
+              question = pendingQuestion;
+            } else {
+              const answer = `Perfecto, tomo la normativa de ${channelReply === "CAMARA" ? "Cámara" : "Colegio"}. ¿Qué necesitás saber? Por ejemplo: requisitos de receta, validación, autorizaciones o facturación.`;
+              const elapsedMs = Date.now() - startedAt;
+              const usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+              await logCurrentQuery({ branchId, socialWorkId, question, answer,
+                source: "GDP_CONVERSATION", route: "CHANNEL_CONFIRMED", found: true, elapsedMs, usage });
+              return Response.json({ ok: true, question, answer, source: "GDP_CONVERSATION",
+                route: "CHANNEL_CONFIRMED", found: true,
+                context: { conversation_id: conversationId, branch_id: branchId,
+                  device_id: deviceId, social_work_id: socialWorkId },
+                elapsed_ms: elapsedMs, usage });
+            }
+          }
+        }
+      }
 
 
 
@@ -5760,6 +5825,23 @@ if (conversationId) {
         conversationUserId,
 
     };
+
+    // v3.13.20 — mensaje que solo nombra la obra social: preguntar qué necesita
+    // en lugar de buscar el nombre en las normativas.
+    if (conversationId && Number.isInteger(socialWorkId) && socialWorkId > 0 &&
+        !resolveFollowUp({ question, state: conversationState, socialWorkId }).isFollowUp) {
+      const activeSocialWorkName = await getSocialWorkName(socialWorkId);
+      if (activeSocialWorkName && isBareSocialWorkMention(question, activeSocialWorkName)) {
+        const answer = buildBareMentionAnswer(activeSocialWorkName);
+        const elapsedMs = Date.now() - startedAt;
+        const usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+        await logCurrentQuery({ branchId, socialWorkId, question, answer,
+          source: "GDP_CONVERSATION", route: "CLARIFICATION_NEEDED", found: false, elapsedMs, usage });
+        return Response.json({ ok: true, question, answer, source: "GDP_CONVERSATION",
+          route: "CLARIFICATION_NEEDED", found: false, context: responseContext,
+          elapsed_ms: elapsedMs, usage });
+      }
+    }
 
 
 
@@ -6544,6 +6626,14 @@ let fileSearchQuestion =
 
 let skipAnswerCache =
   false;
+
+// v3.13.20 — repregunta sobre el mismo tema: se busca con el contexto de la
+// consulta anterior y la respuesta se amplía (no se vuelve a resumir).
+const followUp = resolveFollowUp({ question, state: conversationState, socialWorkId });
+if (followUp.isFollowUp) {
+  fileSearchQuestion = followUp.searchQuestion;
+  skipAnswerCache = true;
+}
 
 const profileIntent =
   detectSocialWorkProfileIntent(
@@ -7467,9 +7557,28 @@ if (prescriptionMissingField) {
 // Selección de documentos a partir de vínculos actuales en Supabase.
 // Incluye normas generales y anexos (vacunas, insulinas, etc.) del MISMO app_id.
 // Ante circuitos diferentes no se combinan normativas sin confirmar Cámara/Colegio.
+// v3.13.20 — la sucursal autenticada ya identifica su grupo (Cámara/Colegio):
+// no se le pide al usuario. Solo se usa si resuelve el alcance; si no, se
+// conserva el comportamiento anterior. Desactivable con GDP_AUTO_BRANCH_CHANNEL=0.
+const channelBeforeBranchResolution = activeBillingChannelId;
+if (!activeBillingChannelId) {
+  const scopeProbe = await getLinkedCurrentNormativeScope(
+    supabaseAdmin, socialWorkId, null, fileSearchQuestion,
+  );
+  if (!scopeProbe.ok && scopeProbe.ambiguous) {
+    const branchChannelId = await resolveBranchBillingChannelId(supabaseAdmin, branchId);
+    if (branchChannelId) {
+      const scopedByBranch = await getLinkedCurrentNormativeScope(
+        supabaseAdmin, socialWorkId, branchChannelId, fileSearchQuestion,
+      );
+      if (scopedByBranch.ok) activeBillingChannelId = branchChannelId;
+    }
+  }
+}
 const normativeScope = await getLinkedCurrentNormativeScope(
   supabaseAdmin, socialWorkId, activeBillingChannelId, fileSearchQuestion,
 );
+activeBillingChannelId = channelBeforeBranchResolution;
 if (!normativeScope.ok) {
   const answer = normativeScope.reason;
   const elapsedMs = Date.now() - startedAt;
@@ -7489,6 +7598,7 @@ const result = await queryFileSearch({
   normativeIds: normativeScope.normativeIds,
   maxResults: specialNormativeTopic ? 12 : 5,
   maxOutputTokens: specialNormativeTopic ? 650 : null,
+  forceDetailed: followUp.isFollowUp,
 });
 
 
@@ -7656,8 +7766,7 @@ const result = await queryFileSearch({
 
       found &&
 
-      branchId
-
+       branchId && !followUp.isFollowUp
     ) {
 
       await saveCachedAnswer({
