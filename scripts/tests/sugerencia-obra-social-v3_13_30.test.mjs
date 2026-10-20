@@ -47,3 +47,11 @@ test('route.js ofrece la sugerencia y continúa al confirmar', () => {
   assert.match(src, /question = applySuggestion\(conversationState\.pending\)/);
   assert.match(src, /suggestion: \{ unresolved: name, name: suggestions\[0\]/);
 });
+
+import { isFollowUpMessage } from '../../lib/assistant/conversation-context.mjs';
+test('repreguntas largas que empiezan con «Y» siguen el tema anterior', () => {
+  const state = { v: 1, updated_at: new Date().toISOString(), social_work_id: 9, topic_question: 'pap descuento', last_question: 'si es con obra social?', pending: null };
+  assert.equal(isFollowUpMessage('Y novo a la par? Que descuento tiene y que productos entran?', state, { socialWorkId: 9 }), true);
+  assert.equal(isFollowUpMessage('Requisitos de la receta para validar con descuento en la farmacia de turno hoy mismo por favor y gracias', state, { socialWorkId: 9 }), false);
+  assert.equal(isFollowUpMessage('Y novo a la par? Que descuento tiene y que productos entran?', state, { socialWorkId: 10 }), false);
+});
