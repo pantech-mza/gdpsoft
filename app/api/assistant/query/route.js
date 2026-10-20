@@ -23,12 +23,12 @@ import { asksForPrescriptionChecklist, buildFichaPrescriptionChecklist, isPrescr
 import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, scopeNormativeTopic, isSpecificNormativeTopic } from "../../../../lib/assistant/linked-normatives.mjs";
 import { shouldPreferValidationProfile } from "../../../../lib/assistant/validation-profile-priority.mjs";
 import { isGeneralBranchCircuitQuestion, resolveGeneralBranchMembership, formatGeneralBranchMembershipResponse } from "../../../../lib/assistant/branch-circuit-membership.mjs";
-import {
-  buildBareMentionAnswer, buildNextState, detectChannelReply, isBareSocialWorkMention,
-  isFreshState, loadConversationState, pendingRealQuestion, resolveBranchBillingChannelId,
-  resolveChannelIdForGroup, resolveFollowUp, saveConversationState,
-} from "../../../../lib/assistant/conversation-context.mjs";
 import { isOperationalCircuitQuestion } from "../../../../lib/assistant/operational-circuit-intent.mjs";
+import { isSocialWorkStatusQuestion, hasExplicitStatusSubject, formatSocialWorkStatus } from "../../../../lib/assistant/social-work-status.mjs";
+import { unresolvedExplicitSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
+
+import { resolveCommonAuthorizationAmount } from "../../../../lib/assistant/common-authorization-rules.mjs";
+const isAuthorizationAmountQuestionForCommonRule = (question) => /(?:autoriz|\btopes?\b|\blimites?\b|\bimportes?\b|\bprecios?\b|\bmontos?\b|\$\s*\d|\b20\s*000\b|\b80\s*000\b)/i.test(String(question || "").normalize("NFD").replace(/[\u0300-\u036f]/g,""));
 
 export const runtime =
   "nodejs";
@@ -2889,10 +2889,22 @@ function detectSocialWorkProfileIntent(
   // La clase de validación (TYS / POR FUERA) no es el código TYS.
   // Se conserva la obra social seleccionada en el chat para repreguntas breves.
   const asksTysCode = containsAny(q, ["codigo tys", "código tys", "codigo de tys", "código de tys"]);
-  if (!asksTysCode && (
-    /\btys\b/.test(q) ||
-    containsAny(q, ["por donde valido", "por dónde valido", "tipo de validacion", "tipo de validación", "por donde se valida", "por dónde se valida", "que validador", "qué validador"])
-  )) {
+  // Preguntas por el NOMBRE del validador: Recordá/Ficha, no File Search.
+  // La validación de circuitos y las contingencias mantienen su propio enrutamiento.
+  const asksValidatorName = !asksTysCode && /\bvalidador(?:es)?\b/.test(q) &&
+    /\b(?:como se llama|nombre del validador|nombre de validador|cual es el validador|cual validador|que validador|validador (?:usa|utiliza|tiene|de|para))\b/.test(q) &&
+    !/\b(?:se cayo|no funciona|no anda|sin servicio|caido|caida|falla|error|rechaza|rechazo|circuito|camara|colegio)\b/.test(q);
+  // GDPSoft v3.13.17: prioridades fijas de Ficha para nombre y medio de validación.
+  // Sólo el nombre del validador y su medio (TYS, etc.) vienen de social_works.
+  // "por dónde valida" y "por dónde valido" son consultas sobre la Ficha,
+  // no direcciones físicas, documentación normativa ni circuitos de sucursal.
+  const asksWhere = /\b(?:por donde (?:valido|valida|validamos|validan|validar|se valida)|donde (?:valido|valida|validamos|validan|validar|se valida)|en que (?:sistema|plataforma|medio) (?:se )?valida|tipo de validacion|medio de validacion)\b/.test(q);
+  const isValidationProblem = /\b(?:se cayo|caido|caida|no funciona|no anda|falla|fallando|error|rechazo|rechaza|fuera de servicio|sin servicio|no puedo validar|no valida|no me valida)\b/.test(q);
+  if (asksValidatorName && !asksWhere) {
+    return { field: "validator_name", key: "VALIDATOR_NAME" };
+  }
+  // Sin dato cargado en Ficha: informar que falta, NUNCA ir a File Search.
+  if (!asksTysCode && !isValidationProblem && (asksWhere || /\btys\b/.test(q) || containsAny(q, ["que validador", "qué validador"]))) {
     return { field: "validator_type", key: "VALIDATION_METHOD" };
   }
 
@@ -3295,7 +3307,9 @@ async function querySocialWorkProfile({
   const value = data[intent.field];
   const hasValidator = Boolean(String(data.validator_name ?? "").trim());
   const hasMethod = Boolean(String(data.validator_type ?? "").trim());
-  const hasValidationInfo = intent.key === "VALIDATION_METHOD" && (hasValidator || hasMethod);
+  // Campos de validador: la Ficha es autoritativa aun cuando no esté completo el dato.
+  // Una ausencia jamás habilita una búsqueda normativa como sustituto.
+  const hasValidationInfo = ["VALIDATION_METHOD", "VALIDATOR_NAME"].includes(intent.key);
 
   if (
     !hasValidationInfo && (
@@ -3352,9 +3366,15 @@ const cleanValue =
       answer = `Sustitución: ${value}.`;
       break;
 
+    case "VALIDATOR_NAME":
+      answer = hasValidator
+        ? "El validador de " + data.name + " es " + String(data.validator_name).trim() + "." + (hasMethod ? "\nPor dónde valida: " + String(data.validator_type).trim() + "." : "")
+        : "No hay un nombre de validador confirmado en Recordá/Ficha de " + data.name + ".";
+      break;
+
     case "VALIDATION_METHOD":
       answer = [
-        hasMethod ? `¿Por dónde valida?: ${String(data.validator_type).trim()}.` : "¿Por dónde valida?: sin dato confirmado en Ficha.",
+        hasMethod ? `Por dónde valida: ${String(data.validator_type).trim()}.` : "Por dónde valida: sin dato confirmado en Recordá/Ficha.",
         hasValidator ? `Validador: ${String(data.validator_name).trim()}.` : "Validador: sin dato confirmado en Ficha.",
         "Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta."
       ].join("\n");
@@ -4489,7 +4509,6 @@ async function queryFileSearch({
   maxResults = null,
 
   maxOutputTokens = null,
-  forceDetailed = false,
 
 }) {
 
@@ -4511,7 +4530,13 @@ async function queryFileSearch({
 
 
 
-  const detailed = forceDetailed || wantsDetailedAnswer(question);
+  const detailed =
+
+    wantsDetailedAnswer(
+
+      question
+
+    );
 
   const normalizedQuestionForPrecision =
     normalize(question);
@@ -4535,7 +4560,7 @@ async function queryFileSearch({
 
 
 
-const baseInstructions =
+const instructions =
   detailed
     ? `
 Sos el asistente interno de normativas de Farmacias del Plata.
@@ -4645,7 +4670,6 @@ REGLAS OBLIGATORIAS:
 - No repitas la pregunta.
 - No uses introducciones como "Para validar..." o "Según la normativa...".
 - No mezcles temas distintos.
-- RESTRICCIONES CRÍTICAS: si la normativa establece que, para lo preguntado, algo NO se valida, NO se acepta, carece de validez, vence, o que solo es válido un documento o procedimiento específico, incluí esa condición aunque supere el límite de palabras (hasta 60 palabras en total). No la omitas por brevedad.
 
 SEPARACIÓN DE TEMAS:
 
@@ -4689,18 +4713,6 @@ SEGURIDAD:
   "No encuentro esa información en la normativa vigente."
 - En ese caso NO hagas preguntas adicionales.
 `;
-  // v3.13.20 — repreguntas: la respuesta se amplía sobre el mismo tema.
-  const followUpAddendum = `
-
-REPREGUNTA SOBRE EL MISMO TEMA (esta sección tiene prioridad sobre las reglas de brevedad y sobre "respondé únicamente No encuentro"):
-
-- La consulta incluye "Contexto de la consulta anterior". Usalo solo para saber de qué tema se trata.
-- Respondé la repregunta ampliando lo que la normativa recuperada indique sobre ese tema: condiciones, restricciones, excepciones y pasos.
-- Si la normativa no agrega nada sobre lo repreguntado, decilo en una oración y resumí brevemente lo que sí indica sobre el tema. No respondas solo "No encuentro esa información".
-- No uses información de otra obra social ni de otro tema.
-`;
-  const instructions = forceDetailed ? baseInstructions + followUpAddendum : baseInstructions;
-
 
 
   const response =
@@ -4731,7 +4743,7 @@ REPREGUNTA SOBRE EL MISMO TEMA (esta sección tiene prioridad sobre las reglas d
 
             ? 180
 
-            : 160),
+            : 100),
 
 
 
@@ -5029,6 +5041,7 @@ async function detectSocialWorkFromQuestion(
 
       dictionary,
     });
+  const unresolvedName = unresolvedExplicitSocialWork({question:cleanQuestion,dictionary,matches});
 
   // =====================================================
   // SIN OOSS DETECTADA
@@ -5049,6 +5062,7 @@ async function detectSocialWorkFromQuestion(
 
       matches:
         [],
+      unresolvedName,
     };
   }
 
@@ -5088,6 +5102,7 @@ async function detectSocialWorkFromQuestion(
       matches[0],
 
     matches,
+    unresolvedName,
   };
 }
 // =========================================================
@@ -5098,37 +5113,14 @@ async function detectSocialWorkFromQuestion(
 
 
 
-// v3.13.20 — envoltorio: carga el estado conversacional, delega en el motor
-// existente y persiste el estado a partir de la respuesta final (cubre todas las rutas).
-// Si la columna conversation_state no existe, todo se comporta como antes.
 export async function POST(request) {
-  let conversationState = null;
-  let rawQuestion = "";
-  let wrapperConversationId = null;
-  try {
-    const peek = await request.clone().json();
-    wrapperConversationId = peek?.conversationId ? String(peek.conversationId).trim() : null;
-    rawQuestion = String(peek?.question || "").trim();
-    conversationState = await loadConversationState(supabaseAdmin, wrapperConversationId);
-  } catch {
-    // El motor valida el cuerpo y devuelve el error correspondiente.
-  }
-  const response = await handleAssistantQuery(request, { conversationState });
-  if (wrapperConversationId) {
-    try {
-      const json = await response.clone().json();
-      const next = buildNextState({ prev: conversationState, rawQuestion, json });
-      if (next) await saveConversationState(supabaseAdmin, wrapperConversationId, next);
-    } catch (stateError) {
-      console.warn("conversation_state no persistido:", stateError?.message);
-    }
-  }
-  return response;
-}
 
-async function handleAssistantQuery(request, { conversationState = null } = {}) {
   const startedAt = Date.now();
+
+
+
   try {
+
     const body = await request.json();
 
     // Solo una sesión real de Sucursal puede marcar tráfico PILOT.
@@ -5166,7 +5158,11 @@ async function handleAssistantQuery(request, { conversationState = null } = {}) 
 
 
 
-    let question = String(body.question || "").trim();
+    const question = String(
+
+      body.question || ""
+
+    ).trim();
 
 
 
@@ -5464,39 +5460,6 @@ async function handleAssistantQuery(request, { conversationState = null } = {}) 
 
         conversation.active_billing_channel_id;
 
-      // v3.13.20 — respuesta a «¿Cámara o Colegio?»: continúa la pregunta original.
-      const channelReply =
-        conversationState?.pending?.kind === "NEEDS_CHANNEL" && isFreshState(conversationState)
-          ? detectChannelReply(question)
-          : null;
-      if (channelReply) {
-        const channelId = await resolveChannelIdForGroup(supabaseAdmin, channelReply);
-        if (channelId) {
-          const { error: channelUpdateError } = await supabaseAdmin
-            .from("conversations")
-            .update({ active_billing_channel_id: channelId, updated_at: new Date().toISOString() })
-            .eq("id", conversationId);
-          if (!channelUpdateError) {
-            activeBillingChannelId = channelId;
-            const pendingQuestion = pendingRealQuestion(conversationState);
-            if (pendingQuestion) {
-              question = pendingQuestion;
-            } else {
-              const answer = `Perfecto, tomo la normativa de ${channelReply === "CAMARA" ? "Cámara" : "Colegio"}. ¿Qué necesitás saber? Por ejemplo: requisitos de receta, validación, autorizaciones o facturación.`;
-              const elapsedMs = Date.now() - startedAt;
-              const usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
-              await logCurrentQuery({ branchId, socialWorkId, question, answer,
-                source: "GDP_CONVERSATION", route: "CHANNEL_CONFIRMED", found: true, elapsedMs, usage });
-              return Response.json({ ok: true, question, answer, source: "GDP_CONVERSATION",
-                route: "CHANNEL_CONFIRMED", found: true,
-                context: { conversation_id: conversationId, branch_id: branchId,
-                  device_id: deviceId, social_work_id: socialWorkId },
-                elapsed_ms: elapsedMs, usage });
-            }
-          }
-        }
-      }
-
 
 
       branchCode = null;
@@ -5565,6 +5528,14 @@ if (conversationId) {
       question
     );
 
+  // Si hay sigla explícita desconocida, bloquear el fallback a la OOSS previa.
+  if (detectedSocialWork.unresolvedName && !isSocialWorkStatusQuestion(question)) {
+    const name = detectedSocialWork.unresolvedName;
+    const answer = `No pude identificar ${name} en las obras sociales activas de GDPSoft. Confirmá cómo figura en el listado; no voy a utilizar la Ficha de otra obra social.`;
+    const elapsedMs = Date.now()-startedAt;
+    await logCurrentQuery({branchId,socialWorkId,question,answer,source:"SOCIAL_WORK_IDENTITY",route:"UNKNOWN_EXPLICIT_SOCIAL_WORK",found:false,elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+    return Response.json({ok:true,question,answer,source:"SOCIAL_WORK_IDENTITY",route:"UNKNOWN_EXPLICIT_SOCIAL_WORK",found:false,elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+  }
   // ---------------------------------------------------
   // MÁS DE UNA OOSS EN LA MISMA CONSULTA
   // ---------------------------------------------------
@@ -5687,7 +5658,9 @@ if (conversationId) {
     if (
 
       !isGeneralBranchCircuitQuestion(question) && (
-        !Number.isInteger(socialWorkId) || socialWorkId <= 0
+        !isSocialWorkStatusQuestion(question) && (
+          !Number.isInteger(socialWorkId) || socialWorkId <= 0
+        )
       )
 
     ) {
@@ -5788,24 +5761,45 @@ if (conversationId) {
 
     };
 
-    // v3.13.20 — mensaje que solo nombra la obra social: preguntar qué necesita
-    // en lugar de buscar el nombre en las normativas.
-    if (conversationId && Number.isInteger(socialWorkId) && socialWorkId > 0 &&
-        !resolveFollowUp({ question, state: conversationState, socialWorkId }).isFollowUp) {
-      const activeSocialWorkName = await getSocialWorkName(socialWorkId);
-      if (activeSocialWorkName && isBareSocialWorkMention(question, activeSocialWorkName)) {
-        const answer = buildBareMentionAnswer(activeSocialWorkName);
-        const elapsedMs = Date.now() - startedAt;
-        const usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
-        await logCurrentQuery({ branchId, socialWorkId, question, answer,
-          source: "GDP_CONVERSATION", route: "CLARIFICATION_NEEDED", found: false, elapsedMs, usage });
-        return Response.json({ ok: true, question, answer, source: "GDP_CONVERSATION",
-          route: "CLARIFICATION_NEEDED", found: false, context: responseContext,
-          elapsed_ms: elapsedMs, usage });
-      }
+
+
+    // El chip «Activa» del listado y Recordá/Ficha usan social_works.active.
+    // Resolver consultas de estado directamente desde Supabase y SIN OpenAI.
+    // No modificar la OOSS activa del chat cuando se consulta otra por nombre.
+    if (isSocialWorkStatusQuestion(question)) {
+      const {data: statusWorks, error: statusError} = await supabaseAdmin
+        .from("social_works").select("id,name,active");
+      if (statusError) throw new Error(statusError.message);
+      const {data: statusAliases, error: statusAliasesError} = await supabaseAdmin
+        .from("social_work_aliases").select("*");
+      if (statusAliasesError) console.error("social work status aliases:", statusAliasesError.message);
+      const dictionary = buildSocialWorkDictionary({
+        socialWorks: statusWorks || [], aliases: statusAliasesError ? [] : (statusAliases || []),
+      });
+      const matches = detectSocialWorks({text:question, dictionary});
+      const namedWork = matches.length === 1
+        ? (statusWorks || []).find(item => Number(item.id) === Number(matches[0].id))
+        : null;
+      const contextWork = !matches.length && !hasExplicitStatusSubject(question)
+        ? (statusWorks || []).find(item => Number(item.id) === Number(socialWorkId))
+        : null;
+      const targetWork = namedWork || contextWork || null;
+      const answer = matches.length > 1
+        ? "Hay más de una obra social posible. Indicame su nombre completo para verificar el estado."
+        : targetWork ? formatSocialWorkStatus(targetWork)
+        : hasExplicitStatusSubject(question)
+          ? "No encontré una obra social con ese nombre en GDPSoft. Confirmá cómo figura en el listado."
+          : "Indicame de qué obra social querés consultar el estado.";
+      const found = Boolean(targetWork && typeof targetWork.active === "boolean");
+      const elapsedMs = Date.now() - startedAt;
+      await logCurrentQuery({branchId, socialWorkId: targetWork?.id || socialWorkId, question, answer,
+        source:"SOCIAL_WORK_PROFILE", route:"STRUCTURED_SOCIAL_WORK_STATUS",
+        found, elapsedMs, usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+      return Response.json({ok:true,question,answer,found,source:"SOCIAL_WORK_PROFILE",
+        route:"STRUCTURED_SOCIAL_WORK_STATUS",context:responseContext,elapsed_ms:elapsedMs,
+        structured_data:targetWork ? {social_work_id:targetWork.id,active:targetWork.active} : null,
+        usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
     }
-
-
 
     // =====================================================
 
@@ -5893,6 +5887,24 @@ if (conversationId) {
         } : null,
         context:responseContext,elapsed_ms:elapsedMs,
         usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+    }
+
+// v3.13.19: reglas documentales comunes de autorización por importes (TODAS las sucursales).
+    // Separar autorizaciones POR IMPORTE de circuitos Cámara/Colegio.
+    // La regla es común a ambas normativas y a todas las sucursales.
+    if (isAuthorizationAmountQuestionForCommonRule(question)) {
+      const ruleWorkName = await getSocialWorkName(socialWorkId);
+      const commonAuthorization = resolveCommonAuthorizationAmount({question, socialWorkName: ruleWorkName});
+      if (commonAuthorization) {
+        const answer = commonAuthorization.answer;
+        const elapsedMs = Date.now() - startedAt;
+        await logCurrentQuery({branchId, socialWorkId, question, answer,
+          source: "DOCUMENTED_COMMON_NORMATIVE", route: "COMMON_AUTHORIZATION_LIMITS", found:true,
+          elapsedMs, usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+        return Response.json({ok:true,question,answer,source:"DOCUMENTED_COMMON_NORMATIVE",
+          route:"COMMON_AUTHORIZATION_LIMITS",found:true,rule_id:commonAuthorization.ruleId,
+          context:responseContext,elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+      }
     }
 
     const detectedOperationIntent = detectOperationIntent(question);
@@ -6532,14 +6544,6 @@ let fileSearchQuestion =
 
 let skipAnswerCache =
   false;
-
-// v3.13.20 — repregunta sobre el mismo tema: se busca con el contexto de la
-// consulta anterior y la respuesta se amplía (no se vuelve a resumir).
-const followUp = resolveFollowUp({ question, state: conversationState, socialWorkId });
-if (followUp.isFollowUp) {
-  fileSearchQuestion = followUp.searchQuestion;
-  skipAnswerCache = true;
-}
 
 const profileIntent =
   detectSocialWorkProfileIntent(
@@ -7463,21 +7467,9 @@ if (prescriptionMissingField) {
 // Selección de documentos a partir de vínculos actuales en Supabase.
 // Incluye normas generales y anexos (vacunas, insulinas, etc.) del MISMO app_id.
 // Ante circuitos diferentes no se combinan normativas sin confirmar Cámara/Colegio.
-let normativeScope = await getLinkedCurrentNormativeScope(
+const normativeScope = await getLinkedCurrentNormativeScope(
   supabaseAdmin, socialWorkId, activeBillingChannelId, fileSearchQuestion,
 );
-// v3.13.20 — la sucursal autenticada ya identifica su grupo (Cámara/Colegio):
-// no se le pide al usuario. Solo se usa si resuelve el alcance; si no, se
-// conserva el comportamiento anterior. Desactivable con GDP_AUTO_BRANCH_CHANNEL=0.
-if (!normativeScope.ok && normativeScope.ambiguous && !activeBillingChannelId) {
-  const branchChannelId = await resolveBranchBillingChannelId(supabaseAdmin, branchId);
-  if (branchChannelId) {
-    const scopedByBranch = await getLinkedCurrentNormativeScope(
-      supabaseAdmin, socialWorkId, branchChannelId, fileSearchQuestion,
-    );
-    if (scopedByBranch.ok) normativeScope = scopedByBranch;
-  }
-}
 if (!normativeScope.ok) {
   const answer = normativeScope.reason;
   const elapsedMs = Date.now() - startedAt;
@@ -7497,7 +7489,6 @@ const result = await queryFileSearch({
   normativeIds: normativeScope.normativeIds,
   maxResults: specialNormativeTopic ? 12 : 5,
   maxOutputTokens: specialNormativeTopic ? 650 : null,
-  forceDetailed: followUp.isFollowUp,
 });
 
 
@@ -7665,7 +7656,8 @@ const result = await queryFileSearch({
 
       found &&
 
-       branchId && !followUp.isFollowUp
+      branchId
+
     ) {
 
       await saveCachedAnswer({
