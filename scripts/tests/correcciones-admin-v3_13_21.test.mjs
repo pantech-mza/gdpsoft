@@ -105,3 +105,11 @@ test('«Por dónde valido? Econo Más?» no se toma como obra social desconocida
   assert.equal(unresolvedExplicitSocialWork({ question: 'Por donde valido? Econo mas?', dictionary: { phrases: [] }, matches: [] }), null);
   assert.equal(unresolvedExplicitSocialWork({ question: 'Por donde valido salud xyz inventada', dictionary: { phrases: [] }, matches: [] }) !== null, true);
 });
+
+test('route.js: la sucursal que consulta define el circuito (guía + validador de la Ficha + oferta de pasos)', () => {
+  const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(src, /routeName = "BRANCH_VALIDATION_GUIDE"/);
+  assert.match(src, /formatBranchValidatorNote\(validatorException\),\n\s+ficha\?\.found \? ficha\.answer : null,/);
+  assert.match(src, /¿Querés que te muestre los pasos para validar o los requisitos\?/);
+  assert.match(src, /conversationState\.social_work_id/);
+});

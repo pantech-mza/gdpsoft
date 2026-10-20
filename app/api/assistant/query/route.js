@@ -5175,7 +5175,7 @@ async function detectSocialWorkFromQuestion(
 // existente y persiste el estado a partir de la respuesta final (cubre todas las rutas).
 // Si la columna conversation_state no existe, todo se comporta como antes.
 const NOTE_SKIP_ROUTES = new Set([
-  "BRANCH_VALIDATOR_EXCEPTION", "UNKNOWN_EXPLICIT_SOCIAL_WORK", "CLARIFICATION_NEEDED",
+  "BRANCH_VALIDATOR_EXCEPTION", "BRANCH_VALIDATION_GUIDE", "UNKNOWN_EXPLICIT_SOCIAL_WORK", "CLARIFICATION_NEEDED",
   "CHANNEL_CONFIRMED", "ADMIN_CORRECTION", "NORMATIVE_SCOPE_UNVERIFIED",
 ]);
 async function appendBranchValidatorNote(json, rawQuestion) {
@@ -5941,25 +5941,52 @@ if (conversationId) {
       }
     }
 
-    // v3.13.22 — «¿Por Econo Más?» dentro de una consulta sobre una obra social
-    // con validador externo en esta sucursal: se aclara cuál es el validador.
-    if (Number.isInteger(socialWorkId) && socialWorkId > 0 && (branchId || branchCode) &&
-        String(question).trim().split(/\s+/).length <= 8) {
-      const validatorException = await getBranchValidatorException({ branchId, branchCode, socialWorkId });
-      const challengeAnswer = validatorException
-        ? answerValidatorChallenge(validatorException, question) : null;
-      if (challengeAnswer) {
+    // v3.13.22 — validador externo por sucursal (p. ej. OSECAC en DP1 → San Francisco).
+    // La sucursal que consulta (autenticada) manda: se responde primero con su circuito.
+    if ((branchId || branchCode) && !isSocialWorkStatusQuestion(question)) {
+      const questionWords = String(question).trim().split(/\s+/).length;
+      const candidateIds = [];
+      // «¿Por San Francisco?» puede confundirse con otra obra social: se prueba primero
+      // la obra social de la conversación en curso.
+      if (questionWords <= 6 && isFreshState(conversationState) && conversationState.social_work_id) {
+        candidateIds.push(Number(conversationState.social_work_id));
+      }
+      if (Number.isInteger(socialWorkId) && socialWorkId > 0) candidateIds.push(Number(socialWorkId));
+      for (const candidateId of [...new Set(candidateIds)]) {
+        const validatorException = await getBranchValidatorException({ branchId, branchCode, socialWorkId: candidateId });
+        if (!validatorException) continue;
+        let routeName = null;
+        let exceptionAnswer = null;
+        if (questionWords <= 8) {
+          exceptionAnswer = answerValidatorChallenge(validatorException, question);
+          if (exceptionAnswer) routeName = "BRANCH_VALIDATOR_EXCEPTION";
+        }
+        if (!exceptionAnswer && questionWords <= 12 &&
+            /\b(?:valid\w*|tramit\w*|gestion\w*)\b/i.test(question) &&
+            !/\b(?:requisit\w*|paso\w*|vencid\w*|plazo\w*|formulario\w*|autoriz\w*|cobertura|descuento\w*|factur\w*|dias)\b/i.test(question) &&
+            candidateId === Number(socialWorkId)) {
+          const ficha = await querySocialWorkProfile({
+            socialWorkId: candidateId,
+            intent: { field: "validator_type", key: "VALIDATION_METHOD" },
+          });
+          exceptionAnswer = [
+            formatBranchValidatorNote(validatorException),
+            ficha?.found ? ficha.answer : null,
+            "¿Querés que te muestre los pasos para validar o los requisitos?",
+          ].filter(Boolean).join("\n\n");
+          routeName = "BRANCH_VALIDATION_GUIDE";
+        }
+        if (!exceptionAnswer) continue;
         const elapsedMs = Date.now() - startedAt;
         const usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
-        await logCurrentQuery({ branchId, socialWorkId, question, answer: challengeAnswer,
-          source: "GDP_OPERATION_PROCEDURE", route: "BRANCH_VALIDATOR_EXCEPTION", found: true, elapsedMs, usage });
-        return Response.json({ ok: true, question, answer: challengeAnswer,
-          source: "GDP_OPERATION_PROCEDURE", route: "BRANCH_VALIDATOR_EXCEPTION", found: true,
-          context: responseContext, elapsed_ms: elapsedMs, usage });
+        await logCurrentQuery({ branchId, socialWorkId: candidateId, question, answer: exceptionAnswer,
+          source: "GDP_OPERATION_PROCEDURE", route: routeName, found: true, elapsedMs, usage });
+        return Response.json({ ok: true, question, answer: exceptionAnswer,
+          source: "GDP_OPERATION_PROCEDURE", route: routeName, found: true,
+          context: { ...responseContext, social_work_id: candidateId },
+          elapsed_ms: elapsedMs, usage });
       }
     }
-
-
 
     // El chip «Activa» del listado y Recordá/Ficha usan social_works.active.
     // Resolver consultas de estado directamente desde Supabase y SIN OpenAI.
