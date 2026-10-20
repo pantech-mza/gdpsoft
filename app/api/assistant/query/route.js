@@ -26,7 +26,7 @@ import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, scopeNormativeTo
 import { shouldPreferValidationProfile } from "../../../../lib/assistant/validation-profile-priority.mjs";
 import { isGeneralBranchCircuitQuestion, resolveGeneralBranchMembership, formatGeneralBranchMembershipResponse } from "../../../../lib/assistant/branch-circuit-membership.mjs";
 import {
-  applySuggestion, buildBareMentionAnswer, buildNextState, detectChannelReply, isBareSocialWorkMention, isSuggestionConfirmation,
+  applySuggestion, buildBareMentionAnswer, buildPartialAnswerQuestion, isNotFoundAnswer, buildNextState, detectChannelReply, isBareSocialWorkMention, isSuggestionConfirmation,
   isFreshState, loadConversationState, pendingRealQuestion, resolveBranchBillingChannelId,
   resolveChannelIdForGroup, resolveFollowUp, saveConversationState,
 } from "../../../../lib/assistant/conversation-context.mjs";
@@ -7792,7 +7792,7 @@ if (!normativeScope.ok) {
     elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
 }
 const specialNormativeTopic = isSpecificNormativeTopic(fileSearchQuestion);
-const result = await queryFileSearch({
+let result = await queryFileSearch({
   question: specialNormativeTopic
     ? `${fileSearchQuestion} Revisá también los anexos o normativas específicas del tema, además de la normativa general, sin mezclar planes o circuitos.`
     : fileSearchQuestion,
@@ -7804,6 +7804,22 @@ const result = await queryFileSearch({
   adminCorrections: buildCorrectionsPrompt(adminCorrections),
   userConstraints: buildConstraintsPrompt(userConstraintSplit),
 });
+// v3.13.32 — repregunta sin respuesta literal («No encuentro»): se reintenta pidiendo
+// lo que la normativa sí indica sobre el tema y qué parte de lo preguntado no figura.
+if (followUp.isFollowUp && isNotFoundAnswer(result?.answer)) {
+  try {
+    const partial = await queryFileSearch({
+      question: buildPartialAnswerQuestion(question, conversationState),
+      socialWorkId,
+      normativeIds: normativeScope.normativeIds,
+      maxResults: 5,
+      forceDetailed: true,
+    });
+    if (partial?.answer && !isNotFoundAnswer(partial.answer)) result = partial;
+  } catch (partialError) {
+    console.warn("reintento parcial no disponible:", partialError?.message);
+  }
+}
 
 
 

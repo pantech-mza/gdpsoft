@@ -55,3 +55,14 @@ test('repreguntas largas que empiezan con «Y» siguen el tema anterior', () => 
   assert.equal(isFollowUpMessage('Requisitos de la receta para validar con descuento en la farmacia de turno hoy mismo por favor y gracias', state, { socialWorkId: 9 }), false);
   assert.equal(isFollowUpMessage('Y novo a la par? Que descuento tiene y que productos entran?', state, { socialWorkId: 10 }), false);
 });
+
+import { buildPartialAnswerQuestion, isNotFoundAnswer } from '../../lib/assistant/conversation-context.mjs';
+test('repregunta sin respuesta literal: se reintenta con lo que la normativa sí dice', () => {
+  assert.equal(isNotFoundAnswer('No encuentro esa información en la normativa vigente.'), true);
+  assert.equal(isNotFoundAnswer('PAP Descuento se aplica sobre el PVP.'), false);
+  const q = buildPartialAnswerQuestion('y novo a la par? que descuento tiene?', { topic_question: 'pap descuento' });
+  assert.match(q, /«pap descuento»/);
+  assert.match(q, /NO figura/);
+  const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(src, /followUp\.isFollowUp && isNotFoundAnswer\(result\?\.answer\)/);
+});
