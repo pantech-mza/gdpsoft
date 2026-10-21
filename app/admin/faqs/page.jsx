@@ -5,6 +5,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { treeApiFetch } from "../../../lib/decision-trees/client";
 
 const TABS = [
   {
@@ -87,6 +88,31 @@ export default function AdminFaqsPage() {
     search,
     setSearch,
   ] = useState("");
+  const [detecting, setDetecting] = useState(false);
+  const [detectMessage, setDetectMessage] = useState("");
+
+  // v3.13.57 — analiza las consultas del piloto y propone FAQs por significado.
+  const detectFromPilot = async () => {
+    if (detecting) return;
+    setDetecting(true);
+    setDetectMessage("");
+    try {
+      const response = await treeApiFetch("/api/faqs/detect", { method: "POST" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) throw new Error(result.error || "No se pudo analizar el piloto");
+      setDetectMessage(
+        `Se analizaron ${result.eligible} consultas respondidas. ` +
+        (result.suggested > 0
+          ? `Nuevas FAQs propuestas: ${result.suggested}.`
+          : `Ninguna llegó todavía a ${result.threshold} consultas parecidas.`)
+      );
+      await loadFaqs();
+    } catch (err) {
+      setDetectMessage(err?.message || "Error analizando el piloto");
+    } finally {
+      setDetecting(false);
+    }
+  };
 
   // =====================================================
   // CARGAR FAQs
@@ -303,6 +329,15 @@ export default function AdminFaqsPage() {
             </p>
           </div>
 
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={detectFromPilot}
+              disabled={detecting}
+              className="rounded-lg border border-[#8f2a85] px-4 py-2 text-sm font-semibold text-[#8f2a85] transition hover:bg-[#8f2a85]/5 disabled:opacity-60"
+            >
+              {detecting ? "Analizando…" : "Detectar FAQs del piloto"}
+            </button>
           <div className="rounded-lg border border-zinc-200 bg-white px-4 py-2">
             <span className="text-xs text-zinc-400">
               Resultados
@@ -314,7 +349,12 @@ export default function AdminFaqsPage() {
               }
             </span>
           </div>
+          </div>
         </div>
+
+        {detectMessage && (
+          <p className="mb-4 rounded-lg bg-purple-50 px-4 py-2 text-sm text-[#8f2a85]">{detectMessage}</p>
+        )}
 
         {/* TABS */}
 

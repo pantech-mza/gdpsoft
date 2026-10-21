@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { clearGDPSoftSession } from "../../lib/client/session";
+import AdminNotifications from "./AdminNotifications";
 
 const DEFAULT_WEATHER_LOCATION = {
   city: "Mendoza",
@@ -97,6 +98,8 @@ export default function AdminHeader() {
         <div className="w-12 md:hidden" />
 
         <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
+          <AdminNotifications />
+
           {weather && (
             <div className="flex shrink-0 items-center gap-2 rounded-xl bg-[#faf9fc] px-2.5 py-2 sm:px-4">
               <span className="text-xl">{weather.icon}</span>

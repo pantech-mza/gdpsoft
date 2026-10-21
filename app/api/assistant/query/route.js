@@ -37,6 +37,7 @@ import {
   buildCredentialAnswer, buildNotesInstructions, extractEmails, formatNotesAnswer, isCredentialQuestion,
   loadApprovedNotes, parseNotesAnswer,
 } from "../../../../lib/assistant/approved-notes.mjs";
+import { findSemanticApprovedFaq, recordFaqSignal } from "../../../../lib/server/faq-detection.mjs";
 import { buildConstraintsPrompt, splitUserConstraints, stripOfferLine } from "../../../../lib/assistant/user-constraints.mjs";
 import {
   appendObservation, buildCorrectionsPrompt, findExactCorrection, findExactObservation,
@@ -76,6 +77,27 @@ const openai = new OpenAI({
 
 
 
+// v3.13.57 — FAQ por significado: vectores (256 dim.) para agrupar consultas parecidas.
+async function embedFaqTexts(texts) {
+  const response = await openai.embeddings.create({
+    model: "text-embedding-3-small",
+    input: texts,
+    dimensions: 256,
+  });
+  return response.data.map((item) => item.embedding);
+}
+
+async function lookupSemanticFaq({ branchId, socialWorkId, question }) {
+  try {
+    return await findSemanticApprovedFaq({
+      db: supabaseAdmin, embed: embedFaqTexts, socialWorkId, branchId, question,
+    });
+  } catch (error) {
+    console.error("FAQ semantic lookup error:", error?.message);
+    return null;
+  }
+}
+
 async function logAssistantQuery({
 
   branchId = null,
@@ -112,7 +134,7 @@ async function logAssistantQuery({
 
 
 
-    const { error } =
+    const { data: insertedLog, error } =
 
       await supabaseAdmin
 
@@ -192,20 +214,29 @@ async function logAssistantQuery({
 
             openaiResponseId,
 
-        });
-
-
-
+        })
+        .select("id")
+        .maybeSingle();
     if (error) {
-
-      console.error(
-
-        "assistant_query_log error:",
-
-        error.message
-
-      );
-
+      console.error("assistant_query_log error:", error.message);
+    } else if (trafficType === "PILOT" && found === true) {
+      // v3.13.57 — cuenta la consulta en su grupo (por significado, todas las
+      // sucursales) y propone la FAQ al admin al llegar al umbral.
+      try {
+        await Promise.race([
+          recordFaqSignal({
+            db: supabaseAdmin,
+            embed: embedFaqTexts,
+            signal: {
+              socialWorkId, branchId, deviceId, question, answer, route, found, trafficType,
+              sourceType: source, normativeId, queryLogId: insertedLog?.id ?? null,
+            },
+          }),
+          new Promise((resolve) => setTimeout(resolve, 4000)),
+        ]);
+      } catch (faqError) {
+        console.error("FAQ signal error:", faqError?.message);
+      }
     }
 
   } catch (error) {
@@ -556,6 +587,8 @@ async function maybeSuggestFaq({
   sourceType = null,
 
 }) {
+  // v3.13.57: reemplazado por la detección por significado (lib/server/faq-detection.mjs).
+  return;
 
   /**
 
@@ -7402,9 +7435,8 @@ if (prescriptionMissingField) {
       // Una pregunta sobre un dato faltante y los anexos específicos nunca
       // deben recibir una FAQ genérica posiblemente obsoleta.
       (prescriptionMissingField || isSpecificNormativeTopic(question))
-        ? null : await getApprovedFaq({
-            branchId, socialWorkId, question,
-          });
+        ? null : (await getApprovedFaq({ branchId, socialWorkId, question })) ||
+          (await lookupSemanticFaq({ branchId, socialWorkId, question }));
 
 
 
