@@ -6,6 +6,7 @@ import {
 } from "../../../../lib/operations/resolve-operation";
 import {
   answerValidatorChallenge, describeBranchValidatorException, formatBranchValidatorNote, formatCircuitResponse,
+  resolveDeclaredCircuitPolicy, formatCircuitLine, applyCircuitLine,
 } from "../../../../lib/operations/camara-colegio-policy.mjs";
 
 import {
@@ -24,6 +25,7 @@ import {
 import { resolveInternalProcedure, isImmediateOperationalContingency, isSpecificNormativeQuestion, listApplicableProcedures } from "../../../../lib/assistant/internal-procedures";
 import { buildProcedureSelectionInstructions, formatProcedureAnswer, parseProcedureSelection } from "../../../../lib/assistant/procedure-match.mjs";
 import { asksForPrescriptionChecklist, buildFichaPrescriptionChecklist, isPrescriptionMissingFieldQuestion, buildMissingFieldNormativeQuestion } from "../../../../lib/assistant/prescription-safety.mjs";
+import { resolvePlanVariant } from "../../../../lib/assistant/plan-variant.mjs";
 import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, scopeNormativeTopic, isSpecificNormativeTopic } from "../../../../lib/assistant/linked-normatives.mjs";
 import { buildRequirementsAnswer, buildSectionedAnswer } from "../../../../lib/assistant/requirements-view.mjs";
 import { withCircuitProfile } from "../../../../lib/social-works/circuit-profile.mjs";
@@ -44,7 +46,7 @@ import { findSemanticApprovedFaq, recordFaqSignal } from "../../../../lib/server
 import { buildConstraintsPrompt, splitUserConstraints, stripOfferLine } from "../../../../lib/assistant/user-constraints.mjs";
 import {
   appendObservation, buildCorrectionsPrompt, findExactCorrection, findExactObservation,
-  loadSocialWorkCorrections, loadSocialWorkObservations,
+  loadSocialWorkCorrections, loadSocialWorkObservations, restrictCorrectionsToCircuit,
 } from "../../../../lib/assistant/admin-corrections.mjs";
 import { isOperationalCircuitQuestion } from "../../../../lib/assistant/operational-circuit-intent.mjs";
 import { isSocialWorkStatusQuestion, hasExplicitStatusSubject, formatSocialWorkStatus } from "../../../../lib/assistant/social-work-status.mjs";
@@ -2899,9 +2901,9 @@ function buildNormativeRequirementFallbackQuestion({
 
 
 // v3.13.36 — apoyo con observaciones operativas APROBADAS cuando la normativa no responde.
-async function answerFromApprovedNotes({ question, socialWorkId }) {
+async function answerFromApprovedNotes({ question, socialWorkId, variant = resolvePlanVariant({ question, state: null, socialWorkId }) }) {
   try {
-    const notes = await loadApprovedNotes(supabaseAdmin, socialWorkId);
+    const notes = await loadApprovedNotes(supabaseAdmin, socialWorkId, variant);
     if (!notes.length) return null;
     const socialWorkName = await getSocialWorkName(socialWorkId);
     const response = await openai.responses.create({
@@ -2922,7 +2924,7 @@ async function answerFromApprovedNotes({ question, socialWorkId }) {
 // v3.13.42 — protocolo interno aprobado elegido por significado (no solo por palabras clave).
 async function answerFromProceduresByMeaning({ question, socialWorkId, billingChannelId }) {
   try {
-    const procedures = await listApplicableProcedures({ socialWorkId, billingChannelId });
+    const procedures = await listApplicableProcedures({ socialWorkId, billingChannelId, variant: resolvePlanVariant({ question, state: null, socialWorkId }) });
     if (!procedures.length) return null;
     const response = await openai.responses.create({
       model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
@@ -6173,6 +6175,8 @@ if (conversationId) {
     let adminCorrections = [];
     if (Number.isInteger(socialWorkId) && socialWorkId > 0) {
       adminCorrections = await loadSocialWorkCorrections(supabaseAdmin, socialWorkId);
+      // v3.13.77 — las correcciones de una sucursal de Cámara no se aplican a Colegio (obras sociales con dos circuitos).
+      adminCorrections = await restrictCorrectionsToCircuit(supabaseAdmin, adminCorrections, socialWorkId, (await getBranchCircuit()).group);
       const correctionWorkName = adminCorrections.length ? await getSocialWorkName(socialWorkId) : "";
       const exactCorrection = findExactCorrection(adminCorrections, normalizeQuestion(question), correctionWorkName || "");
       if (exactCorrection) {
@@ -6977,15 +6981,21 @@ if (asksForPrescriptionChecklist(question)) {
   if (fichaError) console.error("ficha checklist:", fichaError.message);
 
   // Los requisitos de Cámara y Colegio no se pueden mezclar.
-  const {data:relations, error:relationsError} = await supabaseAdmin
+  const planVariant = resolvePlanVariant({ question, state: conversationState, socialWorkId });
+  let {data:relations, error:relationsError} = await supabaseAdmin
+    .from("normative_social_works")
+    .select("normative_id,billing_channel_id,plan_variant,normatives!inner(is_current,title)")
+    .eq("social_work_id", Number(socialWorkId))
+    .eq("normatives.is_current", true);
+  if (relationsError) ({data:relations, error:relationsError} = await supabaseAdmin
     .from("normative_social_works")
     .select("normative_id,billing_channel_id,normatives!inner(is_current,title)")
     .eq("social_work_id", Number(socialWorkId))
-    .eq("normatives.is_current", true);
+    .eq("normatives.is_current", true));
   if (relationsError) console.error("checklist scope:", relationsError.message);
   const scope = relationsError
     ? {ok:false, reason:"No pude verificar las normativas vinculadas."}
-    : scopeNormativeTopic(scopeLinkedNormatives(relations || [], activeBillingChannelId || (await getBranchCircuit()).channelId), relations || [], question);
+    : scopeNormativeTopic(scopeLinkedNormatives(relations || [], activeBillingChannelId || (await getBranchCircuit()).channelId, 32, planVariant), relations || [], question);
   let answer;
   let source = "SOCIAL_WORK_PROFILE";
   let route = "PRESCRIPTION_CHECKLIST_SAFE";
@@ -7097,6 +7107,19 @@ if (
     const validatorException = await getBranchValidatorException({ branchId, branchCode, socialWorkId });
     const validatorNote = formatBranchValidatorNote(validatorException);
     if (validatorNote) result.answer = `${result.answer}\n\n${validatorNote}`;
+    // v3.13.77 — dice directamente cómo se tramita en la sucursal (en lugar de «corroborá el circuito»).
+    try {
+      const baseBranch = supabaseAdmin.from("branches").select("name,code");
+      const { data: branchRow } = await (branchId ? baseBranch.eq("id", branchId) : baseBranch.eq("code", branchCode)).maybeSingle();
+      const workName = result.data?.social_work_name || (await getSocialWorkName(socialWorkId));
+      if (branchRow && workName && !validatorNote) {
+        const policy = resolveDeclaredCircuitPolicy({ branchName: branchRow.name, branchCode: branchRow.code, socialWorkName: workName });
+        const circuitLine = formatCircuitLine(policy, { branchLabel: branchRow.name || branchRow.code, workName });
+        result.answer = applyCircuitLine(result.answer, circuitLine);
+      }
+    } catch {
+      // opcional: nunca debe romper la respuesta
+    }
   }
   // =====================================================
   // DATO ESTRUCTURADO DISPONIBLE
@@ -8006,29 +8029,30 @@ if (prescriptionMissingField) {
 // v3.13.20 — la sucursal autenticada ya identifica su grupo (Cámara/Colegio):
 // no se le pide al usuario. Solo se usa si resuelve el alcance; si no, se
 // conserva el comportamiento anterior. Desactivable con GDP_AUTO_BRANCH_CHANNEL=0.
+const generalPlanVariant = resolvePlanVariant({ question, state: conversationState, socialWorkId });
 const channelBeforeBranchResolution = activeBillingChannelId;
 if (!activeBillingChannelId) {
   const scopeProbe = await getLinkedCurrentNormativeScope(
-    supabaseAdmin, socialWorkId, null, fileSearchQuestion,
+    supabaseAdmin, socialWorkId, null, fileSearchQuestion, generalPlanVariant,
   );
   if (!scopeProbe.ok && scopeProbe.ambiguous) {
     const branchChannelId = (await getBranchCircuit()).channelId;
     if (branchChannelId) {
       const scopedByBranch = await getLinkedCurrentNormativeScope(
-        supabaseAdmin, socialWorkId, branchChannelId, fileSearchQuestion,
+        supabaseAdmin, socialWorkId, branchChannelId, fileSearchQuestion, generalPlanVariant,
       );
       if (scopedByBranch.ok) activeBillingChannelId = branchChannelId;
     }
   }
 }
 const normativeScope = await getLinkedCurrentNormativeScope(
-  supabaseAdmin, socialWorkId, activeBillingChannelId, fileSearchQuestion,
+  supabaseAdmin, socialWorkId, activeBillingChannelId, fileSearchQuestion, generalPlanVariant,
 );
 activeBillingChannelId = channelBeforeBranchResolution;
 if (!normativeScope.ok) {
   // v3.13.36 — sin normativas vinculadas: se intenta con observaciones aprobadas.
   if (!normativeScope.ambiguous) {
-    const notesSupport = await answerFromApprovedNotes({ question: fileSearchQuestion, socialWorkId });
+    const notesSupport = await answerFromApprovedNotes({ question: fileSearchQuestion, socialWorkId, variant: generalPlanVariant });
     if (notesSupport) {
       const notesElapsedMs = Date.now() - startedAt;
       await logCurrentQuery({ branchId, socialWorkId, question, answer: notesSupport.answer,
@@ -8201,7 +8225,7 @@ if (followUp.isFollowUp && isNotFoundAnswer(result?.answer)) {
     // No se usa para completar vigencia, RP, cobertura ni otros requisitos específicos.
     // v3.13.36 — la normativa no respondió: se intenta con observaciones aprobadas.
     if (!found) {
-      const notesSupport = await answerFromApprovedNotes({ question: fileSearchQuestion, socialWorkId });
+      const notesSupport = await answerFromApprovedNotes({ question: fileSearchQuestion, socialWorkId, variant: generalPlanVariant });
       if (notesSupport) {
         const notesElapsedMs = Date.now() - startedAt;
         await logCurrentQuery({ branchId, socialWorkId, question, answer: notesSupport.answer,

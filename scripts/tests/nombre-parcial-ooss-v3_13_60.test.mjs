@@ -93,7 +93,7 @@ test('Topbar de sucursal y API de avisos incluyen la campanita (v3.13.62 incompl
 // v3.13.66 — la lista de requisitos de receta también usa el circuito de la sucursal.
 test('route: checklist de receta resuelve el circuito de la sucursal sin preguntar', () => {
   const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8');
-  assert.match(src, /scopeLinkedNormatives\(relations \|\| \[\], activeBillingChannelId \|\| \(await getBranchCircuit\(\)\)\.channelId\)/);
+  assert.match(src, /scopeLinkedNormatives\(relations \|\| \[\], activeBillingChannelId \|\| \(await getBranchCircuit\(\)\)\.channelId, 32, planVariant\)/);
 });
 
 // v3.13.66 — «Sí» a «¿Quisiste decir…?» sin obra social activa no vuelve a pedir la obra social.

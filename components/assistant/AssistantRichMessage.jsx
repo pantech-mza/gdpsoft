@@ -67,7 +67,7 @@ function RequirementsTabs({ view }) {
       ))}
       {(view.source || view.notice) && (
         <p className="mt-3 px-1 text-[11px] text-zinc-400">
-          {view.source ? `Fuente: ${view.source}. ` : ""}{view.notice}
+          {view.source ? `Fuente: ${view.source}. ` : ""}{view.notice ? view.notice.charAt(0).toUpperCase() + view.notice.slice(1) : ""}
         </p>
       )}
     </div>
