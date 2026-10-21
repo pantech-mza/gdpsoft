@@ -1,6 +1,7 @@
 import { requireActor } from "../../../../lib/decision-trees/auth";
 import { supabaseAdmin } from "../../../../lib/supabase/admin";
 import { getDocumentProxy } from "unpdf";
+import { isSpreadsheetFile, spreadsheetBufferToText } from "../../../../lib/normatives/spreadsheet-text.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -361,6 +362,56 @@ export async function POST(request) {
     const isTextDocument =
       signature !== "%PDF-" &&
       ((extension === "docx" && looksLikeZip) || ["txt", "md", "html", "htm"].includes(extension));
+    // v3.13.47 — Excel (.xlsx/.xls): OpenAI no indexa planillas; se genera un texto
+    // equivalente (una línea por fila con sus columnas) y ese texto se indexa.
+    if (isSpreadsheetFile(normative.original_filename, bytes)) {
+      const sheetText = await spreadsheetBufferToText(Buffer.from(bytes), normative.original_filename);
+      if (sheetText.length < 40) {
+        throw new Error("La planilla no contiene texto suficiente para indexar");
+      }
+      const processedPath = `${normativeId}/${Date.now()}__planilla.txt`;
+      const uploadSheetText = () => supabaseAdmin.storage
+        .from("normativas-procesadas")
+        .upload(processedPath, Buffer.from(sheetText, "utf-8"), { contentType: "text/plain", upsert: true });
+      let { error: processedError } = await uploadSheetText();
+      if (processedError && /bucket/i.test(processedError.message || "")) {
+        // El bucket privado puede no existir todavía: se crea y se reintenta una vez.
+        await supabaseAdmin.storage.createBucket("normativas-procesadas", { public: false });
+        ({ error: processedError } = await uploadSheetText());
+      }
+      if (processedError) {
+        throw new Error(`No se pudo guardar el texto de la planilla: ${processedError.message}`);
+      }
+      const analyzedAtSheet = new Date().toISOString();
+      const sheetReason = "Planilla Excel: se convierte a texto para indexarla; el archivo original se conserva.";
+      await updateAnalysis(normativeId, {
+        status: "READY_TO_PROCESS",
+        analysis_stage: "COMPLETED",
+        analysis_progress: 100,
+        processing_recommended: "DIRECT",
+        analysis_confidence: 1,
+        analysis_reason: sheetReason,
+        analysis_details: { engine: "spreadsheet-text", extension, characters: sheetText.length, analyzed_at: analyzedAtSheet, analysis_version: "1.0" },
+        analyzed_at: analyzedAtSheet,
+        storage_path_processed: processedPath,
+        openai_file_id: null,
+        openai_vector_store_file_id: null,
+        openai_status: null,
+        error_message: null,
+      });
+      return Response.json({
+        ok: true,
+        normative_id: normative.id,
+        filename: normative.original_filename,
+        recommendation: "DIRECT",
+        confidence: 1,
+        reason: sheetReason,
+        metrics: { extension, characters: sheetText.length },
+        processing_selected: normative.processing_selected ?? null,
+        requires_admin_confirmation: true,
+      });
+    }
+
     if (isTextDocument) {
       const analyzedAtText = new Date().toISOString();
       await updateAnalysis(normativeId, {

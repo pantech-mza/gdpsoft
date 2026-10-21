@@ -1,5 +1,6 @@
 import { requireActor } from "../../../../lib/decision-trees/auth";
 import OpenAI, { toFile } from "openai";
+import { isSpreadsheetFile } from "../../../../lib/normatives/spreadsheet-text.mjs";
 import { supabaseAdmin } from "../../../../lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -202,6 +203,17 @@ export async function POST(request) {
       mimeType =
         normative.mime_type ||
         "application/pdf";
+
+      // v3.13.47 — planillas Excel: se indexa el texto generado en el análisis.
+      if (
+        isSpreadsheetFile(normative.original_filename) &&
+        normative.storage_path_processed
+      ) {
+        bucket = PROCESSED_BUCKET;
+        storagePath = normative.storage_path_processed;
+        filename = `${normative.original_filename}.txt`;
+        mimeType = "text/plain";
+      }
     } else {
       /*
        * OCR:

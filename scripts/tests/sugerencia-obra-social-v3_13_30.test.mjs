@@ -220,3 +220,30 @@ test('receta con la obra social en observaciones dispara el protocolo de datos d
   assert.equal(re.test('tiene el nombre de la obra social en observaciones'), true);
   assert.equal(re.test('como valido osecac en dp1'), false);
 });
+
+import { cleanProcedureAnswer } from '../../lib/assistant/procedure-match.mjs';
+test('protocolos: no se muestran las preguntas guía pegadas en la respuesta', () => {
+  const raw = '·       ¿Qué datos son obligatorios según la obra social?\n·       ¿Qué faltantes impiden avanzar?\nCirterio: En las recetas manuales se corrigen solo los últimos tres dígitos.\nSi la receta no indica la obra social, se adjunta copia del carnet.';
+  const out = cleanProcedureAnswer(raw);
+  assert.doesNotMatch(out, /¿/);
+  assert.match(out, /^Criterio: En las recetas manuales/);
+  assert.match(out, /copia del carnet/);
+});
+
+import { isSpreadsheetFile, sheetsToText } from '../../lib/normatives/spreadsheet-text.mjs';
+test('normativas en Excel: se convierten a texto indexable con columnas por fila', () => {
+  assert.equal(isSpreadsheetFile('VALIDADOR.xlsx', Uint8Array.from([0x50, 0x4b, 3, 4])), true);
+  assert.equal(isSpreadsheetFile('viejo.xls', Uint8Array.from([0xd0, 0xcf, 0x11, 0xe0])), true);
+  assert.equal(isSpreadsheetFile('falso.xlsx', Uint8Array.from([1, 2, 3, 4])), false);
+  assert.equal(isSpreadsheetFile('doc.pdf'), false);
+  const text = sheetsToText([
+    { name: 'Validador', rows: [['Sucursal', 'Validador'], ['Gran Mendoza Este', 'GMS'], ['', '']] },
+    { name: 'Planes', rows: [['Plan', 'Cobertura'], ['40', '40%']] },
+  ], 'VALIDADOR GRAN MENDOZA.xlsx');
+  assert.match(text, /DOCUMENTO: VALIDADOR GRAN MENDOZA\.xlsx/);
+  assert.match(text, /HOJA: Validador\nColumnas: Sucursal \| Validador\nSucursal: Gran Mendoza Este \| Validador: GMS/);
+  assert.match(text, /HOJA: Planes[^]*Plan: 40 \| Cobertura: 40%/);
+  const rd = (p) => fs.readFileSync(new URL('../../' + p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(rd('app/api/normatives/analyze/route.js'), /isSpreadsheetFile\(normative\.original_filename, bytes\)/);
+  assert.match(rd('app/api/normatives/process/route.js'), /isSpreadsheetFile\(normative\.original_filename\) &&\n\s*normative\.storage_path_processed/);
+});
