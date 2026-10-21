@@ -135,6 +135,7 @@ export default function AdminSocialWorksPage() {
   ] = useState(false);
 
   const [creating, setCreating] = useState(false);
+  const [sortBy, setSortBy] = useState("NAME");
 
 
 
@@ -366,9 +367,7 @@ export default function AdminSocialWorksPage() {
 
 
 
-  const filteredSocialWorks =
-
-    useMemo(() => {
+  const unsortedSocialWorks = useMemo(() => {
 
       const q =
 
@@ -462,6 +461,17 @@ export default function AdminSocialWorksPage() {
 
     ]);
 
+  // Orden: nombre A-Z, última actualización o última creada (más recientes primero).
+  const filteredSocialWorks = useMemo(() => {
+    if (sortBy === "NAME") return unsortedSocialWorks;
+    const key = sortBy === "CREATED" ? "created_at" : "updated_at";
+    const time = (item) => {
+      const value = item?.[key] ? new Date(item[key]).getTime() : 0;
+      return Number.isFinite(value) ? value : 0;
+    };
+    return [...unsortedSocialWorks].sort((a, b) => time(b) - time(a));
+  }, [unsortedSocialWorks, sortBy]);
+
 
 
   // =====================================================
@@ -527,6 +537,7 @@ export default function AdminSocialWorksPage() {
     search,
 
     statusFilter,
+    sortBy,
 
   ]);
 
@@ -797,6 +808,15 @@ export default function AdminSocialWorksPage() {
 
             </option>
 
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="min-w-[200px] rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-700 outline-none transition focus:border-[#8f2a85]"
+          >
+            <option value="NAME">Orden: Nombre A-Z</option>
+            <option value="UPDATED">Última actualizada</option>
+            <option value="CREATED">Última creada</option>
           </select>
 
 
@@ -1116,6 +1136,7 @@ export default function AdminSocialWorksPage() {
                                   )}
 
                                 </span>
+                                <span>Creada: {formatDate(socialWork.created_at)}</span>
 
 
 

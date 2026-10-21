@@ -349,3 +349,12 @@ test('v3.13.55 Código TYS: editable en modal, API y alta', async () => {
   assert.equal(validateNewSocialWork({ name: 'OSX', tys_code: ' 123 ' }).value.tys_code, '123');
   assert.equal(validateNewSocialWork({ name: 'OSX' }).value.tys_code, null);
 });
+
+// v3.13.56 — orden del listado de obras sociales
+test('v3.13.56 listado de obras sociales: orden por actualización y creación', () => {
+  const page = fs.readFileSync('app/admin/obras-sociales/page.jsx', 'utf8');
+  assert.match(page, /value="UPDATED">Última actualizada/);
+  assert.match(page, /value="CREATED">Última creada/);
+  assert.match(page, /const filteredSocialWorks = useMemo/);
+  assert.match(page, /Creada: \{formatDate\(socialWork\.created_at\)\}/);
+});
