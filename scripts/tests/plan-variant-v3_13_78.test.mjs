@@ -60,3 +60,10 @@ test('nombrar «osep» sin OYTE corta la variante heredada', () => {
   assert.equal(resolvePlanVariant({ question: 'como se valida osep', state, socialWorkId: 59 }), null);
   assert.equal(resolvePlanVariant({ question: 'y como se valida', state, socialWorkId: 59 }), 'OYTE');
 });
+
+import { dropProductSpecificNotes } from '../../lib/assistant/approved-notes.mjs';
+test('observación de un producto puntual no responde consultas generales', () => {
+  const notes = ['OSEP | Cómo validar OZEMPIC si no permite hacerlo\n1. F9', 'Sustitución siempre que este en receta'];
+  assert.deepEqual(dropProductSpecificNotes(notes, 'como se valida osep'), [notes[1]]);
+  assert.equal(dropProductSpecificNotes(notes, 'ozempic osep').length, 2);
+});

@@ -40,7 +40,7 @@ import {
 import { buildSuggestionAnswer, suggestSocialWorks } from "../../../../lib/assistant/social-work-suggestions.mjs";
 import {
   buildCredentialAnswer, buildNotesInstructions, extractEmails, formatNotesAnswer, isCredentialQuestion,
-  loadApprovedNotes, parseNotesAnswer, findMatchingNotes, distinctiveTokens,
+  loadApprovedNotes, parseNotesAnswer, findMatchingNotes, distinctiveTokens, dropProductSpecificNotes,
 } from "../../../../lib/assistant/approved-notes.mjs";
 import { findSemanticApprovedFaq, recordFaqSignal } from "../../../../lib/server/faq-detection.mjs";
 import { buildConstraintsPrompt, splitUserConstraints, stripOfferLine } from "../../../../lib/assistant/user-constraints.mjs";
@@ -2903,7 +2903,7 @@ function buildNormativeRequirementFallbackQuestion({
 // v3.13.36 — apoyo con observaciones operativas APROBADAS cuando la normativa no responde.
 async function answerFromApprovedNotes({ question, socialWorkId, variant = resolvePlanVariant({ question, state: null, socialWorkId }) }) {
   try {
-    const notes = await loadApprovedNotes(supabaseAdmin, socialWorkId, variant);
+    const notes = dropProductSpecificNotes(await loadApprovedNotes(supabaseAdmin, socialWorkId, variant), question);
     if (!notes.length) return null;
     const socialWorkName = await getSocialWorkName(socialWorkId);
     const response = await openai.responses.create({
