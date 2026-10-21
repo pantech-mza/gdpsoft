@@ -992,31 +992,10 @@ export async function POST(
       if (
         detection.multiple
       ) {
-        return Response.json(
-          {
-            ok: false,
-
-            error:
-              "Detecté más de una obra social en la consulta.",
-
-            code:
-              "MULTIPLE_SOCIAL_WORKS_DETECTED",
-
-            social_works:
-              detection.matches.map(
-                (item) => ({
-                  id:
-                    item.id,
-
-                  name:
-                    item.name,
-                })
-              ),
-          },
-          {
-            status: 400,
-          }
-        );
+        // v3.13.60 — varias obras sociales posibles: lo resuelve el motor de consulta
+        // (ofrece las opciones y conserva la pregunta original).
+        const {response,data} = await callAssistantQuery({request,conversationId,question:originalQuestion});
+        return Response.json(data,{status:response.status});
       }
 
       if (

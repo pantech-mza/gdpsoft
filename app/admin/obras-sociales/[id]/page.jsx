@@ -30,6 +30,19 @@ const TABS = [
   { key: "AI", label: "IA", desktopLabel: "Consultar IA", icon: "fluent-color:bot-24" },
 ];
 
+// v3.13.61 — PDF sin texto (presentaciones/escaneos): lectura con IA y luego indexación.
+async function ocrAndIndex(call, id, onProgress) {
+  onProgress("El documento no tiene texto seleccionable: leyéndolo con IA (OCR). Puede tardar 1-2 minutos...");
+  await call(`/api/normatives/ocr?normativeId=${id}`);
+  onProgress("Confirmando el texto leído...");
+  await call("/api/normatives/confirm-processing", {
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ normativeId: id, mode: "OCR" }),
+  });
+  onProgress("Indexando normativa en OpenAI... puede tardar unos minutos.");
+  await call(`/api/normatives/process?normativeId=${id}`);
+}
+
 export default function SocialWorkAdminPage() {
   const params =
     useParams();
@@ -971,8 +984,11 @@ function NormativesView({
         return payload;
       };
       const analysis = await call(`/api/normatives/analyze?normativeId=${id}`);
-      if (analysis.recommendation !== "DIRECT") {
-        setProcessMessage(`El análisis recomienda ${analysis.recommendation || "revisión"} (por ejemplo OCR): el documento no se puede indexar de forma directa y requiere ese procesamiento previo.`);
+      if (analysis.recommendation === "OCR" && /\.pdf$/i.test(analysis.filename || "")) {
+        await ocrAndIndex(call, id, setProcessMessage);
+        setProcessMessage("Normativa leída con OCR e indexada correctamente.");
+      } else if (analysis.recommendation !== "DIRECT") {
+        setProcessMessage(`El análisis recomienda ${analysis.recommendation || "revisión"}: este documento no se puede indexar de forma directa y requiere un procesamiento previo.`);
       } else {
         setProcessMessage("Confirmando e indexando en OpenAI... puede tardar unos minutos.");
         await call("/api/normatives/confirm-processing", {
@@ -1439,7 +1455,9 @@ function UploadNormativeModal({
   const [autoOutcome, setAutoOutcome] = useState(null);
   const [uploadedNormativeId, setUploadedNormativeId] = useState(null);
 
-  async function autoSuggestTree(normativeId) {
+  // v3.13.60 — primero se indexa (lo que el bot necesita); los árboles sugeridos son
+  // un extra y un fallo de ellos nunca debe hacer parecer que la normativa no se indexó.
+  async function autoSuggestTree(normativeId, { generateTrees = true } = {}) {
     const id = Number(normativeId);
     if (!Number.isInteger(id) || id <= 0) throw new Error("No se recibió el ID de la nueva normativa");
     const call = async (url, options = {}) => {
@@ -1450,12 +1468,19 @@ function UploadNormativeModal({
       }
       return payload;
     };
-    setAutoProgress("Analizando el PDF recién cargado...");
+    setAutoProgress("Analizando el documento recién cargado...");
     const analysis = await call(`/api/normatives/analyze?normativeId=${id}`);
+    if (analysis.recommendation === "OCR" && /\.pdf$/i.test(analysis.filename || "")) {
+      await ocrAndIndex(call, id, setAutoProgress);
+      return {
+        status: "INDEXED",
+        message: "El documento no tenía texto seleccionable (eran imágenes): se leyó con IA (OCR) y quedó indexado en OpenAI. El bot ya puede usarlo. Conviene revisar que la lectura sea correcta con «Ver fuente».",
+      };
+    }
     if (analysis.recommendation !== "DIRECT") {
       return {
         status: "NEEDS_PROCESSING",
-        message: `Normativa cargada. El preanálisis recomienda ${analysis.recommendation || "revisión"}; debe completar OCR/revisión antes de generar árboles. No se fabricaron propuestas.`,
+        message: `Normativa cargada. El preanálisis recomienda ${analysis.recommendation || "revisión"} (por ejemplo OCR): todavía no está indexada. Completá ese procesamiento con «Analizar e indexar» desde la lista de normativas.`,
       };
     }
     setAutoProgress("Confirmando análisis DIRECT...");
@@ -1465,22 +1490,33 @@ function UploadNormativeModal({
     });
     setAutoProgress("Indexando normativa en OpenAI... Puede tardar unos minutos.");
     await call(`/api/normatives/process?normativeId=${id}`);
-    setAutoProgress("Generando árboles sugeridos con IA desde esta normativa...");
-    const generated = await call("/api/decision-tree-candidates/generate", {
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ normative_id: id, social_work_id: Number(socialWorkId) }),
-    });
-    const count = Array.isArray(generated.candidates) ? generated.candidates.length :
-      Number(generated.created_count ?? generated.count ?? 0);
-    return {
-      status: "GENERATED",
-      message: generated.reused || generated.already_exists || generated.existing
-        ? "La normativa ya tenía propuestas o árboles: no se generaron duplicados."
-        : `La normativa quedó indexada. ${count > 0 ? `${count} propuestas generadas` : "Revisá las propuestas de IA"}. Ninguna fue aprobada ni publicada automáticamente.`,
-    };
+    if (!generateTrees) {
+      return {
+        status: "INDEXED",
+        message: "La normativa quedó indexada en OpenAI: el bot ya puede usarla en sus respuestas.",
+      };
+    }
+    try {
+      setAutoProgress("Generando árboles sugeridos con IA desde esta normativa...");
+      const generated = await call("/api/decision-tree-candidates/generate", {
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ normative_id: id, social_work_id: Number(socialWorkId) }),
+      });
+      const count = Array.isArray(generated.candidates) ? generated.candidates.length :
+        Number(generated.created_count ?? generated.count ?? 0);
+      return {
+        status: "GENERATED",
+        message: generated.reused || generated.already_exists || generated.existing
+          ? "La normativa quedó indexada. Ya tenía propuestas o árboles: no se generaron duplicados."
+          : `La normativa quedó indexada. ${count > 0 ? `${count} propuestas generadas` : "Revisá las propuestas de IA"}. Ninguna fue aprobada ni publicada automáticamente.`,
+      };
+    } catch (treeError) {
+      return {
+        status: "INDEXED",
+        message: `La normativa quedó indexada en OpenAI: el bot ya puede usarla en sus respuestas. Los árboles sugeridos no se pudieron generar automáticamente (${treeError.message}); es opcional y podés intentarlo después desde Árboles.`,
+      };
+    }
   }
-
-
   const [
     error,
     setError,
@@ -1663,20 +1699,13 @@ function UploadNormativeModal({
 
         const uploadedId = result.normative?.id;
         setUploadedNormativeId(uploadedId || null);
-        if (!/\.pdf$/i.test(file.name)) {
-          setAutoOutcome({
-            status: "NEEDS_PROCESSING",
-            message: "La normativa se cargó. Este flujo automático admite PDFs; para otros formatos completá su procesamiento y generá una propuesta individual desde Árboles."
-          });
-          return;
-        }
         try {
-          const outcome = await autoSuggestTree(uploadedId);
+          const outcome = await autoSuggestTree(uploadedId, { generateTrees: /\.pdf$/i.test(file.name) });
           setAutoOutcome(outcome);
         } catch (e) {
           setAutoOutcome({
             status: "NEEDS_PROCESSING",
-            message: `Normativa cargada con ID ${uploadedId}. No se completó la generación automática: ${e.message}. Revisá su estado antes de generar el árbol manualmente.`,
+            message: `Normativa cargada con ID ${uploadedId}, pero no se pudo indexar: ${e.message}. Usá «Analizar e indexar» desde la lista de normativas para reintentar.`,
           });
         } finally {
           setAutoProgress("");
@@ -1743,8 +1772,8 @@ function UploadNormativeModal({
               </div>
             )}
             {autoOutcome && (
-              <div role="status" className={`rounded-xl border px-4 py-3 text-sm ${autoOutcome.status === "GENERATED" ? "border-green-200 bg-green-50 text-green-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
-                <strong>{autoOutcome.status === "GENERATED" ? "Propuesta lista para revisión" : "Carga realizada, proceso pendiente"}:</strong> {autoOutcome.message}
+              <div role="status" className={`rounded-xl border px-4 py-3 text-sm ${["GENERATED", "INDEXED"].includes(autoOutcome.status) ? "border-green-200 bg-green-50 text-green-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+                <strong>{autoOutcome.status === "GENERATED" ? "Propuesta lista para revisión" : autoOutcome.status === "INDEXED" ? "Normativa indexada" : "Carga realizada, proceso pendiente"}:</strong> {autoOutcome.message}
                 <button type="button" onClick={() => onUploaded({ normative: { id: uploadedNormativeId } })} className="mt-3 block rounded-lg bg-[#8f2a85] px-4 py-2 font-medium text-white">Volver a la obra social</button>
               </div>
             )}

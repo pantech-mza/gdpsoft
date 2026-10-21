@@ -28,7 +28,7 @@ import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, scopeNormativeTo
 import { shouldPreferValidationProfile } from "../../../../lib/assistant/validation-profile-priority.mjs";
 import { isGeneralBranchCircuitQuestion, resolveGeneralBranchMembership, formatGeneralBranchMembershipResponse } from "../../../../lib/assistant/branch-circuit-membership.mjs";
 import {
-  applySuggestion, buildBareMentionAnswer, buildPartialAnswerQuestion, isNotFoundAnswer, buildNextState, detectChannelReply, isBareSocialWorkMention, isSuggestionConfirmation,
+  applySuggestion, pickPendingSocialWork, buildBareMentionAnswer, buildPartialAnswerQuestion, isNotFoundAnswer, buildNextState, detectChannelReply, isBareSocialWorkMention, isSuggestionConfirmation,
   isFreshState, loadConversationState, pendingRealQuestion, resolveBranchBillingChannelId, resolveBranchChannelAmongLinked, resolveBranchGroup, buildBranchCircuitPrompt,
   resolveChannelIdForGroup, resolveFollowUp, saveConversationState,
 } from "../../../../lib/assistant/conversation-context.mjs";
@@ -5736,6 +5736,15 @@ async function handleAssistantQuery(request, { conversationState = null } = {}) 
       if (isSuggestionConfirmation(question, conversationState)) {
         question = applySuggestion(conversationState.pending);
       }
+      // v3.13.60 — elección entre varias obras sociales con el mismo nombre parcial.
+      const chosenSocialWork = pickPendingSocialWork(question, conversationState);
+      if (chosenSocialWork) {
+        question = applySuggestion({
+          question: conversationState.pending.question,
+          unresolved: conversationState.pending.unresolved,
+          name: chosenSocialWork,
+        });
+      }
 
       // v3.13.20 — respuesta a «¿Cámara o Colegio?»: continúa la pregunta original.
       const channelReply =
@@ -5864,30 +5873,23 @@ if (conversationId) {
   if (
     detectedSocialWork.multiple
   ) {
-    return Response.json(
-      {
-        ok: false,
-
-        error:
-          "Detecté más de una obra social en la consulta.",
-
-        code:
-          "MULTIPLE_SOCIAL_WORKS_DETECTED",
-
-        social_works:
-          detectedSocialWork.matches.map(
-            (item) => ({
-              id:
-                item.id,
-              name:
-                item.name,
-            })
-          ),
-      },
-      {
-        status: 400,
-      }
-    );
+    const ambiguousOnly = detectedSocialWork.matches.every((item) => item.source === "AMBIGUOUS_TOKEN");
+    const activeAmongMatches = ambiguousOnly &&
+      detectedSocialWork.matches.some((item) => Number(item.id) === Number(socialWorkId));
+    // Si la obra social activa es una de las posibles, se mantiene (sin preguntar).
+    if (!activeAmongMatches) {
+      const options = detectedSocialWork.matches.map((item) => item.name).slice(0, 5);
+      const unresolvedWord = ambiguousOnly ? (detectedSocialWork.matches[0].match || "").toUpperCase() : "";
+      const answer = `Encontré más de una obra social que coincide${unresolvedWord ? ` con «${unresolvedWord}»` : ""}: ${options.join(", ")}. ¿A cuál te referís? Indicame el nombre y sigo con tu consulta.`;
+      const elapsedMs = Date.now() - startedAt;
+      const usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+      await logCurrentQuery({ branchId, socialWorkId, question, answer,
+        source: "SOCIAL_WORK_IDENTITY", route: "AMBIGUOUS_SOCIAL_WORK", found: false, elapsedMs, usage });
+      return Response.json({ ok: true, question, answer, source: "SOCIAL_WORK_IDENTITY",
+        route: "AMBIGUOUS_SOCIAL_WORK", found: false,
+        suggestion: { unresolved: unresolvedWord, options },
+        context: responseContext, elapsed_ms: elapsedMs, usage });
+    }
   }
 
   // ---------------------------------------------------
