@@ -5361,26 +5361,32 @@ export async function POST(request) {
   }
   // v3.13.69 — mismo diseño (pestañas) para toda respuesta larga de la normativa.
   // Va después de guardar el estado: la conversación sigue usando el texto original.
+  // v3.13.71 — toda respuesta con obra social incluye su nombre (el chip del chat no muestra «Obra Social 130»).
   try {
     const finalJson = await response.clone().json();
-    if (finalJson?.ok === true && finalJson.found === true && typeof finalJson.answer === "string" &&
-        /FILE_SEARCH|NORMATIVE/.test(String(finalJson.source || ""))) {
+    if (finalJson?.ok === true) {
       const swId = Number(finalJson.context?.social_work_id);
-      let swName = null;
-      if (Number.isInteger(swId) && swId > 0) {
+      let swName = finalJson.social_work?.name || null;
+      if (!swName && Number.isInteger(swId) && swId > 0) {
         const { data: sw } = await supabaseAdmin.from("social_works").select("name").eq("id", swId).maybeSingle();
         swName = sw?.name || null;
       }
-      const branch = Number(finalJson.context?.branch_id);
-      const group = Number.isInteger(branch) && branch > 0 ? await resolveBranchGroup(supabaseAdmin, branch) : null;
-      const sectioned = buildSectionedAnswer({
-        answer: finalJson.answer, title: swName,
-        circuitLabel: group === "CAMARA" ? "Cámara" : group === "COLEGIO" ? "Colegio" : null,
-      });
-      if (sectioned) response = Response.json({ ...finalJson, answer: sectioned, answer_plain: finalJson.answer }, { status: response.status });
+      let next = finalJson;
+      if (swName && !finalJson.social_work?.name) next = { ...next, social_work: { ...(finalJson.social_work || {}), id: swId, name: swName } };
+      if (finalJson.found === true && typeof finalJson.answer === "string" &&
+          /FILE_SEARCH|NORMATIVE/.test(String(finalJson.source || ""))) {
+        const branch = Number(finalJson.context?.branch_id);
+        const group = Number.isInteger(branch) && branch > 0 ? await resolveBranchGroup(supabaseAdmin, branch) : null;
+        const sectioned = buildSectionedAnswer({
+          answer: finalJson.answer, title: swName,
+          circuitLabel: group === "CAMARA" ? "Cámara" : group === "COLEGIO" ? "Colegio" : null,
+        });
+        if (sectioned) next = { ...next, answer: sectioned, answer_plain: finalJson.answer };
+      }
+      if (next !== finalJson) response = Response.json(next, { status: response.status });
     }
   } catch {
-    // el formato es solo de presentación: nunca debe romper la respuesta
+    // el formato y el nombre son solo de presentación: nunca deben romper la respuesta
   }
   return response;
 }

@@ -87,3 +87,11 @@ test('respuestas cortas o pasos sin título quedan como estaban', () => {
   assert.equal(buildSectionedAnswer({ answer: '1. Abrí el sistema.\n2. Validá la receta.\n3. Dispensá.', title: 'OSEP' }), null);
   assert.equal(buildSectionedAnswer({ answer: OYTE, title: '' }), null);
 });
+
+import fs from 'node:fs';
+test('v3.13.71 la respuesta incluye el nombre de la obra social para el chip del chat', () => {
+  const route = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8');
+  assert.match(route, /social_work: \{ \.\.\.\(finalJson\.social_work \|\| \{\}\), id: swId, name: swName \}/);
+  const widget = fs.readFileSync(new URL('../../components/FloatingAssistant.jsx', import.meta.url), 'utf8');
+  assert.match(widget, /Number\(activeSocialWork\?\.id\) === socialWorkId \? activeSocialWork\?\.name : null/);
+});

@@ -189,6 +189,22 @@ export default function FloatingAssistant() {
   ]);
 
   // =========================================================
+  // PREGUNTAR DESDE OTRAS PANTALLAS (FAQs)
+  // =========================================================
+
+  useEffect(() => {
+    function onAsk(event) {
+      const text = String(event?.detail?.question || "").trim();
+      if (!text) return;
+      setOpen(true);
+      setQuestion(text);
+    }
+    window.addEventListener("gdpsoft:ask-assistant", onAsk);
+    return () =>
+      window.removeEventListener("gdpsoft:ask-assistant", onAsk);
+  }, []);
+
+  // =========================================================
   // FOCO AUTOMÁTICO
   // =========================================================
 
@@ -413,7 +429,7 @@ export default function FloatingAssistant() {
 
         name:
           socialWorkName ||
-          activeSocialWork?.name ||
+          (Number(activeSocialWork?.id) === socialWorkId ? activeSocialWork?.name : null) ||
           `Obra Social ${socialWorkId}`,
       });
     }
