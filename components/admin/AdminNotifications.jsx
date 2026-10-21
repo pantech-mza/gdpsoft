@@ -93,7 +93,7 @@ export default function AdminNotifications() {
           </div>
           <ul className="max-h-[420px] overflow-y-auto">
             {items.length === 0 && <li className="px-4 py-6 text-center text-sm text-zinc-400">Sin notificaciones.</li>}
-            {items.map((item) => (
+            {items.slice(0, 5).map((item) => (
               <li key={item.id}>
                 <button
                   type="button"
@@ -107,6 +107,10 @@ export default function AdminNotifications() {
               </li>
             ))}
           </ul>
+          <button type="button" onClick={() => { setOpen(false); router.push("/admin/notificaciones"); }}
+            className="block w-full border-t border-zinc-100 px-4 py-3 text-center text-xs font-semibold text-[#8f2a85] hover:bg-zinc-50">
+            Ver todas
+          </button>
         </div>
       )}
     </div>

@@ -99,9 +99,10 @@ export default function AdminFaqsPage() {
     try {
       const response = await treeApiFetch("/api/faqs/detect", { method: "POST" });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok || !result.ok) throw new Error(result.error || "No se pudo analizar el piloto");
+      if (!response.ok || !result.ok) throw new Error(result.error || `No se pudo analizar el piloto (HTTP ${response.status}). Probá de nuevo: continúa donde quedó.`);
       setDetectMessage(
         `Se analizaron ${result.eligible} consultas respondidas. ` +
+        (result.partial ? `Quedan ${result.remaining} por procesar: volvé a tocar el botón. ` : "") +
         (result.suggested > 0
           ? `Nuevas FAQs propuestas: ${result.suggested}.`
           : `Ninguna llegó todavía a ${result.threshold} consultas parecidas.`)

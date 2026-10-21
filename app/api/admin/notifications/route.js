@@ -7,9 +7,10 @@ export const dynamic = 'force-dynamic';
 export async function GET(request) {
   const access = await requireAdminActor(request);
   if (!access.actor) return Response.json({ ok: false, error: access.error }, { status: access.status });
+  const all = new URL(request.url).searchParams.get('all') === '1';
   const [list, unread] = await Promise.all([
     supabaseAdmin.from('admin_notifications').select('id,type,title,body,link,social_work_id,ref_id,created_at,read_at')
-      .order('created_at', { ascending: false }).limit(30),
+      .order('created_at', { ascending: false }).limit(all ? 300 : 30),
     supabaseAdmin.from('admin_notifications').select('id', { count: 'exact', head: true }).is('read_at', null),
   ]);
   if (list.error || unread.error) {
