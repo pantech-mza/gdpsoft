@@ -6934,7 +6934,7 @@ if (asksForPrescriptionChecklist(question)) {
   if (relationsError) console.error("checklist scope:", relationsError.message);
   const scope = relationsError
     ? {ok:false, reason:"No pude verificar las normativas vinculadas."}
-    : scopeNormativeTopic(scopeLinkedNormatives(relations || [], activeBillingChannelId), relations || [], question);
+    : scopeNormativeTopic(scopeLinkedNormatives(relations || [], activeBillingChannelId || (await getBranchCircuit()).channelId), relations || [], question);
   let answer;
   let source = "SOCIAL_WORK_PROFILE";
   let route = "PRESCRIPTION_CHECKLIST_SAFE";
