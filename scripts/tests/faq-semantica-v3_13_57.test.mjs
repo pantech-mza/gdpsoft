@@ -141,3 +141,64 @@ test('cableado: bot, API de notificaciones, campana y migración', () => {
   const sql = fs.readFileSync('supabase/migrations/20261021_faq_semantic_detection.sql', 'utf8');
   for (const t of ['faq_clusters', 'faq_cluster_hits', 'admin_notifications']) assert.match(sql, new RegExp(`TABLE IF NOT EXISTS public.${t}`));
 });
+
+// v3.13.58 — sucursal con grupo conocido no debe recibir «¿Cámara o Colegio?»
+import { resolveBranchChannelAmongLinked } from '../../lib/assistant/conversation-context.mjs';
+function channelDb({ branch, links, channels }) {
+  return {
+    from(table) {
+      const rows = table === 'branches' ? [branch] : table === 'normative_social_works' ? links : channels;
+      const api = { select() { return api; }, eq() { return api; }, not() { return api; }, in() { return api; },
+        maybeSingle: async () => ({ data: rows[0] ?? null, error: null }),
+        then: (res, rej) => Promise.resolve({ data: rows, error: null }).then(res, rej) };
+      return api;
+    },
+  };
+}
+test('v3.13.58 DP1 (Cámara) elige el canal Cámara entre los vinculados aunque el catálogo tenga varios', async () => {
+  const db = channelDb({
+    branch: { id: 1, name: 'DP1', code: 'DP1', branch_type: 'CAMARA' },
+    links: [{ billing_channel_id: 7 }, { billing_channel_id: 8 }, { billing_channel_id: 8 }],
+    channels: [{ id: 7, code: 'CAM', name: 'Cámara' }, { id: 8, code: 'COL', name: 'Colegio' }],
+  });
+  assert.equal(await resolveBranchChannelAmongLinked(db, 1, 55), 7);
+});
+test('v3.13.58 sin grupo de sucursal o sin canales vinculados no adivina', async () => {
+  const unknown = channelDb({ branch: { id: 9, name: 'Otra', code: 'X', branch_type: null }, links: [{ billing_channel_id: 7 }], channels: [{ id: 7, name: 'Cámara' }] });
+  assert.equal(await resolveBranchChannelAmongLinked(unknown, 9, 55), null);
+  const none = channelDb({ branch: { id: 1, name: 'DP1', code: 'DP1', branch_type: 'CAMARA' }, links: [], channels: [] });
+  assert.equal(await resolveBranchChannelAmongLinked(none, 1, 55), null);
+});
+test('v3.13.58 la ruta usa el respaldo y la revisión muestra la sucursal', () => {
+  assert.match(fs.readFileSync('app/api/assistant/query/route.js', 'utf8'), /resolveBranchChannelAmongLinked\(supabaseAdmin, Number\(branchId\), socialWorkId\)/);
+  assert.match(fs.readFileSync('components/admin/AdminBranchValidation.jsx', 'utf8'), /Sucursal: <strong>/);
+});
+
+// v3.13.59 — el circuito de la sucursal rige siempre
+import { buildBranchCircuitPrompt } from '../../lib/assistant/conversation-context.mjs';
+test('v3.13.59 prompt de circuito: solo cuando la sucursal tiene grupo', () => {
+  assert.equal(buildBranchCircuitPrompt(null), '');
+  assert.match(buildBranchCircuitPrompt('CAMARA'), /CIRCUITO DE LA SUCURSAL QUE CONSULTA: Cámara/);
+  assert.match(buildBranchCircuitPrompt('COLEGIO'), /no menciones requisitos de Cámara/);
+  assert.match(buildBranchCircuitPrompt('CAMARA'), /No le preguntes/);
+});
+test('v3.13.59 la ruta aplica el circuito en normativa, protocolos y prompt', () => {
+  const r = fs.readFileSync('app/api/assistant/query/route.js', 'utf8');
+  assert.match(r, /const getBranchCircuit = async/);
+  assert.match(r, /branchCircuit: buildBranchCircuitPrompt\(\(await getBranchCircuit\(\)\)\.group\)/);
+  assert.equal((r.match(/billingChannelId: activeBillingChannelId \|\| \(await getBranchCircuit\(\)\)\.channelId/g) || []).length, 4);
+});
+test('v3.13.59 FAQ: Cámara y Colegio no comparten grupo ni respuesta', async () => {
+  const db = fakeDb();
+  for (let n = 1; n <= 10; n += 1) await applyFaqSignal({ db, signal: sig(n, { branchGroup: 'CAMARA' }), embedding: V_A, threshold: 10 });
+  for (let n = 11; n <= 15; n += 1) await applyFaqSignal({ db, signal: sig(n, { branchGroup: 'COLEGIO' }), embedding: V_A, threshold: 10 });
+  assert.equal(db.tables.faq_clusters.length, 2);
+  assert.equal(db.tables.social_work_faqs.length, 1);
+  assert.match(db.tables.admin_notifications[0].title, /Cámara/);
+  Object.assign(db.tables.social_work_faqs[0], { status: 'APPROVED', active: true });
+  const embed = async () => [V_A];
+  const base = { db, embed, socialWorkId: 1, branchId: 2, question: 'cuantos dias vale la receta' };
+  assert.ok(await findSemanticApprovedFaq({ ...base, branchGroup: 'CAMARA' }));
+  assert.equal(await findSemanticApprovedFaq({ ...base, branchGroup: 'COLEGIO' }), null);
+  assert.equal(await findSemanticApprovedFaq({ ...base, branchGroup: null }), null);
+});

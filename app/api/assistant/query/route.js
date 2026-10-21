@@ -29,7 +29,7 @@ import { shouldPreferValidationProfile } from "../../../../lib/assistant/validat
 import { isGeneralBranchCircuitQuestion, resolveGeneralBranchMembership, formatGeneralBranchMembershipResponse } from "../../../../lib/assistant/branch-circuit-membership.mjs";
 import {
   applySuggestion, buildBareMentionAnswer, buildPartialAnswerQuestion, isNotFoundAnswer, buildNextState, detectChannelReply, isBareSocialWorkMention, isSuggestionConfirmation,
-  isFreshState, loadConversationState, pendingRealQuestion, resolveBranchBillingChannelId,
+  isFreshState, loadConversationState, pendingRealQuestion, resolveBranchBillingChannelId, resolveBranchChannelAmongLinked, resolveBranchGroup, buildBranchCircuitPrompt,
   resolveChannelIdForGroup, resolveFollowUp, saveConversationState,
 } from "../../../../lib/assistant/conversation-context.mjs";
 import { buildSuggestionAnswer, suggestSocialWorks } from "../../../../lib/assistant/social-work-suggestions.mjs";
@@ -91,6 +91,7 @@ async function lookupSemanticFaq({ branchId, socialWorkId, question }) {
   try {
     return await findSemanticApprovedFaq({
       db: supabaseAdmin, embed: embedFaqTexts, socialWorkId, branchId, question,
+      branchGroup: await resolveBranchGroup(supabaseAdmin, branchId).catch(() => null),
     });
   } catch (error) {
     console.error("FAQ semantic lookup error:", error?.message);
@@ -230,6 +231,7 @@ async function logAssistantQuery({
             signal: {
               socialWorkId, branchId, deviceId, question, answer, route, found, trafficType,
               sourceType: source, normativeId, queryLogId: insertedLog?.id ?? null,
+              branchGroup: await resolveBranchGroup(supabaseAdmin, branchId).catch(() => null),
             },
           }),
           new Promise((resolve) => setTimeout(resolve, 4000)),
@@ -4640,6 +4642,7 @@ async function queryFileSearch({
   forceDetailed = false,
   adminCorrections = "",
   userConstraints = "",
+  branchCircuit = "",
 }) {
 
   if (
@@ -4869,6 +4872,7 @@ REPREGUNTA SOBRE EL MISMO TEMA (esta sección tiene prioridad sobre las reglas d
   const instructions =
     (forceDetailed ? baseInstructions + followUpAddendum : baseInstructions) +
     (adminCorrections || "") +
+    (branchCircuit || "") +
     (userConstraints || "");
 
 
@@ -5395,6 +5399,29 @@ async function handleAssistantQuery(request, { conversationState = null } = {}) 
         ? "PILOT"
         : verifiedAdmin ? "ADMIN" : "OTHER",
     });
+
+    // v3.13.59 — circuito (Cámara/Colegio) de la sucursal que consulta: se resuelve
+    // una vez por consulta y se usa en normativa, protocolos y prompt.
+    const branchCircuitMemo = new Map();
+    const getBranchCircuit = async () => {
+      const key = `${Number(branchId) || 0}:${Number(socialWorkId) || 0}`;
+      if (!Number(branchId)) return { group: null, channelId: null };
+      if (!branchCircuitMemo.has(key)) {
+        let value = { group: null, channelId: null };
+        try {
+          const group = await resolveBranchGroup(supabaseAdmin, Number(branchId));
+          const channelId = group
+            ? ((await resolveBranchBillingChannelId(supabaseAdmin, Number(branchId))) ||
+               (await resolveBranchChannelAmongLinked(supabaseAdmin, Number(branchId), socialWorkId)))
+            : null;
+          value = { group, channelId };
+        } catch {
+          value = { group: null, channelId: null };
+        }
+        branchCircuitMemo.set(key, value);
+      }
+      return branchCircuitMemo.get(key);
+    };
 
 
 
@@ -6218,7 +6245,7 @@ if (conversationId) {
     // 4.5 PROCEDIMIENTOS INTERNOS GDP (solo aprobados y vigentes)
     // Fallos operativos: OOSS, circuito y autorizaciones explícitas.
     const internalProcedure = isImmediateOperationalContingency(question)
-      ? await resolveInternalProcedure({ question, socialWorkId, billingChannelId: activeBillingChannelId })
+      ? await resolveInternalProcedure({ question, socialWorkId, billingChannelId: activeBillingChannelId || (await getBranchCircuit()).channelId })
       : null;
     if (internalProcedure) {
       const elapsedMs = Date.now() - startedAt;
@@ -7916,7 +7943,7 @@ if (!activeBillingChannelId) {
     supabaseAdmin, socialWorkId, null, fileSearchQuestion,
   );
   if (!scopeProbe.ok && scopeProbe.ambiguous) {
-    const branchChannelId = await resolveBranchBillingChannelId(supabaseAdmin, branchId);
+    const branchChannelId = (await getBranchCircuit()).channelId;
     if (branchChannelId) {
       const scopedByBranch = await getLinkedCurrentNormativeScope(
         supabaseAdmin, socialWorkId, branchChannelId, fileSearchQuestion,
@@ -7942,7 +7969,7 @@ if (!normativeScope.ok) {
         route: "APPROVED_NOTES_FALLBACK", found: true, context: responseContext,
         elapsed_ms: notesElapsedMs, usage: notesSupport.usage || { input_tokens: 0, output_tokens: 0, total_tokens: 0 } });
     }
-    const meaningProcedure = await answerFromProceduresByMeaning({ question: fileSearchQuestion, socialWorkId, billingChannelId: activeBillingChannelId });
+    const meaningProcedure = await answerFromProceduresByMeaning({ question: fileSearchQuestion, socialWorkId, billingChannelId: activeBillingChannelId || (await getBranchCircuit()).channelId });
     if (meaningProcedure) {
       const meaningElapsedMs = Date.now() - startedAt;
       const meaningUsage = meaningProcedure.usage || { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
@@ -7975,6 +8002,7 @@ let result = await queryFileSearch({
   maxOutputTokens: specialNormativeTopic ? 650 : null,
   forceDetailed: followUp.isFollowUp,
   adminCorrections: buildCorrectionsPrompt(adminCorrections),
+  branchCircuit: buildBranchCircuitPrompt((await getBranchCircuit()).group),
   userConstraints: buildConstraintsPrompt(userConstraintSplit),
 });
 // v3.13.32 — repregunta sin respuesta literal («No encuentro»): se reintenta pidiendo
@@ -8117,11 +8145,11 @@ if (followUp.isFollowUp && isNotFoundAnswer(result?.answer)) {
     }
     if ((!found && !isSpecificNormativeQuestion(question)) || (!found && prescriptionMissingField)) {
       const lastResortProcedure = await resolveInternalProcedure({
-        question, socialWorkId, billingChannelId: activeBillingChannelId,
+        question, socialWorkId, billingChannelId: activeBillingChannelId || (await getBranchCircuit()).channelId,
       }) || await answerFromProceduresByMeaning({
         // Con dato en un campo, fileSearchQuestion lleva instrucciones de búsqueda: se clasifica la consulta original.
         question: prescriptionMissingField ? question : fileSearchQuestion,
-        socialWorkId, billingChannelId: activeBillingChannelId,
+        socialWorkId, billingChannelId: activeBillingChannelId || (await getBranchCircuit()).channelId,
       });
       if (lastResortProcedure) {
         const procedureElapsedMs = Date.now() - startedAt;
