@@ -329,3 +329,13 @@ test('v3.13.52 preguntas de aceptación cortas se resuelven como estado', () => 
   }
   assert.equal(__hasSubj('recibimos?'), false);
 });
+
+// v3.13.54 — filtro por dispositivo en Actividad del bot
+test('v3.13.54 actividad: filtro de dispositivo y listado en API', () => {
+  const page = fs.readFileSync('app/admin/actividad/page.jsx', 'utf8');
+  assert.match(page, /Dispositivo<select value=\{device\}/);
+  assert.match(page, /String\(x\.branch_id\)===String\(branch\)/);
+  const api = fs.readFileSync('app/api/admin/actividad/route.js', 'utf8');
+  assert.match(api, /from\('branch_devices'\)/);
+  assert.match(api, /devices:\(devices\.data/);
+});
