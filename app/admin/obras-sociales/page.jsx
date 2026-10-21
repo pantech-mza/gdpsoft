@@ -1949,6 +1949,7 @@ function EditSocialWorkModal({
       socialWork.commercial_name ||
 
       "",
+    tys_code: socialWork.tys_code || "",
 
 
 
@@ -2327,6 +2328,29 @@ function EditSocialWorkModal({
                 change(
 
                   "commercial_name",
+
+                  value
+
+                )
+
+              }
+
+            />
+            <FormField
+
+              label="Código TYS (opcional)"
+
+              value={
+
+                form.tys_code
+
+              }
+
+              onChange={(value) =>
+
+                change(
+
+                  "tys_code",
 
                   value
 

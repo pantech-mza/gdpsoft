@@ -62,6 +62,7 @@ export async function GET(
           diagnosis,
           monodrug,
           commercial_name,
+          tys_code,
           substitution,
           observations,
           robinson,
@@ -155,6 +156,7 @@ export async function PATCH(
       "diagnosis",
       "monodrug",
       "commercial_name",
+      "tys_code",
       "substitution",
       "observations",
       "validator_name",
@@ -179,7 +181,7 @@ export async function PATCH(
       }
     }
 
-    for (const field of ["validator_name","validator_type","plan","recipe_type","letterhead","diagnosis","monodrug","commercial_name","substitution"]) {
+    for (const field of ["validator_name","validator_type","plan","recipe_type","letterhead","diagnosis","monodrug","commercial_name","tys_code","substitution"]) {
       if (Object.prototype.hasOwnProperty.call(payload,field)) {
         const value = payload[field];
         payload[field] = value == null || String(value).trim() === "" ? null : String(value).trim();
@@ -377,6 +379,7 @@ export async function PATCH(
           diagnosis,
           monodrug,
           commercial_name,
+          tys_code,
           substitution,
           observations,
           robinson,

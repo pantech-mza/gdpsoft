@@ -6,7 +6,7 @@ import { treeApiFetch } from "../../lib/decision-trees/client";
 
 const EMPTY = {
   name: "", active: true, plan: "", recipe_type: "", recipe_validity_days: "", rp: "",
-  letterhead: "", diagnosis: "", monodrug: "", commercial_name: "", substitution: "",
+  letterhead: "", diagnosis: "", monodrug: "", commercial_name: "", tys_code: "", substitution: "",
   validator_name: "", validator_type: "", observations: "",
 };
 
@@ -150,6 +150,7 @@ export default function NewSocialWorkModal({ onClose, onCreated }) {
               <Field label="Diagnóstico"><input className={inputClass} value={form.diagnosis} onChange={set("diagnosis")} /></Field>
               <Field label="Monodroga"><input className={inputClass} value={form.monodrug} onChange={set("monodrug")} /></Field>
               <Field label="Nombre comercial"><input className={inputClass} value={form.commercial_name} onChange={set("commercial_name")} /></Field>
+              <Field label="Código TYS (opcional)"><input className={inputClass} value={form.tys_code} onChange={set("tys_code")} /></Field>
               <Field label="Sustitución"><input className={inputClass} value={form.substitution} onChange={set("substitution")} /></Field>
             </section>
 

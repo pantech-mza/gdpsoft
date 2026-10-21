@@ -39,6 +39,7 @@ export async function GET(
           diagnosis,
           monodrug,
           commercial_name,
+          tys_code,
           substitution,
           observations,
           robinson,

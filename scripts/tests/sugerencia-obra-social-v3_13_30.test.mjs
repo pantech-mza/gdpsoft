@@ -339,3 +339,13 @@ test('v3.13.54 actividad: filtro de dispositivo y listado en API', () => {
   assert.match(api, /from\('branch_devices'\)/);
   assert.match(api, /devices:\(devices\.data/);
 });
+
+// v3.13.55 — Código TYS editable
+test('v3.13.55 Código TYS: editable en modal, API y alta', async () => {
+  assert.match(fs.readFileSync('app/admin/obras-sociales/page.jsx', 'utf8'), /Código TYS \(opcional\)/);
+  assert.match(fs.readFileSync('app/api/social-works/[id]/route.js', 'utf8'), /"tys_code",\s*\r?\n\s*"substitution"/);
+  assert.match(fs.readFileSync('app/api/social-works/[id]/route.js', 'utf8'), /"commercial_name","tys_code","substitution"\]/);
+  const { validateNewSocialWork } = await import('../../lib/social-works/new-social-work.mjs');
+  assert.equal(validateNewSocialWork({ name: 'OSX', tys_code: ' 123 ' }).value.tys_code, '123');
+  assert.equal(validateNewSocialWork({ name: 'OSX' }).value.tys_code, null);
+});
