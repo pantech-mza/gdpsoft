@@ -316,3 +316,16 @@ test('v3.13.52 cortesía: ruta la usa antes del contexto', () => {
   const r = fs.readFileSync('app/api/assistant/query/route.js', 'utf8');
   assert.ok(r.indexOf('classifyCourtesy(question)') < r.indexOf('isBareSocialWorkMention(question'));
 });
+
+// v3.13.52 — «¿Recibimos ENSALUD?» (OOSS inactiva) se resuelve como consulta de estado
+import { isSocialWorkStatusQuestion as __isStatus, hasExplicitStatusSubject as __hasSubj } from '../../lib/assistant/social-work-status.mjs';
+test('v3.13.52 preguntas de aceptación cortas se resuelven como estado', () => {
+  for (const q of ['RECIBIMOS ENSALUD?', 'Trabajamos con OSDE?', 'atendemos Swiss Medical', 'aceptan Sancor Salud?']) {
+    assert.equal(__isStatus(q), true, q);
+    assert.equal(__hasSubj(q), true, q);
+  }
+  for (const q of ['Recibimos OSDE recetas de otra provincia?', 'recibimos ensalud con receta electrónica?', 'como hacemos con OSDE?']) {
+    assert.equal(__isStatus(q), false, q);
+  }
+  assert.equal(__hasSubj('recibimos?'), false);
+});
