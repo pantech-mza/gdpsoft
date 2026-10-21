@@ -18,6 +18,7 @@ const DEFAULT_WEATHER_LOCATION = {
 const SUPPORT_WHATSAPP =
   process.env.NEXT_PUBLIC_GDPSOFT_SUPPORT_WHATSAPP || "";
 
+import BranchNoticeBell from "./BranchNoticeBell";
 export default function SucursalTopbar() {
   const router = useRouter();
   const dropdownRef = useRef(null);
@@ -185,6 +186,7 @@ export default function SucursalTopbar() {
         {/* RIGHT */}
 
         <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
+          <BranchNoticeBell />
 
           {weather && (
             <div className="flex shrink-0 items-center gap-2 rounded-xl bg-[#faf9fc] px-2.5 py-2 sm:px-4">

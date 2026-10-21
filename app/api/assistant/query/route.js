@@ -3017,13 +3017,13 @@ function detectSocialWorkProfileIntent(
   // Sólo el nombre del validador y su medio (TYS, etc.) vienen de social_works.
   // "por dónde valida" y "por dónde valido" son consultas sobre la Ficha,
   // no direcciones físicas, documentación normativa ni circuitos de sucursal.
-  const asksWhere = /\b(?:por donde (?:valido|valida|validamos|validan|validar|se valida)|donde (?:valido|valida|validamos|validan|validar|se valida)|en que (?:sistema|plataforma|medio) (?:se )?valida|tipo de validacion|medio de validacion)\b/.test(q);
+  const asksWhere = /\b(?:por donde (?:valido|valida|validamos|validan|validar|se valida)|donde (?:valido|valida|validamos|validan|validar|se valida)|en que (?:sistema|plataforma|medio) (?:se )?valida|tipo de validacion|medio de validacion|(?:se )?autoriza(?:n|mos)? (?:por|con|en|mediante) (?:gms|tys|que|donde|cual)|donde (?:se )?autoriza(?:n|mos)?)\b/.test(q);
   const isValidationProblem = /\b(?:se cayo|caido|caida|no funciona|no anda|falla|fallando|error|rechazo|rechaza|fuera de servicio|sin servicio|no puedo validar|no valida|no me valida)\b/.test(q);
   if (asksValidatorName && !asksWhere) {
     return { field: "validator_name", key: "VALIDATOR_NAME" };
   }
   // Sin dato cargado en Ficha: informar que falta, NUNCA ir a File Search.
-  if (!asksTysCode && !isValidationProblem && (asksWhere || /\btys\b/.test(q) || containsAny(q, ["que validador", "qué validador"]))) {
+  if (!asksTysCode && !isValidationProblem && (asksWhere || /\b(?:tys|gms)\b/.test(q) || containsAny(q, ["que validador", "qué validador"]))) {
     return { field: "validator_type", key: "VALIDATION_METHOD" };
   }
 
@@ -5874,8 +5874,10 @@ if (conversationId) {
     detectedSocialWork.multiple
   ) {
     const ambiguousOnly = detectedSocialWork.matches.every((item) => item.source === "AMBIGUOUS_TOKEN");
-    const activeAmongMatches = ambiguousOnly &&
-      detectedSocialWork.matches.some((item) => Number(item.id) === Number(socialWorkId));
+    // v3.13.65 — si la obra social activa es una de las posibles y las otras solo coinciden
+    // por una palabra suelta (no por su nombre completo), se mantiene sin preguntar.
+    const activeAmongMatches = detectedSocialWork.matches.some((item) => Number(item.id) === Number(socialWorkId)) &&
+      !detectedSocialWork.matches.some((item) => Number(item.id) !== Number(socialWorkId) && item.source === "NAME");
     // Si la obra social activa es una de las posibles, se mantiene (sin preguntar).
     if (!activeAmongMatches) {
       const options = detectedSocialWork.matches.map((item) => item.name).slice(0, 5);
@@ -5888,7 +5890,8 @@ if (conversationId) {
       return Response.json({ ok: true, question, answer, source: "SOCIAL_WORK_IDENTITY",
         route: "AMBIGUOUS_SOCIAL_WORK", found: false,
         suggestion: { unresolved: unresolvedWord, options },
-        context: responseContext, elapsed_ms: elapsedMs, usage });
+        context: { conversation_id: conversationId, branch_id: branchId, device_id: deviceId, social_work_id: socialWorkId },
+        elapsed_ms: elapsedMs, usage });
     }
   }
 

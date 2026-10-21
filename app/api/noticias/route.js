@@ -27,6 +27,14 @@ export async function GET(request){
   if(!ctx) return jsonError('Sesión o dispositivo no autorizado',401);
   try{
     const notices=await allowedNotices(ctx.actor.branch_id);
+    if(new URL(request.url).searchParams.get('history')==='1'){
+      // Historial: todos los avisos de la sucursal (leídos o no), del más nuevo al más viejo.
+      const {data:seen,error:seenError}=await supabaseAdmin.from('branch_notice_ack').select('notice_id').eq('device_id',ctx.device.id);
+      if(seenError) throw seenError;
+      const read=new Set((seen||[]).map(x=>x.notice_id));
+      const limit=Math.min(Math.max(Number(new URL(request.url).searchParams.get('limit'))||5,1),150);
+      return Response.json({ok:true,total:notices.length,notices:notices.slice(0,limit).map(n=>({...n,read:read.has(n.id)}))},{headers:{'Cache-Control':'no-store'}});
+    }
     const {data:acks,error}=await supabaseAdmin.from('branch_notice_ack').select('notice_id').eq('device_id',ctx.device.id);
     if(error) throw error;
     const acknowledged=new Set((acks||[]).map(x=>x.notice_id));

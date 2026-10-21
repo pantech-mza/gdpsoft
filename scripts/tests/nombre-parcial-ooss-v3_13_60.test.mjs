@@ -56,3 +56,36 @@ test('cableado: query ofrece opciones, chat delega y la UI de indexación separa
   assert.match(page, /La normativa quedó indexada en OpenAI: el bot ya puede usarla/);
   assert.match(page, /autoOutcome\.status === "INDEXED" \? "Normativa indexada"/);
 });
+
+// v3.13.63 — tipeo cercano al nombre de una obra social.
+import { unresolvedExplicitSocialWork as unresolvedFuzzy } from '../../lib/assistant/explicit-social-work-protection.mjs';
+import { buildSocialWorkDictionary as buildDictFuzzy, detectSocialWorks as detectFuzzy } from '../../lib/assistant/socialWorkDetection.js';
+test('«berckley» se propone como BERKLEY ART y las palabras comunes no disparan nada', () => {
+  const dictionary = buildDictFuzzy({ socialWorks: [{ id: 1, name: 'OSEP OYTE' }, { id: 2, name: 'BERKLEY ART' }], aliases: [] });
+  const run = (q) => unresolvedFuzzy({ question: q, dictionary, matches: detectFuzzy({ text: q, dictionary }) });
+  assert.equal(run('que requisitos debe tener una receta de berckley?'), 'BERCKLEY');
+  assert.equal(run('requisitos de recetas'), null);
+  assert.equal(run('que requisitos debe tener una receta de berkley?'), null);
+});
+
+// v3.13.64 — ninguna rama anterior a su declaración puede usar `responseContext` (TDZ en producción).
+test('query route: responseContext no se usa antes de declararse', () => {
+  const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8');
+  const declared = src.indexOf('const responseContext');
+  const firstUse = src.indexOf('responseContext');
+  assert.equal(firstUse, declared + 'const '.length);
+});
+
+// v3.13.65 — «se autoriza por GMS» es Ficha; la obra social activa no se pierde por una palabra suelta.
+test('route: consulta de medio de autorización por GMS/TYS usa Ficha y mantiene la obra social activa', () => {
+  const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8');
+  assert.match(src, /autoriza\(\?:n\|mos\)\? \(\?:por\|con\|en\|mediante\) \(\?:gms\|tys/);
+  assert.match(src, /\(\?:tys\|gms\)/);
+  assert.match(src, /item\.source === "NAME"\);/);
+});
+test('Topbar de sucursal y API de avisos incluyen la campanita (v3.13.62 incompleta)', () => {
+  const top = fs.readFileSync(new URL('../../components/sucursal/SucursalTopbar.jsx', import.meta.url), 'utf8');
+  const api = fs.readFileSync(new URL('../../app/api/noticias/route.js', import.meta.url), 'utf8');
+  assert.match(top, /<BranchNoticeBell \/>/);
+  assert.match(api, /history/);
+});
