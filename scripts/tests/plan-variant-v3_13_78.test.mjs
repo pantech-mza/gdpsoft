@@ -54,3 +54,9 @@ test('observación coincidente se agrega solo si coinciden las palabras distinti
   assert.equal(findMatchingNotes(notes, 'como se valida osep', 'OSEP').length, 0);
   assert.equal(findMatchingNotes(notes, 'requisitos osep', 'OSEP').length, 0);
 });
+
+test('nombrar «osep» sin OYTE corta la variante heredada', () => {
+  const state = { variant: 'OYTE', social_work_id: 59 };
+  assert.equal(resolvePlanVariant({ question: 'como se valida osep', state, socialWorkId: 59 }), null);
+  assert.equal(resolvePlanVariant({ question: 'y como se valida', state, socialWorkId: 59 }), 'OYTE');
+});

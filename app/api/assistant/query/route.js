@@ -40,7 +40,7 @@ import {
 import { buildSuggestionAnswer, suggestSocialWorks } from "../../../../lib/assistant/social-work-suggestions.mjs";
 import {
   buildCredentialAnswer, buildNotesInstructions, extractEmails, formatNotesAnswer, isCredentialQuestion,
-  loadApprovedNotes, parseNotesAnswer, findMatchingNotes,
+  loadApprovedNotes, parseNotesAnswer, findMatchingNotes, distinctiveTokens,
 } from "../../../../lib/assistant/approved-notes.mjs";
 import { findSemanticApprovedFaq, recordFaqSignal } from "../../../../lib/server/faq-detection.mjs";
 import { buildConstraintsPrompt, splitUserConstraints, stripOfferLine } from "../../../../lib/assistant/user-constraints.mjs";
@@ -5355,7 +5355,12 @@ async function appendMatchingNotes(json, rawQuestion) {
   const matches = findMatchingNotes(notes, rawQuestion, await getSocialWorkName(socialWorkId));
   if (!matches.length) return null;
   const text = matches.map((n) => n.trim()).join("\n\n");
-  return { ...json, answer: `${json.answer}\n\nObservación operativa aprobada por Administración:\n${text}` };
+  // Si la respuesta de la normativa/protocolo no nombra el tema pedido (ej. Ozempic), la observación va sola.
+  const answerFold = String(json.answer).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const relevant = distinctiveTokens(rawQuestion, await getSocialWorkName(socialWorkId))
+    .some((w) => answerFold.includes(w.slice(0, Math.max(4, w.length - 2))));
+  const header = "Observación operativa aprobada por Administración:";
+  return { ...json, answer: relevant ? `${json.answer}\n\n${header}\n${text}` : `${header}\n${text}` };
 }
 
 export async function POST(request) {
