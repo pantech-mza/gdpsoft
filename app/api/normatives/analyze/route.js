@@ -359,9 +359,11 @@ export async function POST(request) {
     const lowerName = String(normative.original_filename || "").toLowerCase();
     const extension = lowerName.includes(".") ? lowerName.split(".").pop() : "";
     const looksLikeZip = bytes[0] === 0x50 && bytes[1] === 0x4b;
+    // v3.13.49 — Word 97-2003 (.doc): contenedor OLE, OpenAI lo indexa directamente.
+    const looksLikeOle = bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0;
     const isTextDocument =
       signature !== "%PDF-" &&
-      ((extension === "docx" && looksLikeZip) || ["txt", "md", "html", "htm"].includes(extension));
+      ((extension === "docx" && looksLikeZip) || (extension === "doc" && looksLikeOle) || ["txt", "md", "html", "htm"].includes(extension));
     // v3.13.47 — Excel (.xlsx/.xls): OpenAI no indexa planillas; se genera un texto
     // equivalente (una línea por fila con sus columnas) y ese texto se indexa.
     if (isSpreadsheetFile(normative.original_filename, bytes)) {

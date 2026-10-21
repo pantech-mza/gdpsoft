@@ -3481,9 +3481,14 @@ const cleanValue =
 
   // Identificar la fuente exacta del dato estructurado frente a las contingencias internas.
   answer = `${answer}\n\nFuente: Recordá/Ficha de ${data.name}.`;
-
+  // v3.13.49 — si la Ficha no tiene el dato de validación, se consulta la normativa antes de
+  // responder «sin dato confirmado»; esa respuesta queda como último recurso.
+  const incomplete =
+    (intent.key === "VALIDATION_METHOD" && !hasMethod) ||
+    (intent.key === "VALIDATOR_NAME" && !hasValidator);
   return {
     found: true,
+    incomplete,
     answer,
     data: {
       social_work_id: data.id,
@@ -6919,7 +6924,17 @@ const profileIntent =
   detectSocialWorkProfileIntent(
     question
   );
-
+let profileFallback = null;
+const respondProfileFallback = async () => {
+  const fallbackElapsedMs = Date.now() - startedAt;
+  const fallbackUsage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+  await logCurrentQuery({ branchId, socialWorkId, question, answer: profileFallback.answer,
+    source: "SOCIAL_WORK_PROFILE", route: "STRUCTURED_PROFILE", found: true,
+    elapsedMs: fallbackElapsedMs, usage: fallbackUsage });
+  return Response.json({ ok: true, question, answer: profileFallback.answer,
+    source: "SOCIAL_WORK_PROFILE", route: "STRUCTURED_PROFILE", structured_data: profileFallback.data,
+    found: true, context: responseContext, elapsed_ms: fallbackElapsedMs, usage: fallbackUsage });
+};
 if (
   profileIntent
 ) {
@@ -6940,9 +6955,9 @@ if (
   // =====================================================
   // DATO ESTRUCTURADO DISPONIBLE
   // =====================================================
-
+  if (result.found && result.incomplete) profileFallback = result;
   if (
-    result.found
+    result.found && !result.incomplete
   ) {
     const elapsedMs =
       Date.now() -
@@ -7890,6 +7905,7 @@ if (!normativeScope.ok) {
         found: true, context: responseContext, elapsed_ms: meaningElapsedMs, usage: meaningUsage });
     }
   }
+  if (profileFallback) return respondProfileFallback();
   const answer = normativeScope.reason;
   const elapsedMs = Date.now() - startedAt;
   await logCurrentQuery({branchId,socialWorkId,question,answer,
@@ -8081,8 +8097,8 @@ if (followUp.isFollowUp && isNotFoundAnswer(result?.answer)) {
       }
     }
 
+    if (!found && profileFallback) return respondProfileFallback();
     const finalAnswer =
-
       found
 
         ? result.answer

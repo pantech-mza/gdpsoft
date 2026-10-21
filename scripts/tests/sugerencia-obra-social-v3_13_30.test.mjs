@@ -262,3 +262,14 @@ test('normativas: menú ⋯ con Editar y Eliminar, API solo para administración
   assert.match(rd('app/admin/obras-sociales/[id]/page.jsx'), /<NormativeRowMenu normative=\{normative\}/);
   assert.match(rd('lib/normatives/spreadsheet-text.mjs'), /xlsxModule\.default \?\? xlsxModule/);
 });
+
+test('ficha sin dato de validación consulta la normativa antes de responder «sin dato confirmado»; .doc se indexa directo', () => {
+  const rd = (p) => fs.readFileSync(new URL('../../' + p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const route = rd('app/api/assistant/query/route.js');
+  assert.match(route, /\(intent\.key === "VALIDATION_METHOD" && !hasMethod\)/);
+  assert.match(route, /result\.found && !result\.incomplete/);
+  assert.match(route, /if \(!found && profileFallback\) return respondProfileFallback\(\)/);
+  assert.match(route, /if \(profileFallback\) return respondProfileFallback\(\)/);
+  const analyze = rd('app/api/normatives/analyze/route.js');
+  assert.match(analyze, /extension === "doc" && looksLikeOle/);
+});
