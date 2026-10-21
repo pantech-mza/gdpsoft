@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { buildCourtesyAnswer, classifyCourtesy } from "../../../../lib/assistant/courtesy.mjs";
 
 import {
   resolveOperation,
@@ -6020,6 +6021,22 @@ if (conversationId) {
         conversationUserId,
 
     };
+
+    // v3.13.52 — gracias / saludos / despedidas: se responde cortesía sin
+    // consultar normativas ni arrastrar la respuesta anterior.
+    {
+      const courtesyKind = classifyCourtesy(question);
+      if (courtesyKind) {
+        const answer = buildCourtesyAnswer(courtesyKind);
+        const elapsedMs = Date.now() - startedAt;
+        const usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+        await logCurrentQuery({ branchId, socialWorkId, question, answer,
+          source: "GDP_CONVERSATION", route: "COURTESY", found: true, elapsedMs, usage });
+        return Response.json({ ok: true, question, answer, source: "GDP_CONVERSATION",
+          route: "COURTESY", found: true, context: responseContext,
+          elapsed_ms: elapsedMs, usage });
+      }
+    }
 
     // v3.13.20 — mensaje que solo nombra la obra social: preguntar qué necesita
     // en lugar de buscar el nombre en las normativas.

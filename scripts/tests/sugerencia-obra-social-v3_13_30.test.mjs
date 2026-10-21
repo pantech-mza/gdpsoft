@@ -300,3 +300,19 @@ test('v3.13.51 alta de obra social: botón, POST admin y política', () => {
   const policy = __rf('lib/server/gdp-api-access-policy.mjs', 'utf8');
   assert.match(policy, /social-works\\\/\?\$\/\.test\(pathname\)/);
 });
+
+// v3.13.52 — cortesía
+import { classifyCourtesy as __cc, buildCourtesyAnswer as __ca } from '../../lib/assistant/courtesy.mjs';
+test('v3.13.52 cortesía: gracias/saludos no consultan normativa', () => {
+  for (const t of ['Muchas gracias', 'gracias!', 'Ok, gracias', 'Perfecto, muchas gracias', 'mil gracias GDPSoft', 'Hola', 'Buen día', 'Chau, gracias', 'dale']) {
+    assert.ok(__cc(t), t);
+  }
+  for (const t of ['Hola Gdpsoft, quiero consultarte sobre OSPIHMP-Hielo. ¿Hace falta autorización?', 'gracias, y la receta de insulina?', 'ok pero cuánto cubre', 'Muchas gracias por la receta de insulina autorizada con sello']) {
+    assert.equal(__cc(t), null, t);
+  }
+  assert.match(__ca('THANKS'), /De nada/);
+});
+test('v3.13.52 cortesía: ruta la usa antes del contexto', () => {
+  const r = fs.readFileSync('app/api/assistant/query/route.js', 'utf8');
+  assert.ok(r.indexOf('classifyCourtesy(question)') < r.indexOf('isBareSocialWorkMention(question'));
+});
