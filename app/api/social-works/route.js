@@ -1,6 +1,8 @@
 import {
   supabaseAdmin,
 } from "../../../lib/supabase/admin";
+import { requireAdminActor } from "../../../lib/server/gdp-actor";
+import { normalizeSocialWorkName, validateNewSocialWork } from "../../../lib/social-works/new-social-work.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -231,5 +233,39 @@ export async function GET(
         status: 500,
       }
     );
+  }
+}
+
+// =====================================================
+// POST - CREAR OBRA SOCIAL (solo administración)
+// =====================================================
+export async function POST(request) {
+  try {
+    const access = await requireAdminActor(request);
+    if (!access.actor) return Response.json({ ok: false, error: access.error }, { status: access.status });
+    const body = await request.json().catch(() => ({}));
+    const validated = validateNewSocialWork(body);
+    if (validated.error) return Response.json({ ok: false, error: validated.error }, { status: 400 });
+
+    // Nombre único (sin distinguir mayúsculas ni tildes).
+    const { data: existing, error: existingError } = await supabaseAdmin.from("social_works").select("id,name");
+    if (existingError) throw new Error(existingError.message);
+    const key = normalizeSocialWorkName(validated.value.name);
+    const duplicate = (existing || []).find((row) => normalizeSocialWorkName(row.name) === key);
+    if (duplicate) {
+      return Response.json({ ok: false, error: `Ya existe una obra social llamada «${duplicate.name}».` }, { status: 409 });
+    }
+
+    let { data, error } = await supabaseAdmin.from("social_works").insert(validated.value).select("id,name,active").single();
+    // Si la columna id no se genera sola, se asigna el siguiente número libre.
+    if (error && /null value in column "id"/i.test(error.message || "")) {
+      const nextId = (existing || []).reduce((max, row) => Math.max(max, Number(row.id) || 0), 0) + 1;
+      ({ data, error } = await supabaseAdmin.from("social_works").insert({ ...validated.value, id: nextId }).select("id,name,active").single());
+    }
+    if (error) throw new Error(error.message);
+    return Response.json({ ok: true, social_work: data }, { status: 201 });
+  } catch (error) {
+    console.error("POST /api/social-works error:", error);
+    return Response.json({ ok: false, error: error?.message || "No se pudo crear la obra social" }, { status: 500 });
   }
 }

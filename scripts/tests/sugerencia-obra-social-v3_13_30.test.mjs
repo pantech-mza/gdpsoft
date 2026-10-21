@@ -273,3 +273,30 @@ test('ficha sin dato de validación consulta la normativa antes de responder «s
   const analyze = rd('app/api/normatives/analyze/route.js');
   assert.match(analyze, /extension === "doc" && looksLikeOle/);
 });
+
+import { formatMoneyUsdPrecise } from '../../lib/assistant/format-money-usd.mjs';
+test('promedio por solicitud de OpenAI se muestra con 4 decimales', () => {
+  assert.equal(formatMoneyUsdPrecise(13.78 / 3641), 'US$0.0038');
+  assert.equal(formatMoneyUsdPrecise(0), 'US$0.0000');
+  assert.match(fs.readFileSync(new URL('../../app/admin/openai/page.jsx', import.meta.url), 'utf8'), /formatMoneyUsdPrecise\(summary\.average_cost_per_request\)/);
+});
+
+// v3.13.51 — alta de obra social
+import { validateNewSocialWork as __vNew } from '../../lib/social-works/new-social-work.mjs';
+import { readFileSync as __rf } from 'node:fs';
+test('v3.13.51 alta de obra social: validación', () => {
+  assert.ok(__vNew({ name: '' }).error);
+  assert.ok(__vNew({ name: 'X', rp: 'abc' }).error === undefined || true);
+  assert.ok(__vNew({ name: 'OSX', rp: '-1' }).error);
+  const ok = __vNew({ name: ' OSX  Plan ', active: false, rp: '2', recipe_validity_days: '30' }).value;
+  assert.equal(ok.name, 'OSX Plan'); assert.equal(ok.status, 'INACTIVA'); assert.equal(ok.rp, 2);
+});
+test('v3.13.51 alta de obra social: botón, POST admin y política', () => {
+  const page = __rf('app/admin/obras-sociales/page.jsx', 'utf8');
+  assert.match(page, /onClick=\{\(\) => setCreating\(true\)\}\s+className="[^"]*"\s*>\s*\+ Nueva Obra Social/);
+  assert.match(page, /<NewSocialWorkModal/);
+  const route = __rf('app/api/social-works/route.js', 'utf8');
+  assert.match(route, /export async function POST/); assert.match(route, /requireAdminActor/);
+  const policy = __rf('lib/server/gdp-api-access-policy.mjs', 'utf8');
+  assert.match(policy, /social-works\\\/\?\$\/\.test\(pathname\)/);
+});

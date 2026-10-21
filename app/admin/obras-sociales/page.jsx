@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { treeApiFetch } from "../../../lib/decision-trees/client";
+import NewSocialWorkModal from "../../../components/social-works/NewSocialWorkModal";
 
 
 
@@ -132,6 +133,8 @@ export default function AdminSocialWorksPage() {
     setSaving,
 
   ] = useState(false);
+
+  const [creating, setCreating] = useState(false);
 
 
 
@@ -645,6 +648,7 @@ export default function AdminSocialWorksPage() {
 
             type="button"
 
+            onClick={() => setCreating(true)}
             className="inline-flex items-center justify-center rounded-lg bg-[#8f2a85] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#7c2474]"
 
           >
@@ -1666,6 +1670,13 @@ export default function AdminSocialWorksPage() {
         />
 
       )}
+      {creating && (
+        <NewSocialWorkModal
+          onClose={() => setCreating(false)}
+          onCreated={() => loadSocialWorks()}
+        />
+      )}
+
 
 
 
