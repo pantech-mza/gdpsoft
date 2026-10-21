@@ -40,7 +40,7 @@ import {
 import { buildSuggestionAnswer, suggestSocialWorks } from "../../../../lib/assistant/social-work-suggestions.mjs";
 import {
   buildCredentialAnswer, buildNotesInstructions, extractEmails, formatNotesAnswer, isCredentialQuestion,
-  loadApprovedNotes, parseNotesAnswer,
+  loadApprovedNotes, parseNotesAnswer, findMatchingNotes,
 } from "../../../../lib/assistant/approved-notes.mjs";
 import { findSemanticApprovedFaq, recordFaqSignal } from "../../../../lib/server/faq-detection.mjs";
 import { buildConstraintsPrompt, splitUserConstraints, stripOfferLine } from "../../../../lib/assistant/user-constraints.mjs";
@@ -5343,6 +5343,21 @@ async function appendBranchValidatorNote(json, rawQuestion) {
   return note ? { ...json, answer: `${json.answer}\n\n${note}` } : null;
 }
 
+// v3.13.79 — observación aprobada que coincide con la consulta: se agrega textual, sin resumir.
+async function appendMatchingNotes(json, rawQuestion) {
+  if (!json || json.ok !== true || json.found !== true || !json.answer) return null;
+  if (/NOTES|ADMIN_CORRECTION/.test(`${json.source || ""} ${json.route || ""}`) || /Observación operativa aprobada/.test(json.answer)) return null;
+  const socialWorkId = json.context?.social_work_id;
+  if (!socialWorkId) return null;
+  const variant = resolvePlanVariant({ question: rawQuestion, state: null, socialWorkId });
+  const notes = await loadApprovedNotes(supabaseAdmin, socialWorkId, variant);
+  if (!notes.length) return null;
+  const matches = findMatchingNotes(notes, rawQuestion, await getSocialWorkName(socialWorkId));
+  if (!matches.length) return null;
+  const text = matches.map((n) => n.trim()).join("\n\n");
+  return { ...json, answer: `${json.answer}\n\nObservación operativa aprobada por Administración:\n${text}` };
+}
+
 export async function POST(request) {
   let conversationState = null;
   let rawQuestion = "";
@@ -5366,6 +5381,8 @@ export async function POST(request) {
     // se agrega debajo, sin modificar la respuesta del bot.
     const withObservation = await appendAdminObservation(noted || original);
     if (withObservation) response = Response.json(withObservation, { status: response.status });
+    const withNotes = await appendMatchingNotes(withObservation || noted || original, rawQuestion);
+    if (withNotes) response = Response.json(withNotes, { status: response.status });
   } catch {
     // la aclaración es opcional: nunca debe romper la respuesta
   }

@@ -45,3 +45,12 @@ test('prompt de observaciones exige no omitir opciones ni advertencias', () => {
   assert.match(p, /TODAS/);
   assert.match(p, /advertencias/);
 });
+
+import { findMatchingNotes } from '../../lib/assistant/approved-notes.mjs';
+test('observación coincidente se agrega solo si coinciden las palabras distintivas', () => {
+  const notes = ['📢 OSEP OyTE – RECORDATORIO DE FACTURACIÓN ... OSEP OYTE MAYOR 98% ...', 'Cómo validar OZEMPIC: F9 29%'];
+  assert.equal(findMatchingNotes(notes, 'como se factura osep oyte', 'OSEP').length, 1);
+  assert.equal(findMatchingNotes(notes, 'ozempic osep', 'OSEP')[0], notes[1]);
+  assert.equal(findMatchingNotes(notes, 'como se valida osep', 'OSEP').length, 0);
+  assert.equal(findMatchingNotes(notes, 'requisitos osep', 'OSEP').length, 0);
+});
