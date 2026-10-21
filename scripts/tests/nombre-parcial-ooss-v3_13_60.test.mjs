@@ -95,3 +95,9 @@ test('route: checklist de receta resuelve el circuito de la sucursal sin pregunt
   const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8');
   assert.match(src, /scopeLinkedNormatives\(relations \|\| \[\], activeBillingChannelId \|\| \(await getBranchCircuit\(\)\)\.channelId\)/);
 });
+
+// v3.13.66 — «Sí» a «¿Quisiste decir…?» sin obra social activa no vuelve a pedir la obra social.
+test('chat route: con confirmación pendiente y sin obra social activa delega en el motor de consulta', () => {
+  const src = fs.readFileSync(new URL('../../app/api/assistant/chat/route.js', import.meta.url), 'utf8');
+  assert.match(src, /\["CONFIRM_SOCIAL_WORK", "CHOOSE_SOCIAL_WORK", "NEEDS_CHANNEL"\]\.includes\(pendingKind\)/);
+});

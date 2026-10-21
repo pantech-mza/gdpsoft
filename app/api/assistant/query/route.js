@@ -25,6 +25,7 @@ import { resolveInternalProcedure, isImmediateOperationalContingency, isSpecific
 import { buildProcedureSelectionInstructions, formatProcedureAnswer, parseProcedureSelection } from "../../../../lib/assistant/procedure-match.mjs";
 import { asksForPrescriptionChecklist, buildFichaPrescriptionChecklist, isPrescriptionMissingFieldQuestion, buildMissingFieldNormativeQuestion } from "../../../../lib/assistant/prescription-safety.mjs";
 import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, scopeNormativeTopic, isSpecificNormativeTopic } from "../../../../lib/assistant/linked-normatives.mjs";
+import { buildRequirementsAnswer, buildSectionedAnswer } from "../../../../lib/assistant/requirements-view.mjs";
 import { shouldPreferValidationProfile } from "../../../../lib/assistant/validation-profile-priority.mjs";
 import { isGeneralBranchCircuitQuestion, resolveGeneralBranchMembership, formatGeneralBranchMembershipResponse } from "../../../../lib/assistant/branch-circuit-membership.mjs";
 import {
@@ -5358,6 +5359,29 @@ export async function POST(request) {
       console.warn("conversation_state no persistido:", stateError?.message);
     }
   }
+  // v3.13.69 — mismo diseño (pestañas) para toda respuesta larga de la normativa.
+  // Va después de guardar el estado: la conversación sigue usando el texto original.
+  try {
+    const finalJson = await response.clone().json();
+    if (finalJson?.ok === true && finalJson.found === true && typeof finalJson.answer === "string" &&
+        /FILE_SEARCH|NORMATIVE/.test(String(finalJson.source || ""))) {
+      const swId = Number(finalJson.context?.social_work_id);
+      let swName = null;
+      if (Number.isInteger(swId) && swId > 0) {
+        const { data: sw } = await supabaseAdmin.from("social_works").select("name").eq("id", swId).maybeSingle();
+        swName = sw?.name || null;
+      }
+      const branch = Number(finalJson.context?.branch_id);
+      const group = Number.isInteger(branch) && branch > 0 ? await resolveBranchGroup(supabaseAdmin, branch) : null;
+      const sectioned = buildSectionedAnswer({
+        answer: finalJson.answer, title: swName,
+        circuitLabel: group === "CAMARA" ? "Cámara" : group === "COLEGIO" ? "Colegio" : null,
+      });
+      if (sectioned) response = Response.json({ ...finalJson, answer: sectioned, answer_plain: finalJson.answer }, { status: response.status });
+    }
+  } catch {
+    // el formato es solo de presentación: nunca debe romper la respuesta
+  }
   return response;
 }
 
@@ -6970,6 +6994,18 @@ if (asksForPrescriptionChecklist(question)) {
     }
     sections.push("", "Comprobá el plan y circuito y revisá los campos directamente en la receta. Este resumen no autoriza por sí solo su recepción ni dispensación.");
     answer = sections.join("\n");
+    // v3.13.68 — formato corto con pestañas; si no se puede ordenar con seguridad, queda el listado anterior.
+    if (hasDocument) {
+      const branchGroup = (await getBranchCircuit()).group;
+      const compact = buildRequirementsAnswer({
+        socialWorkName: ficha?.name,
+        circuitLabel: branchGroup === "CAMARA" ? "Cámara" : branchGroup === "COLEGIO" ? "Colegio" : null,
+        fichaLines,
+        normativeAnswer: normative.answer,
+        documentNames: (normative.search.results || []).map((r) => String(r.filename || "").replace(/\.[a-z0-9]{2,4}$/i, "").trim()),
+      });
+      if (compact) answer = compact;
+    }
   }
   const elapsedMs = Date.now() - startedAt;
   await logCurrentQuery({branchId, socialWorkId, question, answer, source, route,

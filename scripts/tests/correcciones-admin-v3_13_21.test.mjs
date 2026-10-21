@@ -75,7 +75,8 @@ test('Validación POST invalida la caché al corregir y UI muestra la obra socia
   const api = fs.readFileSync(new URL('../../app/api/admin/validacion/route.js', import.meta.url), 'utf8');
   assert.match(api, /deactivateCachedAnswers\(supabaseAdmin,result\.data\.social_work_id,result\.data\.normalized_question\)/);
   const ui = fs.readFileSync(new URL('../../components/admin/AdminBranchValidation.jsx', import.meta.url), 'utf8');
-  assert.match(ui, /Revisar respuesta<span[^>]*>\{selected\.social_work_name/);
+  assert.match(ui, /Revisar respuesta/);
+  assert.match(ui, /\{selected\.branch_name\} · \{selected\.social_work_name\}/);
 });
 
 import {

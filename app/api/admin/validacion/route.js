@@ -6,7 +6,7 @@ import { isPilotReviewable, mergePilotReviewQueue } from "../../../../lib/assist
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const ALLOWED = new Set(["CORRECT", "INCORRECT", "PARTIAL"]);
-const SELECT = "id,branch_id,social_work_id,question,answer,created_at,source,route,elapsed_ms,found,traffic_type,normalized_question";
+const SELECT = "id,branch_id,device_id,social_work_id,question,answer,created_at,source,route,elapsed_ms,found,traffic_type,normalized_question";
 
 const PAGE = 1000;       // máximo por consulta de Supabase
 const HARD_CAP = 10000;  // tope de seguridad, muy por encima de la actividad real
@@ -66,17 +66,22 @@ export async function GET(request) {
     const reviewMap = new Map(reviewRows.map(r=>[String(r.query_id),r]));
     const branchIds = [...new Set(rows.map(r=>r.branch_id).filter(Boolean))];
     const swIds = [...new Set(rows.map(r=>r.social_work_id).filter(Boolean))];
-    const [branches,works] = await Promise.all([
+    const deviceIds = [...new Set(rows.map(r=>r.device_id).filter(Boolean))];
+    const [branches,works,devices] = await Promise.all([
       branchIds.length ? supabaseAdmin.from("branches").select("id,name").in("id",branchIds) : {data:[],error:null},
       swIds.length ? supabaseAdmin.from("social_works").select("id,name").in("id",swIds) : {data:[],error:null},
+      deviceIds.length ? supabaseAdmin.from("branch_devices").select("id,device_name").in("id",deviceIds) : {data:[],error:null},
     ]);
     if (branches.error || works.error) throw branches.error || works.error;
+    // El nombre del dispositivo es opcional: si falla la lectura, la pantalla funciona igual.
+    const deviceMap = new Map((devices.data || []).map(d=>[String(d.id),d.device_name || ("Dispositivo "+d.id)]));
     const branchMap = new Map((branches.data || []).map(b=>[String(b.id),b.name]));
     const workMap = new Map((works.data || []).map(w=>[String(w.id),w.name]));
     return Response.json({ok:true,total:rows.length,rows:rows.map(r=>({
       ...r,
       branch_name:r.traffic_type === "ADMIN" ? "Administración (prueba)" : (branchMap.get(String(r.branch_id)) || "Sucursal"),
       social_work_name:workMap.get(String(r.social_work_id)) || "No identificada",
+      device_name:r.device_id ? (deviceMap.get(String(r.device_id)) || null) : null,
       review:reviewMap.get(String(r.id)) || null,
     }))}, {headers:{"Cache-Control":"no-store"}});
   } catch(error) {

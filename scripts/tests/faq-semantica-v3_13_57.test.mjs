@@ -171,7 +171,7 @@ test('v3.13.58 sin grupo de sucursal o sin canales vinculados no adivina', async
 });
 test('v3.13.58 la ruta usa el respaldo y la revisión muestra la sucursal', () => {
   assert.match(fs.readFileSync('app/api/assistant/query/route.js', 'utf8'), /resolveBranchChannelAmongLinked\(supabaseAdmin, Number\(branchId\), socialWorkId\)/);
-  assert.match(fs.readFileSync('components/admin/AdminBranchValidation.jsx', 'utf8'), /Sucursal: <strong>/);
+  assert.match(fs.readFileSync('components/admin/AdminBranchValidation.jsx', 'utf8'), /selected\.branch_name/);
 });
 
 // v3.13.59 — el circuito de la sucursal rige siempre

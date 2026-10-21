@@ -1058,6 +1058,19 @@ export async function POST(
       ) ||
       socialWorkId <= 0
     ) {
+      // v3.13.66 — «¿Quisiste decir X?» / «¿A cuál te referís?» sin obra social activa:
+      // la respuesta («sí», «1», un nombre) la resuelve el motor de consulta con el estado guardado.
+      try {
+        const { data: stateRow } = await supabaseAdmin.from("conversations")
+          .select("conversation_state").eq("id", conversationId).maybeSingle();
+        const pendingKind = stateRow?.conversation_state?.pending?.kind;
+        if (["CONFIRM_SOCIAL_WORK", "CHOOSE_SOCIAL_WORK", "NEEDS_CHANNEL"].includes(pendingKind)) {
+          const { response, data } = await callAssistantQuery({ request, conversationId, question: originalQuestion });
+          return Response.json(data, { status: response.status });
+        }
+      } catch {
+        // sin estado guardado: se mantiene el comportamiento anterior
+      }
       return Response.json(
         {
           ok: false,

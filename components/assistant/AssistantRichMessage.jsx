@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import {
   parseAssistantMessage,
   isStructuredAssistantMessage,
   classifyStepIcon,
 } from "../../lib/assistant/format-message.mjs";
+import { parseRequirementsMessage } from "../../lib/assistant/requirements-view.mjs";
 
 function InlineEmphasis({ text }) {
   // Markdown básico seguro: React escapa el contenido, nunca se inserta HTML.
@@ -20,10 +21,66 @@ function InlineEmphasis({ text }) {
     );
 }
 
+function RequirementsTabs({ view }) {
+  const [active, setActive] = useState(0);
+  const section = view.sections[Math.min(active, view.sections.length - 1)];
+  return (
+    <div className="min-w-0 text-[14px] leading-[1.5] text-zinc-700">
+      <div className="mb-2 px-1 text-[15px] font-extrabold text-[#20132d]">
+        {view.title}{view.circuit ? ` · ${view.circuit}` : ""}
+      </div>
+      {view.sections.length > 1 && (
+        <div role="tablist" className="mb-3 flex flex-wrap gap-1 rounded-xl bg-[#f3f0f7] p-1">
+          {view.sections.map((item, index) => (
+            <button key={item.title} type="button" role="tab" aria-selected={index === active}
+              onClick={() => setActive(index)}
+              className={`flex-1 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[12px] font-bold ${index === active ? "bg-white text-[#8f2a85] shadow-sm" : "text-zinc-500"}`}>
+              {item.title}
+            </button>
+          ))}
+        </div>
+      )}
+      {active === 0 && view.intro && <p className="mb-3 px-1 text-[13px] text-zinc-500">{view.intro}</p>}
+      {active === 0 && view.ficha.length > 0 && (
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          {view.ficha.map((cell) => (
+            <div key={cell.label} className="rounded-xl border border-[#eee8f3] bg-[#faf9fc] px-2.5 py-2">
+              <div className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">{cell.label}</div>
+              <div className="font-bold text-zinc-900">{cell.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      <ul className="divide-y divide-[#f1edf5]">
+        {section.items.map((item, index) => (
+          <li key={index} className="flex items-start gap-2 py-1.5">
+            <Icon icon="fluent:checkmark-circle-20-regular" className="mt-0.5 shrink-0 text-[#2e9d6a]" width={17} aria-hidden="true" />
+            <span className="min-w-0 break-words">{item}</span>
+          </li>
+        ))}
+      </ul>
+      {active === 0 && view.alerts.map((alert, index) => (
+        <div key={index} role="note" className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950">
+          <Icon icon="fluent:warning-20-regular" className="mt-0.5 shrink-0 text-amber-700" width={18} aria-hidden="true" />
+          <span className="break-words font-semibold">{alert}</span>
+        </div>
+      ))}
+      {(view.source || view.notice) && (
+        <p className="mt-3 px-1 text-[11px] text-zinc-400">
+          {view.source ? `Fuente: ${view.source}. ` : ""}{view.notice}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function AssistantRichMessage({ text }) {
+  const requirements = useMemo(() => parseRequirementsMessage(text), [text]);
   const blocks = useMemo(() => parseAssistantMessage(text), [text]);
   const structured = isStructuredAssistantMessage(blocks);
   const stepsCount = blocks.filter(block => block.type === "step").length;
+
+  if (requirements) return <RequirementsTabs view={requirements} />;
 
   if (!structured) {
     return <div className="whitespace-pre-wrap break-words">{text}</div>;

@@ -167,6 +167,16 @@ export default function FloatingAssistant() {
   // =========================================================
 
   useEffect(() => {
+    // v3.13.68 — una respuesta nueva se abre desde su primera línea (no al final).
+    const last = messages[messages.length - 1];
+    if (!loading && last?.role === "assistant" && !last.error) {
+      const answers = document.querySelectorAll("[data-assistant-msg]");
+      const target = answers[answers.length - 1];
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+    }
     messagesEndRef
       .current
       ?.scrollIntoView({
@@ -1396,6 +1406,8 @@ export default function FloatingAssistant() {
                       key={
                         message.id
                       }
+                    
+                      data-assistant-msg={message.role === "assistant" ? "1" : undefined}
                     >
 
                       <div
