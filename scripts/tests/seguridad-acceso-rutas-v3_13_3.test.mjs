@@ -49,6 +49,10 @@ test('roles en endpoints privados, sin suplantación de perfil mediante profileI
  assert.equal(canAccessGDPApi(branch,'/api/social-works/1','PATCH'),false);
  assert.equal(canAccessGDPApi(admin,'/api/social-works/1','PATCH'),true);
  assert.equal(canAccessGDPApi(branch,'/api/normatives/process','GET'),false);
+ assert.equal(canAccessGDPApi(branch,'/api/normatives/179','DELETE'),false);
+ assert.equal(canAccessGDPApi(branch,'/api/normatives/179','PATCH'),false);
+ assert.equal(canAccessGDPApi(admin,'/api/normatives/179','DELETE'),true);
+ assert.equal(canAccessGDPApi(branch,'/api/normatives/179/file','GET'),true);
  assert.equal(canAccessGDPApi(branch,'/api/decision-trees','POST'),false);
  assert.equal(canAccessGDPApi(admin,'/api/decision-trees','POST'),true);
 });

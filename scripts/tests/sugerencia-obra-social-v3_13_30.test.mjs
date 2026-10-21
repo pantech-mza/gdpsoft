@@ -247,3 +247,18 @@ test('normativas en Excel: se convierten a texto indexable con columnas por fila
   assert.match(rd('app/api/normatives/analyze/route.js'), /isSpreadsheetFile\(normative\.original_filename, bytes\)/);
   assert.match(rd('app/api/normatives/process/route.js'), /isSpreadsheetFile\(normative\.original_filename\) &&\n\s*normative\.storage_path_processed/);
 });
+
+test('normativas: menú ⋯ con Editar y Eliminar, API solo para administración, lectura de xlsx robusta', () => {
+  const rd = (p) => fs.readFileSync(new URL('../../' + p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const api = rd('app/api/normatives/[id]/route.js');
+  assert.match(api, /export async function PATCH/);
+  assert.match(api, /export async function DELETE/);
+  assert.equal((api.match(/requireActor\(request, true\)/g) || []).length, 2);
+  assert.match(api, /assistant_answer_cache[^]*active: false/);
+  assert.match(api, /status: "ARCHIVED"/);
+  const menu = rd('components/social-works/NormativeRowMenu.jsx');
+  assert.match(menu, /Editar normativa/);
+  assert.match(menu, /Eliminar normativa/);
+  assert.match(rd('app/admin/obras-sociales/[id]/page.jsx'), /<NormativeRowMenu normative=\{normative\}/);
+  assert.match(rd('lib/normatives/spreadsheet-text.mjs'), /xlsxModule\.default \?\? xlsxModule/);
+});

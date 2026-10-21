@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import NormativeFileButton from "../../../../components/social-works/NormativeFileButton";
+import NormativeRowMenu from "../../../../components/social-works/NormativeRowMenu";
 
 import {
   useEffect,
@@ -1331,12 +1332,7 @@ function NormativesView({
                                   {processingId === Number(normative.id) ? "Procesando..." : "Analizar e indexar"}
                                 </button>
                               )}
-                              <button
-                                type="button"
-                                className="rounded-lg border border-[#8f2a85]/20 bg-[#8f2a85]/5 px-3 py-2 text-xs font-semibold text-[#8f2a85] transition hover:bg-[#8f2a85]/10"
-                              >
-                                Editar
-                              </button>
+                              <NormativeRowMenu normative={normative} onChanged={loadNormatives} onMessage={setProcessMessage} />
 
                             </div>
 
