@@ -25,6 +25,8 @@ import {
 import { resolveInternalProcedure, isImmediateOperationalContingency, isSpecificNormativeQuestion, listApplicableProcedures } from "../../../../lib/assistant/internal-procedures";
 import { buildProcedureSelectionInstructions, formatProcedureAnswer, parseProcedureSelection } from "../../../../lib/assistant/procedure-match.mjs";
 import { asksForPrescriptionChecklist, buildFichaPrescriptionChecklist, isPrescriptionMissingFieldQuestion, buildMissingFieldNormativeQuestion } from "../../../../lib/assistant/prescription-safety.mjs";
+import { buildNoInfoAnswer } from "../../../../lib/assistant/no-info-answer.mjs";
+import { buildFichaSummary } from "../../../../lib/assistant/ficha-summary.mjs";
 import { resolvePlanVariant } from "../../../../lib/assistant/plan-variant.mjs";
 import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, scopeNormativeTopic, isSpecificNormativeTopic } from "../../../../lib/assistant/linked-normatives.mjs";
 import { buildRequirementsAnswer, buildSectionedAnswer } from "../../../../lib/assistant/requirements-view.mjs";
@@ -8097,7 +8099,29 @@ if (!normativeScope.ok) {
     }
   }
   if (profileFallback) return respondProfileFallback();
-  const answer = normativeScope.reason;
+  // v3.13.80 — sin normativa específica: se responde con la Ficha (del circuito de la sucursal).
+  // No se usa la Ficha base para consultas de un plan (OYTE) que no tiene Ficha propia.
+  if (!(normativeScope.variantMissing && generalPlanVariant) && distinctiveTokens(question, await getSocialWorkName(socialWorkId)).length === 0) {
+    try {
+      const { data: fichaRow } = await supabaseAdmin.from("social_works")
+        .select("id,name,validator_name,validator_type,recipe_type,recipe_validity_days,letterhead,rp,diagnosis,monodrug,commercial_name,substitution")
+        .eq("id", socialWorkId).maybeSingle();
+      const fichaMerged = fichaRow ? (await withCircuitProfile(supabaseAdmin, fichaRow, (await getBranchCircuit()).group)).data : null;
+      const fichaAnswer = buildFichaSummary(fichaMerged);
+      if (fichaAnswer) {
+        const fichaElapsedMs = Date.now() - startedAt;
+        const fichaUsage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+        await logCurrentQuery({ branchId, socialWorkId, question, answer: fichaAnswer,
+          source: "SOCIAL_WORK_PROFILE", route: "STRUCTURED_PROFILE", found: true, elapsedMs: fichaElapsedMs, usage: fichaUsage });
+        return Response.json({ ok: true, question, answer: fichaAnswer, source: "SOCIAL_WORK_PROFILE",
+          route: "STRUCTURED_PROFILE", found: true, context: responseContext, elapsed_ms: fichaElapsedMs, usage: fichaUsage });
+      }
+    } catch (fichaError) {
+      console.warn("ficha sin normativa no disponible:", fichaError?.message);
+    }
+  }
+  // Si hay vínculos pero ninguno aplica (ambiguo/variante), se informa el motivo; si no hay normativa, se explica qué se revisó.
+  const answer = !/^No encontré normativas vigentes/.test(String(normativeScope.reason || "")) ? normativeScope.reason : buildNoInfoAnswer(await getSocialWorkName(socialWorkId));
   const elapsedMs = Date.now() - startedAt;
   await logCurrentQuery({branchId,socialWorkId,question,answer,
     source:"GDP_NORMATIVE_SCOPE",route:"NORMATIVE_SCOPE_UNVERIFIED",found:false,
@@ -8295,7 +8319,7 @@ if (followUp.isFollowUp && isNotFoundAnswer(result?.answer)) {
 
         ? result.answer
 
-        : "No encontré información suficiente en las normativas vigentes para responder con seguridad.";
+        : buildNoInfoAnswer(await getSocialWorkName(socialWorkId));
 
 
 
