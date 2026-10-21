@@ -38,3 +38,10 @@ test('observaciones: OYTE y plan general no se mezclan', () => {
   assert.deepEqual(filterTextsByVariant(notes, null), [notes[1], notes[2]]);
   assert.deepEqual(filterTextsByVariant(['a', 'b'], 'OYTE'), ['a', 'b']);
 });
+
+import { buildNotesInstructions } from '../../lib/assistant/approved-notes.mjs';
+test('prompt de observaciones exige no omitir opciones ni advertencias', () => {
+  const p = buildNotesInstructions('OSEP', ['x']);
+  assert.match(p, /TODAS/);
+  assert.match(p, /advertencias/);
+});
