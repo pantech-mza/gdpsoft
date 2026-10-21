@@ -266,7 +266,7 @@ test('normativas: menú ⋯ con Editar y Eliminar, API solo para administración
 test('ficha sin dato de validación consulta la normativa antes de responder «sin dato confirmado»; .doc se indexa directo', () => {
   const rd = (p) => fs.readFileSync(new URL('../../' + p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const route = rd('app/api/assistant/query/route.js');
-  assert.match(route, /\(intent\.key === "VALIDATION_METHOD" && !hasMethod\)/);
+  assert.match(route, /\(intent\.key === "VALIDATION_METHOD" && !hasMethod && !hasValidator\)/);
   assert.match(route, /result\.found && !result\.incomplete/);
   assert.match(route, /if \(!found && profileFallback\) return respondProfileFallback\(\)/);
   assert.match(route, /if \(profileFallback\) return respondProfileFallback\(\)/);

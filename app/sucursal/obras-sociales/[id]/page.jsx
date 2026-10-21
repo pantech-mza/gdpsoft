@@ -194,6 +194,15 @@ export default function SucursalSocialWorkDetailPage() {
 
         setError("");
 
+        // v3.13.76 — la Ficha se pide con el circuito de la sucursal (Cámara / Colegio).
+        let circuitParam = "";
+        try {
+          const storedBranch = JSON.parse(sessionStorage.getItem("gdpsoft_branch") || "null");
+          if (storedBranch?.branch_type) {
+            circuitParam = `?circuit=${encodeURIComponent(storedBranch.branch_type)}`;
+          }
+        } catch {}
+
 
 
         const [
@@ -208,7 +217,7 @@ export default function SucursalSocialWorkDetailPage() {
 
           fetch(
 
-            `/api/social-works/${socialWorkId}`,
+            `/api/social-works/${socialWorkId}${circuitParam}`,
 
             {
 

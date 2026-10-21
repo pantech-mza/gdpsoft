@@ -1,3 +1,4 @@
+import { withCircuitProfile } from "../../../../lib/social-works/circuit-profile.mjs";
 import { requireAdminActor } from "../../../../lib/server/gdp-actor";
 import {
   supabaseAdmin,
@@ -83,10 +84,16 @@ export async function GET(
       );
     }
 
+    // v3.13.76 — Ficha por circuito: la sucursal pide ?circuit=CAMARA|COLEGIO y recibe
+    // la Ficha con los campos propios de ese circuito (el resto hereda de la base).
+    const circuitParam = new URL(request.url).searchParams.get("circuit");
+    const circuit = await withCircuitProfile(supabaseAdmin, data, circuitParam);
+
     return Response.json({
       ok: true,
-      social_work:
-        data,
+      social_work: circuit.data,
+      circuit_group: circuit.group,
+      circuit_overrides: circuit.applied,
     });
   } catch (error) {
     console.error(

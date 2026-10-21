@@ -26,6 +26,8 @@ import { buildProcedureSelectionInstructions, formatProcedureAnswer, parseProced
 import { asksForPrescriptionChecklist, buildFichaPrescriptionChecklist, isPrescriptionMissingFieldQuestion, buildMissingFieldNormativeQuestion } from "../../../../lib/assistant/prescription-safety.mjs";
 import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, scopeNormativeTopic, isSpecificNormativeTopic } from "../../../../lib/assistant/linked-normatives.mjs";
 import { buildRequirementsAnswer, buildSectionedAnswer } from "../../../../lib/assistant/requirements-view.mjs";
+import { withCircuitProfile } from "../../../../lib/social-works/circuit-profile.mjs";
+import { isAccessInstruction } from "../../../../lib/social-works/legacy-notes.mjs";
 import { shouldPreferValidationProfile } from "../../../../lib/assistant/validation-profile-priority.mjs";
 import { isGeneralBranchCircuitQuestion, resolveGeneralBranchMembership, formatGeneralBranchMembershipResponse } from "../../../../lib/assistant/branch-circuit-membership.mjs";
 import {
@@ -3389,8 +3391,9 @@ function buildProfileFallbackQuestion({
 async function querySocialWorkProfile({
   socialWorkId,
   intent,
+  circuitGroup = null,
 }) {
-  const { data, error } = await supabaseAdmin
+  const { data: baseData, error } = await supabaseAdmin
     .from("social_works")
     .select(`
       id,
@@ -3415,6 +3418,11 @@ async function querySocialWorkProfile({
   if (error) {
     throw new Error(error.message);
   }
+
+  // v3.13.76 — Ficha del circuito de la sucursal (Cámara / Colegio) sobre la base.
+  const data = baseData
+    ? (await withCircuitProfile(supabaseAdmin, baseData, circuitGroup)).data
+    : baseData;
 
   if (!data) {
     return {
@@ -3492,13 +3500,22 @@ const cleanValue =
         : "No hay un nombre de validador confirmado en Recordá/Ficha de " + data.name + ".";
       break;
 
-    case "VALIDATION_METHOD":
+    case "VALIDATION_METHOD": {
+      // v3.13.76 — si la Ficha tiene validador (ej. IMED) pero no «por dónde valida», se responde con
+      // el validador y las aclaraciones de validación/recepción de la propia Ficha (ej. «SOLO RECIBE SAN FRANCISCO»).
+      const fichaNotes = hasValidator && !hasMethod && typeof data.observations === "string" && !isAccessInstruction(data.observations)
+        ? data.observations.split(/(?<=[.!?])\s+/).map((x) => x.trim())
+            .filter((x) => x && /\b(?:solo recibe|unica(?:mente)? recibe|valid\w*|credencial|circuito|factur\w*)\b/i.test(x.normalize("NFD").replace(/[\u0300-\u036f]/g, "")))
+            .slice(0, 3)
+        : [];
       answer = [
-        hasMethod ? `Por dónde valida: ${String(data.validator_type).trim()}.` : "Por dónde valida: sin dato confirmado en Recordá/Ficha.",
+        hasMethod ? `Por dónde valida: ${String(data.validator_type).trim()}.` : (hasValidator ? null : "Por dónde valida: sin dato confirmado en Recordá/Ficha."),
         hasValidator ? `Validador: ${String(data.validator_name).trim()}.` : "Validador: sin dato confirmado en Ficha.",
+        fichaNotes.length ? `Según la Ficha: ${fichaNotes.join(" ")}` : null,
         "Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta."
-      ].join("\n");
+      ].filter(Boolean).join("\n");
       break;
+    }
 
     case "TYS_CODE":
       answer = `Código TYS: ${value}.`;
@@ -3521,7 +3538,7 @@ const cleanValue =
   // v3.13.49 — si la Ficha no tiene el dato de validación, se consulta la normativa antes de
   // responder «sin dato confirmado»; esa respuesta queda como último recurso.
   const incomplete =
-    (intent.key === "VALIDATION_METHOD" && !hasMethod) ||
+    (intent.key === "VALIDATION_METHOD" && !hasMethod && !hasValidator) ||
     (intent.key === "VALIDATOR_NAME" && !hasValidator);
   return {
     found: true,
@@ -5374,7 +5391,7 @@ export async function POST(request) {
       let next = finalJson;
       if (swName && !finalJson.social_work?.name) next = { ...next, social_work: { ...(finalJson.social_work || {}), id: swId, name: swName } };
       if (finalJson.found === true && typeof finalJson.answer === "string" &&
-          /FILE_SEARCH|NORMATIVE/.test(String(finalJson.source || ""))) {
+          /FILE_SEARCH|NORMATIVE|ADMIN_CORRECTION/.test(String(finalJson.source || ""))) {
         const branch = Number(finalJson.context?.branch_id);
         const group = Number.isInteger(branch) && branch > 0 ? await resolveBranchGroup(supabaseAdmin, branch) : null;
         const sectioned = buildSectionedAnswer({
@@ -6216,6 +6233,7 @@ if (conversationId) {
           const ficha = await querySocialWorkProfile({
             socialWorkId: candidateId,
             intent: { field: "validator_type", key: "VALIDATION_METHOD" },
+            circuitGroup: (await getBranchCircuit()).group,
           });
           exceptionAnswer = [
             formatBranchValidatorNote(validatorException),
@@ -6455,6 +6473,7 @@ if (conversationId) {
             const fichaValidation = await querySocialWorkProfile({
               socialWorkId,
               intent: { field: "validator_type", key: "VALIDATION_METHOD" },
+              circuitGroup: (await getBranchCircuit()).group,
             });
             if (fichaValidation.found && answer) {
               answer += `\n\n${fichaValidation.answer}\nSi el circuito indicado anteriormente difiere de la ficha, consultá con Administración antes de validar.`;
@@ -6950,9 +6969,11 @@ if (
 // Una pregunta amplia NO se responde con un único campo de Ficha.
 // =====================================================
 if (asksForPrescriptionChecklist(question)) {
-  const {data:ficha, error:fichaError} = await supabaseAdmin.from("social_works")
+  const {data:fichaBase, error:fichaError} = await supabaseAdmin.from("social_works")
     .select("id,name,recipe_type,recipe_validity_days,letterhead,rp,diagnosis,monodrug,commercial_name,substitution,observations")
     .eq("id", socialWorkId).maybeSingle();
+  // v3.13.76 — Ficha del circuito de la sucursal sobre la base.
+  const ficha = fichaBase ? (await withCircuitProfile(supabaseAdmin, fichaBase, (await getBranchCircuit()).group)).data : fichaBase;
   if (fichaError) console.error("ficha checklist:", fichaError.message);
 
   // Los requisitos de Cámara y Colegio no se pueden mezclar.
@@ -7068,6 +7089,7 @@ if (
 
       intent:
         profileIntent,
+      circuitGroup: (await getBranchCircuit()).group,
     });
 
   // v3.13.22 — la ficha de validación no debe contradecir la excepción de la sucursal.

@@ -256,6 +256,15 @@ export default function SucursalFaqsPage() {
             )}
           </div>
 
+          {view.totalPages > 1 && (
+            <Pagination
+              page={view.page}
+              totalPages={view.totalPages}
+              onChange={changePage}
+              className="mb-5"
+            />
+          )}
+
           {view.total === 0 ? (
             <EmptyState filtered={hasFilters} />
           ) : (
@@ -324,6 +333,9 @@ function FaqCard({
   const name = faqSocialWorkName(faq, socialWorks);
   const count = faqPopularity(faq);
   const circuit = faq.branches?.branch_type || faq.branch_type || null;
+  const [expanded, setExpanded] = useState(false);
+  const answerText = String(faq.answer || "").replace(/\*\*/g, "");
+  const isLong = answerText.length > 220 || answerText.split("\n").length > 4;
 
   return (
     <article
@@ -362,10 +374,29 @@ function FaqCard({
               className="text-[#668c00]"
             />
           </div>
-          <p className="min-w-0 whitespace-pre-wrap break-words text-[12px] leading-5 text-zinc-600 sm:text-[13px] sm:leading-6">
-            {faq.answer}
+          <p
+            className={`min-w-0 flex-1 whitespace-pre-wrap break-words text-[12px] leading-5 text-zinc-600 sm:text-[13px] sm:leading-6 ${
+              expanded ? "" : "line-clamp-3"
+            }`}
+          >
+            {answerText}
           </p>
         </div>
+
+        {isLong && (
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            aria-expanded={expanded}
+            className="mt-2 inline-flex items-center gap-1 text-[12px] font-semibold text-[#8f2a85] hover:underline"
+          >
+            {expanded ? "Ver menos" : "Ver respuesta completa"}
+            <Icon
+              icon={expanded ? "fluent:chevron-up-20-regular" : "fluent:chevron-down-20-regular"}
+              width="15"
+            />
+          </button>
+        )}
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
@@ -410,7 +441,7 @@ function FaqCard({
   );
 }
 
-function Pagination({ page, totalPages, onChange }) {
+function Pagination({ page, totalPages, onChange, className = "mt-6" }) {
   const numbers = pageNumbers(page, totalPages);
   const btn =
     "inline-flex h-9 items-center gap-1 rounded-lg border border-zinc-200 px-3 text-[12px] font-semibold text-zinc-600 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40";
@@ -418,7 +449,7 @@ function Pagination({ page, totalPages, onChange }) {
   return (
     <nav
       aria-label="Paginación"
-      className="mt-6 flex min-w-0 flex-col gap-3 rounded-[15px] border border-zinc-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4"
+      className={`${className} flex min-w-0 flex-col gap-3 rounded-[15px] border border-zinc-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4`}
     >
       <span className="text-[12px] text-zinc-400">
         Página <strong className="text-zinc-600">{page}</strong> de{" "}

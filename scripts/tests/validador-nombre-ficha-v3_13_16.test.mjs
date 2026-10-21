@@ -26,8 +26,8 @@ const fakeDb = { from(table) {
   assert.equal(table, 'social_works');
   return { select() {return this;}, eq(){return this;}, async maybeSingle(){return { data:profile,error:null };} };
 }};
-const querySocialWorkProfile = new Function('supabaseAdmin',
-  'return async function querySocialWorkProfile(' + profileSource.slice(0,profileSource.lastIndexOf('}')+1) + ';')(fakeDb);
+const querySocialWorkProfile = new Function('supabaseAdmin','withCircuitProfile',
+  'return async function querySocialWorkProfile(' + profileSource.slice(0,profileSource.lastIndexOf('}')+1) + ';')(fakeDb, async (_db, base) => ({ data: base }));
 
 test('preguntas por nombre de validador van a Recordá/Ficha', () => {
   for (const q of [

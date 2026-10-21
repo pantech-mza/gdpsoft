@@ -13,7 +13,7 @@ const code = route.split('async function querySocialWorkProfile(')[1]?.split('fu
 assert.ok(code,'Consulta de Ficha ausente');
 const profile = {id:18,name:'OSDE',validator_name:'SITEL - Extranet',validator_type:'TYS'};
 const fakeDb = {from(name) { assert.equal(name,'social_works'); return { select(){return this;},eq(){return this;},async maybeSingle(){return {data:profile,error:null};}};}};
-const query = new Function('supabaseAdmin','return async function querySocialWorkProfile('+code.slice(0,code.lastIndexOf('}')+1)+';')(fakeDb);
+const query = new Function('supabaseAdmin','withCircuitProfile','return async function querySocialWorkProfile('+code.slice(0,code.lastIndexOf('}')+1)+';')(fakeDb, async (_db, base) => ({ data: base }));
 
 test('"por dónde valida" y "por dónde valido" usan siempre la Ficha',()=>{
   for (const question of [
