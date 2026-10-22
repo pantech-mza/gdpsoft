@@ -77,3 +77,8 @@ test('route.js usa el match semántico solo fuera de repreguntas', () => {
   assert.match(route, /matchCorrectionSemantically\(\{ client: openai, question, corrections: adminCorrections/);
   assert.match(route, /!resolveFollowUp\(\{ question, state: conversationState, socialWorkId \}\)\.isFollowUp\) \{\s*exactCorrection = await/);
 });
+
+test('la caché no sirve ni guarda respuestas «no se menciona»', () => {
+  assert.match(route, /cachedAnswerRow && !answerSaysNoInfo\(cachedAnswerRow\.answer\)/);
+  assert.match(route, /!answerSaysNoInfo\(finalAnswer\) && !isNotFoundAnswer\(finalAnswer\)/);
+});

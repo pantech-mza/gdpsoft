@@ -7863,7 +7863,7 @@ if (prescriptionMissingField) {
 
 
 
-  const cachedAnswer =
+  const cachedAnswerRow =
   (
     branchId &&
     !skipAnswerCache && !isSpecificNormativeTopic(question)
@@ -7874,6 +7874,9 @@ if (prescriptionMissingField) {
         question,
       })
     : null;
+  // v3.13.84 — una respuesta «no se menciona / no encontré» no se sirve desde la caché: así una corrección
+  // del administrador (o una normativa nueva) tiene oportunidad de responder.
+  const cachedAnswer = cachedAnswerRow && !answerSaysNoInfo(cachedAnswerRow.answer) && !isNotFoundAnswer(cachedAnswerRow.answer) ? cachedAnswerRow : null;
 
 
 
@@ -8382,7 +8385,9 @@ if (followUp.isFollowUp && isNotFoundAnswer(result?.answer)) {
 
       found &&
 
-       branchId && !followUp.isFollowUp
+       branchId && !followUp.isFollowUp &&
+
+       !answerSaysNoInfo(finalAnswer) && !isNotFoundAnswer(finalAnswer)
     ) {
 
       await saveCachedAnswer({
