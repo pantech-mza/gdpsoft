@@ -364,7 +364,7 @@ export async function POST(request) {
     const looksLikeOle = bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0;
     const isTextDocument =
       signature !== "%PDF-" &&
-      ((extension === "docx" && looksLikeZip) || (extension === "doc" && looksLikeOle) || ["txt", "md", "html", "htm"].includes(extension));
+      ((["docx", "pptx"].includes(extension) && looksLikeZip) || (["doc", "ppt"].includes(extension) && looksLikeOle) || ["txt", "md", "html", "htm"].includes(extension));
     // v3.13.47 — Excel (.xlsx/.xls): OpenAI no indexa planillas; se genera un texto
     // equivalente (una línea por fila con sus columnas) y ese texto se indexa.
     if (isSpreadsheetFile(normative.original_filename, bytes)) {
@@ -471,8 +471,11 @@ export async function POST(request) {
     if (
       signature !== "%PDF-"
     ) {
+      // v3.13.87 — el mensaje dice qué formato llegó y cuáles se aceptan.
       throw new Error(
-        "El archivo almacenado no parece ser un PDF válido"
+        extension
+          ? `El formato «.${extension}» no se puede analizar. Se aceptan PDF, imágenes (PNG, JPG, WEBP), Word, PowerPoint, Excel/CSV, TXT, MD y HTML. Convertilo a PDF o a uno de esos formatos y volvé a cargarlo.`
+          : "El archivo almacenado no parece ser un PDF válido"
       );
     }
 

@@ -35,3 +35,15 @@ test('analizar, OCR y pantalla aceptan imágenes', () => {
   const page = read('app/admin/obras-sociales/[id]/page.jsx');
   assert.equal((page.match(/\(pdf\|png\|jpe\?g\|webp\)/g) || []).length, 2);
 });
+
+test('v3.13.87: más formatos de planilla y mensaje claro para formatos no soportados', async () => {
+  const { isSpreadsheetFile } = await import('../../lib/normatives/spreadsheet-text.mjs');
+  const zip = [0x50, 0x4b, 3, 4];
+  assert.equal(isSpreadsheetFile('planilla.xlsm', zip), true);
+  assert.equal(isSpreadsheetFile('planilla.ods', zip), true);
+  assert.equal(isSpreadsheetFile('planilla.csv', [0x41, 0x2c, 0x42]), true);
+  assert.equal(isSpreadsheetFile('planilla.exe', zip), false);
+  const analyze = read('app/api/normatives/analyze/route.js');
+  assert.match(analyze, /El formato «\.\$\{extension\}» no se puede analizar/);
+  assert.match(analyze, /\["docx", "pptx"\]\.includes\(extension\)/);
+});

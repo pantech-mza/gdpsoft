@@ -75,7 +75,7 @@ test('route.js: el prompt exige decir qué dato específico no figura', () => {
 
 test('analyze: los documentos de texto (DOCX) se marcan listos para indexar en modo DIRECT', () => {
   const src = fs.readFileSync(new URL('../../app/api/normatives/analyze/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(src, /extension === "docx" && looksLikeZip/);
+  assert.match(src, /\["docx", "pptx"\]\.includes\(extension\) && looksLikeZip/);
   assert.match(src, /processing_recommended: "DIRECT"/);
   // el PDF sigue validándose igual
   assert.match(src, /signature !== "%PDF-"/);
@@ -271,7 +271,7 @@ test('ficha sin dato de validación consulta la normativa antes de responder «s
   assert.match(route, /if \(!found && profileFallback\) return respondProfileFallback\(\)/);
   assert.match(route, /if \(profileFallback\) return respondProfileFallback\(\)/);
   const analyze = rd('app/api/normatives/analyze/route.js');
-  assert.match(analyze, /extension === "doc" && looksLikeOle/);
+  assert.match(analyze, /\["doc", "ppt"\]\.includes\(extension\) && looksLikeOle/);
 });
 
 import { formatMoneyUsdPrecise } from '../../lib/assistant/format-money-usd.mjs';
