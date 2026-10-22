@@ -67,6 +67,7 @@ export default function AdminBranchValidation() {
   const [verdict, setVerdict] = useState("");
   const [comment, setComment] = useState("");
   const [correction, setCorrection] = useState("");
+  const [appliesTo, setAppliesTo] = useState("BOTH");
   const [expanded, setExpanded] = useState({});
 
   const reload = useCallback(async () => {
@@ -118,6 +119,7 @@ export default function AdminBranchValidation() {
     setVerdict(nextVerdict || item.review?.verdict || "");
     setComment(item.review?.comment || "");
     setCorrection(item.review?.suggested_answer || "");
+    setAppliesTo(item.review?.applies_to || "BOTH");
   }
 
   function applyReview(id, review) {
@@ -127,9 +129,9 @@ export default function AdminBranchValidation() {
   async function submit(item, value, extra = {}) {
     await api("/api/admin/validacion", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ queryId: item.id, verdict: value, comment: extra.comment || "", suggestedAnswer: extra.correction || "" }),
+      body: JSON.stringify({ queryId: item.id, verdict: value, comment: extra.comment || "", suggestedAnswer: extra.correction || "", appliesTo: extra.appliesTo || "BOTH" }),
     });
-    applyReview(item.id, { verdict: value, comment: extra.comment || "", suggested_answer: extra.correction || "" });
+    applyReview(item.id, { verdict: value, comment: extra.comment || "", suggested_answer: extra.correction || "", applies_to: extra.appliesTo || "BOTH" });
   }
 
   // «Correcta» se guarda de inmediato; «Parcial» e «Incorrecta» abren el panel para escribir la corrección.
@@ -158,7 +160,7 @@ export default function AdminBranchValidation() {
     if (!selected || !selectedItem || !verdict) return;
     setBusy(true);
     try {
-      await submit(selectedItem, verdict, { comment, correction });
+      await submit(selectedItem, verdict, { comment, correction, appliesTo });
       setError("");
       setNotice("Revisión guardada.");
       const target = nextTarget(selected, selectedItem);
@@ -358,6 +360,17 @@ export default function AdminBranchValidation() {
                 <textarea value={correction} onChange={(e) => setCorrection(e.target.value)} rows={4} placeholder="Escribí la respuesta correcta tal como debería darla el bot…" className="mt-1 w-full rounded-xl border border-zinc-200 p-2.5 text-[13px] font-normal" />
                 <span className="mt-1 block text-[11px] font-normal text-zinc-500">Si marcás Incorrecta o Parcial y escribís una corrección, el bot la usa: ante esta misma pregunta sobre {selected.social_work_name} responde con este texto, y en preguntas parecidas la toma como fuente prioritaria.</span>
               </label>
+              {verdict !== "CORRECT" && correction.trim() && (
+                <div>
+                  <p className="mb-1 text-xs font-bold text-zinc-600">¿Dónde aplica esta corrección?</p>
+                  <div className="flex gap-1.5">
+                    {[["BOTH", "Cámara y Colegio"], ["CAMARA", "Solo Cámara"], ["COLEGIO", "Solo Colegio"]].map(([value, label]) => (
+                      <button key={value} type="button" onClick={() => setAppliesTo(value)} className={`flex-1 rounded-lg border px-2 py-2 text-xs font-bold ${appliesTo === value ? "border-[#8f2a85] bg-purple-50 text-[#8f2a85]" : "border-zinc-200 text-zinc-600"}`}>{label}</button>
+                    ))}
+                  </div>
+                  <span className="mt-1 block text-[11px] font-normal text-zinc-500">Esta consulta se hizo en {selected.branch_name}. Si {selected.social_work_name} trabaja distinto en Cámara y en Colegio, elegí el circuito; si la regla es la misma, dejá «Cámara y Colegio».</span>
+                </div>
+              )}
               <label className="block text-xs font-bold text-zinc-600">Observaciones
                 <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} className="mt-1 w-full rounded-xl border border-zinc-200 p-2.5 text-[13px] font-normal" />
                 <span className="mt-1 block text-[11px] font-normal text-zinc-500">Si la respuesta es Correcta, la observación se agrega debajo de la respuesta del bot cuando consulten lo mismo sobre {selected.social_work_name}. La respuesta no se modifica.</span>

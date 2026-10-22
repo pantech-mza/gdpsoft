@@ -64,7 +64,7 @@ test('Validación: las consultas ADMIN entran a la cola, sin sucursal y respetan
 
 test('route.js: usa correcciones del admin antes de buscar y clasifica tráfico ADMIN', () => {
   const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(src, /findExactCorrection\(adminCorrections, normalizeQuestion\(question\), correctionWorkName/);
+  assert.match(src, /findSimilarCorrection\(adminCorrections, normalizeQuestion\(question\), correctionWorkName/);
   assert.match(src, /route: "ADMIN_CORRECTION"/);
   assert.match(src, /adminCorrections: buildCorrectionsPrompt\(adminCorrections\)/);
   assert.match(src, /verifiedAdmin \? "ADMIN" : "OTHER"/);

@@ -130,7 +130,7 @@ test('observaciones de apoyo: degradan sin romper y la consulta filtra por GENER
 test('route.js usa las observaciones solo si no hay normativa o no respondió', () => {
   const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   assert.equal((src.match(/route: "APPROVED_NOTES_FALLBACK"/g) || []).length, 4); // 2 puntos de uso × (log + respuesta)
-  assert.match(src, /if \(!normativeScope\.ambiguous\) \{\n\s+const notesSupport/);
+  assert.match(src, /if \(!normativeScope\.ambiguous\) \{\n(?:\s+\{ const earlyFicha[^\n]*\n)?\s+const notesSupport/);
   assert.ok(src.indexOf('v3.13.36 — la normativa no respondió') < src.indexOf('resolveInternalProcedure({\n        question, socialWorkId, billingChannelId: activeBillingChannelId || (await getBranchCircuit()).channelId,'));
 });
 

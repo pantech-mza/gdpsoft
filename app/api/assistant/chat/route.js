@@ -1387,6 +1387,16 @@ export async function POST(
       }
     }
 
+    // v3.13.82 — «¿Quisiste decir…?» / «¿Cuál de estas obras sociales?»: opciones como botones.
+    if (!ui && Array.isArray(data?.suggestion?.options) && data.suggestion.options.length > 0 &&
+        ["UNKNOWN_EXPLICIT_SOCIAL_WORK", "AMBIGUOUS_SOCIAL_WORK"].includes(data?.route)) {
+      ui = {
+        type: "CHOICES",
+        prompt: "Elegí la obra social:",
+        options: data.suggestion.options.slice(0, 5).map((name, index) => ({ id: `choice-${index}`, label: String(name) })),
+      };
+    }
+
     return Response.json({
       ...data,
 

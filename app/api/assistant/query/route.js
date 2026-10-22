@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { buildCourtesyAnswer, classifyCourtesy } from "../../../../lib/assistant/courtesy.mjs";
+import { matchCorrectionSemantically } from "../../../../lib/assistant/correction-semantic.mjs";
 
 import {
   resolveOperation,
@@ -26,7 +27,7 @@ import { resolveInternalProcedure, isImmediateOperationalContingency, isSpecific
 import { buildProcedureSelectionInstructions, formatProcedureAnswer, parseProcedureSelection } from "../../../../lib/assistant/procedure-match.mjs";
 import { asksForPrescriptionChecklist, buildFichaPrescriptionChecklist, isPrescriptionMissingFieldQuestion, buildMissingFieldNormativeQuestion } from "../../../../lib/assistant/prescription-safety.mjs";
 import { buildNoInfoAnswer } from "../../../../lib/assistant/no-info-answer.mjs";
-import { buildFichaSummary } from "../../../../lib/assistant/ficha-summary.mjs";
+import { buildFichaSummary, stripOtherBranchValidator } from "../../../../lib/assistant/ficha-summary.mjs";
 import { resolvePlanVariant } from "../../../../lib/assistant/plan-variant.mjs";
 import { getLinkedCurrentNormativeScope, scopeLinkedNormatives, scopeNormativeTopic, isSpecificNormativeTopic } from "../../../../lib/assistant/linked-normatives.mjs";
 import { buildRequirementsAnswer, buildSectionedAnswer } from "../../../../lib/assistant/requirements-view.mjs";
@@ -47,7 +48,7 @@ import {
 import { findSemanticApprovedFaq, recordFaqSignal } from "../../../../lib/server/faq-detection.mjs";
 import { buildConstraintsPrompt, splitUserConstraints, stripOfferLine } from "../../../../lib/assistant/user-constraints.mjs";
 import {
-  appendObservation, buildCorrectionsPrompt, findExactCorrection, findExactObservation,
+  answerSaysNoInfo, appendObservation, buildCorrectionsPrompt, buildCrossCircuitAnswer, findExactCorrection, findExactObservation, findSimilarCorrection,
   loadSocialWorkCorrections, loadSocialWorkObservations, restrictCorrectionsToCircuit,
 } from "../../../../lib/assistant/admin-corrections.mjs";
 import { isOperationalCircuitQuestion } from "../../../../lib/assistant/operational-circuit-intent.mjs";
@@ -2938,6 +2939,12 @@ async function answerFromProceduresByMeaning({ question, socialWorkId, billingCh
     const procedure = parseProcedureSelection(response.output_text, procedures);
     if (process.env.GDP_DEBUG_RETRIEVAL === "1") {
       console.log("[GDP_DEBUG_PROCEDURES]", JSON.stringify({ candidates: procedures.map((p) => p.code), model_output: response.output_text, picked: procedure?.code || null }));
+    }
+    // v3.13.82 — un procedimiento GENERAL solo responde una consulta puntual si nombra el tema preguntado.
+    if (procedure && procedure.scope === "GENERAL") {
+      const topicTokens = distinctiveTokens(question, await getSocialWorkName(socialWorkId));
+      const procedureText = `${procedure.title || ""} ${procedure.question || ""} ${procedure.answer || ""}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      if (topicTokens.length && !topicTokens.some((w) => procedureText.includes(w.slice(0, Math.max(4, w.length - 2))))) return null;
     }
     return procedure
       ? { answer: formatProcedureAnswer(procedure), code: procedure.code, procedure_id: procedure.id, usage: response.usage || null }
@@ -6197,12 +6204,22 @@ if (conversationId) {
     // respuestas). Misma obra social + misma pregunta => se responde con el
     // texto aprobado. Si no coincide exacto, se pasan al prompt como contexto.
     let adminCorrections = [];
+    let crossCircuitCandidates = [];
     if (Number.isInteger(socialWorkId) && socialWorkId > 0) {
-      adminCorrections = await loadSocialWorkCorrections(supabaseAdmin, socialWorkId);
+      const allCorrections = await loadSocialWorkCorrections(supabaseAdmin, socialWorkId);
       // v3.13.77 — las correcciones de una sucursal de Cámara no se aplican a Colegio (obras sociales con dos circuitos).
-      adminCorrections = await restrictCorrectionsToCircuit(supabaseAdmin, adminCorrections, socialWorkId, (await getBranchCircuit()).group);
-      const correctionWorkName = adminCorrections.length ? await getSocialWorkName(socialWorkId) : "";
-      const exactCorrection = findExactCorrection(adminCorrections, normalizeQuestion(question), correctionWorkName || "");
+      adminCorrections = await restrictCorrectionsToCircuit(supabaseAdmin, allCorrections, socialWorkId, (await getBranchCircuit()).group);
+      const correctionWorkName = allCorrections.length ? await getSocialWorkName(socialWorkId) : "";
+      // v3.13.83 — una corrección del otro circuito no se descarta: si la normativa de este circuito no tiene el dato, se usa con aviso.
+      if (adminCorrections.length < allCorrections.length) {
+        crossCircuitCandidates = allCorrections.filter((item) => !adminCorrections.includes(item));
+      }
+      // v3.13.83 — «misma pregunta» tolera saludos y muletillas («hola», «tengo una», «en mi sucursal»).
+      // v3.13.84 — y cualquier otra forma de preguntar lo mismo (embeddings + juez); ante duda no coincide.
+      let exactCorrection = findSimilarCorrection(adminCorrections, normalizeQuestion(question), correctionWorkName || "");
+      if (!exactCorrection && adminCorrections.length && !resolveFollowUp({ question, state: conversationState, socialWorkId }).isFollowUp) {
+        exactCorrection = await matchCorrectionSemantically({ client: openai, question, corrections: adminCorrections, model: process.env.OPENAI_MODEL || "gpt-4.1-mini" });
+      }
       if (exactCorrection) {
         const answer = exactCorrection.suggested;
         const elapsedMs = Date.now() - startedAt;
@@ -7131,6 +7148,7 @@ if (
     const validatorException = await getBranchValidatorException({ branchId, branchCode, socialWorkId });
     const validatorNote = formatBranchValidatorNote(validatorException);
     if (validatorNote) result.answer = `${result.answer}\n\n${validatorNote}`;
+    else result.answer = stripOtherBranchValidator(result.answer);
     // v3.13.77 — dice directamente cómo se tramita en la sucursal (en lugar de «corroborá el circuito»).
     try {
       const baseBranch = supabaseAdmin.from("branches").select("name,code");
@@ -8073,9 +8091,34 @@ const normativeScope = await getLinkedCurrentNormativeScope(
   supabaseAdmin, socialWorkId, activeBillingChannelId, fileSearchQuestion, generalPlanVariant,
 );
 activeBillingChannelId = channelBeforeBranchResolution;
+const respondFichaSummary = async () => {
+  // v3.13.80 — sin normativa específica: se responde con la Ficha (del circuito de la sucursal).
+  // No se usa la Ficha base para consultas de un plan (OYTE) que no tiene Ficha propia.
+  // Solo preguntas generales: una consulta puntual no se contesta con el resumen de la Ficha.
+  if (normativeScope.variantMissing && generalPlanVariant) return null;
+  if (distinctiveTokens(question, await getSocialWorkName(socialWorkId)).length !== 0) return null;
+  try {
+    const { data: fichaRow } = await supabaseAdmin.from("social_works")
+      .select("id,name,validator_name,validator_type,recipe_type,recipe_validity_days,letterhead,rp,diagnosis,monodrug,commercial_name,substitution")
+      .eq("id", socialWorkId).maybeSingle();
+    const fichaMerged = fichaRow ? (await withCircuitProfile(supabaseAdmin, fichaRow, (await getBranchCircuit()).group)).data : null;
+    const fichaAnswer = buildFichaSummary(fichaMerged);
+    if (!fichaAnswer) return null;
+    const fichaElapsedMs = Date.now() - startedAt;
+    const fichaUsage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+    await logCurrentQuery({ branchId, socialWorkId, question, answer: fichaAnswer,
+      source: "SOCIAL_WORK_PROFILE", route: "STRUCTURED_PROFILE", found: true, elapsedMs: fichaElapsedMs, usage: fichaUsage });
+    return Response.json({ ok: true, question, answer: fichaAnswer, source: "SOCIAL_WORK_PROFILE",
+      route: "STRUCTURED_PROFILE", found: true, context: responseContext, elapsed_ms: fichaElapsedMs, usage: fichaUsage });
+  } catch (fichaError) {
+    console.warn("ficha sin normativa no disponible:", fichaError?.message);
+    return null;
+  }
+};
 if (!normativeScope.ok) {
   // v3.13.36 — sin normativas vinculadas: se intenta con observaciones aprobadas.
   if (!normativeScope.ambiguous) {
+    { const earlyFicha = await respondFichaSummary(); if (earlyFicha) return earlyFicha; }
     const notesSupport = await answerFromApprovedNotes({ question: fileSearchQuestion, socialWorkId, variant: generalPlanVariant });
     if (notesSupport) {
       const notesElapsedMs = Date.now() - startedAt;
@@ -8099,28 +8142,7 @@ if (!normativeScope.ok) {
     }
   }
   if (profileFallback) return respondProfileFallback();
-  // v3.13.80 — sin normativa específica: se responde con la Ficha (del circuito de la sucursal).
-  // No se usa la Ficha base para consultas de un plan (OYTE) que no tiene Ficha propia.
-  if (!(normativeScope.variantMissing && generalPlanVariant) && distinctiveTokens(question, await getSocialWorkName(socialWorkId)).length === 0) {
-    try {
-      const { data: fichaRow } = await supabaseAdmin.from("social_works")
-        .select("id,name,validator_name,validator_type,recipe_type,recipe_validity_days,letterhead,rp,diagnosis,monodrug,commercial_name,substitution")
-        .eq("id", socialWorkId).maybeSingle();
-      const fichaMerged = fichaRow ? (await withCircuitProfile(supabaseAdmin, fichaRow, (await getBranchCircuit()).group)).data : null;
-      const fichaAnswer = buildFichaSummary(fichaMerged);
-      if (fichaAnswer) {
-        const fichaElapsedMs = Date.now() - startedAt;
-        const fichaUsage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
-        await logCurrentQuery({ branchId, socialWorkId, question, answer: fichaAnswer,
-          source: "SOCIAL_WORK_PROFILE", route: "STRUCTURED_PROFILE", found: true, elapsedMs: fichaElapsedMs, usage: fichaUsage });
-        return Response.json({ ok: true, question, answer: fichaAnswer, source: "SOCIAL_WORK_PROFILE",
-          route: "STRUCTURED_PROFILE", found: true, context: responseContext, elapsed_ms: fichaElapsedMs, usage: fichaUsage });
-      }
-    } catch (fichaError) {
-      console.warn("ficha sin normativa no disponible:", fichaError?.message);
-    }
-  }
-  // Si hay vínculos pero ninguno aplica (ambiguo/variante), se informa el motivo; si no hay normativa, se explica qué se revisó.
+  { const fichaResponse = await respondFichaSummary(); if (fichaResponse) return fichaResponse; }
   const answer = !/^No encontré normativas vigentes/.test(String(normativeScope.reason || "")) ? normativeScope.reason : buildNoInfoAnswer(await getSocialWorkName(socialWorkId));
   const elapsedMs = Date.now() - startedAt;
   await logCurrentQuery({branchId,socialWorkId,question,answer,
@@ -8144,6 +8166,23 @@ let result = await queryFileSearch({
   branchCircuit: buildBranchCircuitPrompt((await getBranchCircuit()).group),
   userConstraints: buildConstraintsPrompt(userConstraintSplit),
 });
+// v3.13.83 — la normativa de este circuito no tiene el dato, pero Administración ya corrigió la misma pregunta en el otro circuito.
+let crossCircuitCorrection = null;
+if (crossCircuitCandidates.length && (isNotFoundAnswer(result?.answer) || answerSaysNoInfo(result?.answer))) {
+  const crossName = await getSocialWorkName(socialWorkId);
+  crossCircuitCorrection = findSimilarCorrection(crossCircuitCandidates, normalizeQuestion(question), crossName || "")
+    || await matchCorrectionSemantically({ client: openai, question, corrections: crossCircuitCandidates, model: process.env.OPENAI_MODEL || "gpt-4.1-mini" });
+}
+if (crossCircuitCorrection) {
+  const crossAnswer = buildCrossCircuitAnswer(crossCircuitCorrection);
+  const crossElapsedMs = Date.now() - startedAt;
+  const crossUsage = result?.usage || { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+  await logCurrentQuery({ branchId, socialWorkId, question, answer: crossAnswer,
+    source: "ADMIN_CORRECTION", route: "ADMIN_CORRECTION", found: true, elapsedMs: crossElapsedMs, usage: crossUsage });
+  return Response.json({ ok: true, question, answer: crossAnswer, source: "ADMIN_CORRECTION",
+    route: "ADMIN_CORRECTION", found: true, context: responseContext,
+    elapsed_ms: crossElapsedMs, usage: crossUsage });
+}
 // v3.13.32 — repregunta sin respuesta literal («No encuentro»): se reintenta pidiendo
 // lo que la normativa sí indica sobre el tema y qué parte de lo preguntado no figura.
 if (followUp.isFollowUp && isNotFoundAnswer(result?.answer)) {
