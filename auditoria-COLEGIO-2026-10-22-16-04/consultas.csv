@@ -1,0 +1,1040 @@
+﻿id,fecha,sucursal,circuito,obra_social,obra_social_id,tipo_trafico,pregunta,respuesta_bot,ruta,fuente,encontro_info,conversacion,veredicto_admin,correccion_admin,alcance_correccion,comentario_admin
+5009,2026-10-19T12:14:02.824386+00:00,Libertad,COLEGIO,OMINT,24,PILOT,¿Qué requisitos tiene una receta de OMINT?,"Revisión de receta para OMINT:
+Recordá/Ficha (datos registrados):
+• Tipo de receta admitido: Electrónica (única a partir del 1 de Agos)
+• Vigencia registrada (días): 30
+• Membrete: Opcional
+• Límite de RP por receta: 3
+• Diagnóstico: No Requiere
+• Monodroga: si
+• Nombre comercial: Opcional
+• Sustitución: Si Requiere
+
+Normativa vigente (requisitos encontrados, lista no necesariamente exhaustiva):
+### Requisitos para aceptar una receta de OMINT
+
+#### Recetario Convencional:
+1. **Tipo de Recetario:**
+   - Planes Abiertos: Recetario Convencional.
+   - Planes Cerrados: De profesionales e Instituciones Habilitadas.
+   - No se aceptarán recetarios con publicidades, excepto aquellos de Hospitales Públicos.
+
+2. **Formato:**
+   - Aceptación de recetarios preimpresos por computadora con firma y sello en original del profesional.
+   - No se aceptan fotocopias de recetas.
+
+3. **Datos en la Receta:**
+   - Denominación de la entidad.
+   - Nombre del profesional o institución.
+   - Nombre y apellido del afiliado y número de afiliación.
+   - Fecha de emisión.
+   - Firma y sello del profesional (obligatorio incluso si está impreso).
+   - Detalle de los medicamentos.
+   - Cantidades en números y letras.
+   - Leyenda ""Tratamiento Prolongado"" si aplica.
+
+4. **Validez:**
+   - Para la venta: **30 días** a partir de la fecha de emisión.
+   - Para presentación: **60 días** corridos desde la fecha de venta.
+   - Para refacturación: **30 días** corridos a partir de la liquidación.
+
+5. **Cantidad de Medicamentos:**
+   - **Tratamiento Normal:** Hasta **3 medicamentos** distintos por receta y **1 envase** por renglón.
+   - **Tratamiento Prolongado:** Hasta **3 medicamentos** distintos por receta y **2 envases** por renglón.
+
+#### Receta Electrónica OMINT:
+1. **Validación:**
+   - Debe validarse a través del sistema de validación online, introduciendo el número de receta.
+
+2. **Datos en la Receta:**
+   - Igual que en el formato convencional, exceptuando que no se requiere sello en recetas electrónicas, siempre que siga la normativa vigente.
+
+#### Requisitos del Afiliado:
+1. **Documentación:**
+   - Credencial de afiliación en vigencia o provisoria.
+   - Verificación de existencia del afiliado en el padrón.
+   - Si no está habilitado, se puede presentar un certificado de habilitación emitido por OMINT, adjuntando copia.
+
+2. **Número de Documento y Domicilio:**
+   - Sumar los datos personales como firma y aclaración al momento de la dispensación.
+
+#### Otros Consideraciones:
+- Recetas de medicamentos crónicos deben ser originales y deben cumplir los requisitos generales para su aceptación.
+Documentos recuperados: OMINT.pdf; Nota-OMINT- Campaña Vacunación Antigripal 2026-ocr.txt; OMINT OSIM - NORMA CRONICIDAD.docx; OMINT OSIM - NORMAS AMBULATORIO.doc
+
+Comprobá el plan y circuito y revisá los campos directamente en la receta. Este resumen no autoriza por sí solo su recepción ni dispensación.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,,,,
+5010,2026-10-19T12:14:15.730711+00:00,Libertad,COLEGIO,OMINT,24,PILOT,"¿Qué requisitos tiene una receta de OMINT? Tengo una receta sin fecha de prescripción, ¿la puedo recibir?",No encontré una regla operativa confirmada para esta combinación de sucursal y obra social. No puedo asegurar si se recibe ni por qué circuito. Consultá con Administración antes de recibir la receta.,OPERATION_NOT_CONFIRMED,GDP_OPERATION_SAFETY,NO,,,,,
+5011,2026-10-19T12:14:39.507958+00:00,Libertad,COLEGIO,OMINT,24,PILOT,"Tengo una receta sin fecha de prescripción, ¿la puedo recibir?",No encontré una regla operativa confirmada para esta combinación de sucursal y obra social. No puedo asegurar si se recibe ni por qué circuito. Consultá con Administración antes de recibir la receta.,OPERATION_NOT_CONFIRMED,GDP_OPERATION_SAFETY,NO,,,,,
+5012,2026-10-19T12:15:01.455784+00:00,Libertad,COLEGIO,OMINT,24,PILOT,¿Y si la receta es para vacunas?,"La receta para vacunas debe contener diagnóstico, DNI, credencial, y puede ser física o digital. La validez es de 30 días.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5013,2026-10-19T12:15:20.154937+00:00,Libertad,COLEGIO,OMINT,24,PILOT,¿Y si en lugar de vacunas es para diabetes?,"Las recetas para insulinas deben ser originales, firmadas y pueden ser electrónicas si cumplen con Ley 27553. La vigencia es de 30 días. 
+
+¿Quieres que te muestre los requisitos específicos para las recetas?",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5014,2026-10-19T12:28:27.674079+00:00,Libertad,COLEGIO,No identificada,,PILOT,¿A qué circuito pertenece mi sucursal?,"La sucursal Libertad pertenece al circuito general Colegio.
+
+Esto no determina el circuito de una obra social específica: algunas se tramitan de forma directa o tienen excepciones por sucursal. Tampoco autoriza por sí solo la recepción ni la dispensación de una receta.",GENERAL_BRANCH_CIRCUIT,GDP_BRANCH_MEMBERSHIP,SI,,,,,
+5015,2026-10-19T12:28:35.62068+00:00,Libertad,COLEGIO,PROVINCIA ART,3,PILOT,¿Cómo tramito Provincia ART en Libertad?,"Para PROVINCIA ART en Libertad, el circuito indicado es Cámara–Colegio. 
+Confirmá convenio, validador y requisitos normativos antes de recibir o dispensar.",STRUCTURED_OPERATION,SUPABASE_OPERATION_RULE,SI,,,,,
+5016,2026-10-19T12:28:44.432722+00:00,Libertad,COLEGIO,OSECAC,7,PILOT,¿En Libertad puedo recibir OSECAC? ¿Por qué circuito?,"Sí, la sucursal está habilitada para recibir esta obra social.
+Circuito operativo registrado: Cámara–Colegio. 
+Esto no confirma que la receta sea válida: verificar plan, convenio, normativa y requisitos de Recordá/Ficha.",STRUCTURED_OPERATION,SUPABASE_OPERATION_RULE,SI,,,,,
+5017,2026-10-19T12:28:51.275008+00:00,Libertad,COLEGIO,OSSEG,5,PILOT,¿OSSEG en Libertad se tramita directamente?,"Para OSSEG en Libertad, el circuito indicado es Cámara–Colegio. 
+Confirmá convenio, validador y requisitos normativos antes de recibir o dispensar.",STRUCTURED_OPERATION,SUPABASE_OPERATION_RULE,SI,,,,,
+5018,2026-10-19T12:28:57.542666+00:00,Libertad,COLEGIO,FEDERACION PATRONAL ART,4,PILOT,¿Federación Patronal ART en Libertad se tramita directamente?,"Para FEDERACION PATRONAL ART en Libertad, el circuito indicado es directo. 
+Confirmá convenio, validador y requisitos normativos antes de recibir o dispensar.",STRUCTURED_OPERATION,SUPABASE_OPERATION_RULE,SI,,,,,
+5019,2026-10-19T12:29:07.050675+00:00,Libertad,COLEGIO,OSDE,11,PILOT,¿OSDE en Libertad utiliza Cámara–Colegio?,"Para OSDE en Libertad, el circuito indicado es directo. 
+Confirmá convenio, validador y requisitos normativos antes de recibir o dispensar.",STRUCTURED_OPERATION,SUPABASE_OPERATION_RULE,SI,,,,,
+5020,2026-10-19T12:30:49.579615+00:00,Libertad,COLEGIO,OSDEPYM,35,PILOT,¿Por dónde valido OSDEPYM y qué validador utiliza?,"¿Por dónde valida?: TYS.
+Validador: GMS.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de OSDEPYM.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,,,
+5021,2026-10-19T12:31:15.047782+00:00,Libertad,COLEGIO,OSDEPYM,35,PILOT,¿Por dónde valido OSDEPMY y qué validador utiliza?,"¿Por dónde valida?: TYS.
+Validador: GMS.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de OSDEPYM.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,,,
+5022,2026-10-19T12:31:27.070509+00:00,Libertad,COLEGIO,OSDE,11,PILOT,"Tengo una receta de OSDE sin fecha de prescripción, ¿la puedo recibir?","Sí, la sucursal está habilitada para recibir esta obra social.
+Circuito operativo registrado: directo. 
+Esto no confirma que la receta sea válida: verificar plan, convenio, normativa y requisitos de Recordá/Ficha.",STRUCTURED_OPERATION,SUPABASE_OPERATION_RULE,SI,,,,,
+5023,2026-10-19T12:31:44.62945+00:00,Libertad,COLEGIO,OMINT,24,PILOT,"Para OMINT, ¿se aceptan recetas en papel o únicamente electrónicas? ¿Qué normativa vigente lo establece?","Se aceptan recetas en papel y electrónicas según la normativa vigente de OMINT, que lo establece en varios documentos.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5024,2026-10-19T12:32:03.295265+00:00,Libertad,COLEGIO,OSECAC,7,PILOT,Se cayó el validador de OSECAC en Libertad. ¿Qué procedimiento interno debo seguir?,"1. Verificar si la validación falla en TYS. 2. Probar la página del validador externo en una ventana de incógnito, si corresponde a esa obra social. 3. Si también falla, informar al paciente de la dificultad comprobada, sin afirmar que existe una caída nacional sin confirmación. 4. Consultar descuentos adicionales y la posibilidad de reintegro conforme al procedimiento y autorización vigentes. 5. Si hay dudas, contactar Obras Sociales o al farmacéutico responsable. Nunca forzar cobertura por el solo hecho de que el validador no funcione.
+
+No se declara una caída general ni una contingencia activa por el solo hecho de consultar: comprobar el estado real y seguir instrucciones del responsable.
+
+Fuente: Procedimiento interno aprobado de GDP Salud. Prevalece la normativa específica vigente de la obra social, plan y circuito. Ante contradicción, solicitar revisión al área de Obras Sociales.",APPROVED_INTERNAL_PROCEDURE,GDP_INTERNAL_PROCEDURE,SI,,,,,
+5025,2026-10-19T12:32:24.436797+00:00,Libertad,COLEGIO,OMINT,24,PILOT,¿Qué requisitos particulares tienen las vacunas antigripales de OMINT para la campaña 2026?,"Los requisitos particulares para las vacunas antigripales de OMINT en la campaña 2026 son los siguientes:
+
+1. **Período de campaña**: Desde el 11 de marzo al 31 de agosto de 2026.
+
+2. **Documentación a presentar**:
+   - **Para pacientes de 6 meses a 7 años**:
+     - Dos dosis con cobertura completa.
+     - Receta con diagnóstico, DNI y credencial (física o digital).
+   - **Para mayores de 65 años**:
+     - Una dosis con cobertura completa.
+     - DNI y credencial (física o digital).
+   - **Pacientes de 2 a 64 años con patologías según anexo**:
+     - Una dosis con cobertura completa.
+     - Receta con diagnóstico, DNI y credencial (física o digital).
+   - **Gestantes**:
+     - Una dosis con cobertura completa (en cualquier trimestre).
+     - Receta con diagnóstico, DNI y credencial (física o digital).
+   - **Puérperas**: Hasta 30 días posteriores al parto si no recibieron la vacuna durante el embarazo en 2025.
+   - **Personal de salud y contactos de pacientes oncohematológicos**:
+     - Una dosis con cobertura completa.
+     - Receta con diagnóstico, DNI y credencial (física o digital).
+
+3. **Detalles adicionales**:
+   - La aplicación tiene costo, que puede ser solicitado a Omint como reintegro.
+   - Las recetas tienen una validez de 30 días.
+   - No se requiere receta para pacientes con obesidad.
+
+4. **Condiciones especiales para grupos de riesgo**:
+   - Se consideran condiciones específicas como VIH, uso de inmunosupresores, enfermedades respiratorias crónicas, cardiopatías, entre otras. 
+
+Si necesitas más detalles sobre otro aspecto, házmelo saber.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5026,2026-10-19T12:33:21.430868+00:00,Libertad,COLEGIO,OMINT,24,PILOT,¿Cuál es el código TYS que debo utilizar para OMINT?,No encuentro esa información en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5031,2026-10-19T12:49:21.786946+00:00,San Francisco,COLEGIO,OSSEG,5,PILOT,¿OSSEG se tramita directamente en San Francisco?,"Para OSSEG en San Francisco, el circuito indicado es directo. 
+Confirmá convenio, validador y requisitos normativos antes de recibir o dispensar.",STRUCTURED_OPERATION,SUPABASE_OPERATION_RULE,SI,,,,,
+5036,2026-10-19T12:57:45.629687+00:00,Libertad,COLEGIO,OMINT,24,PILOT,¿La normativa de OMINT permite recibir una receta que no tiene fecha de prescripción?,"Sí, debe figurar la fecha de prescripción en la receta de OMINT.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5037,2026-10-19T12:58:06.056524+00:00,Libertad,COLEGIO,OSDE,11,PILOT,¿Qué indica la normativa de OSDE cuando una receta no tiene fecha de emisión?,No encuentro esa información en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5038,2026-10-19T13:00:14.797462+00:00,Libertad,COLEGIO,OMINT,24,PILOT,"En Recordá/Ficha de OMINT dice que únicamente se aceptan recetas electrónicas, pero la normativa habla de recetas convencionales. ¿Cuál es la regla vigente?","La normativa vigente admite tanto recetas electrónicas como convencionales, siempre que se cumplan los requisitos específicos establecidos. 
+
+¿Querés que te muestre los requisitos para cada tipo de receta?",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5039,2026-10-19T13:00:29.057533+00:00,Libertad,COLEGIO,OMINT,24,PILOT,"¿La campaña de vacunación antigripal OMINT 2026 sigue vigente hoy, 19 de octubre?","La campaña de vacunación antigripal OMINT 2026 fue válida hasta el 31 de agosto de 2026, por lo que no está vigente hoy, 19 de octubre.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5040,2026-10-19T13:00:40.082043+00:00,Libertad,COLEGIO,OSECAC,7,PILOT,Se cayó el validador de OSECAC. ¿Puedo realizar la venta aplicando manualmente el descuento?,"1. Verificar si la validación falla en TYS. 2. Probar la página del validador externo en una ventana de incógnito, si corresponde a esa obra social. 3. Si también falla, informar al paciente de la dificultad comprobada, sin afirmar que existe una caída nacional sin confirmación. 4. Consultar descuentos adicionales y la posibilidad de reintegro conforme al procedimiento y autorización vigentes. 5. Si hay dudas, contactar Obras Sociales o al farmacéutico responsable. Nunca forzar cobertura por el solo hecho de que el validador no funcione.
+
+No se declara una caída general ni una contingencia activa por el solo hecho de consultar: comprobar el estado real y seguir instrucciones del responsable.
+
+Fuente: Procedimiento interno aprobado de GDP Salud. Prevalece la normativa específica vigente de la obra social, plan y circuito. Ante contradicción, solicitar revisión al área de Obras Sociales.",APPROVED_INTERNAL_PROCEDURE,GDP_INTERNAL_PROCEDURE,SI,,,,,
+5041,2026-10-19T13:00:51.361685+00:00,Libertad,COLEGIO,OSECAC,7,PILOT,¿Por dónde valido la obra social SALUD XYZ INVENTADA?},"¿Por dónde valida?: TYS.
+Validador: GMS.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de OSECAC.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,,,
+5042,2026-10-19T13:01:25.620125+00:00,Libertad,COLEGIO,OSDE,11,PILOT,¿Qué requisitos tiene una receta de OSDE?,"Revisión de receta para OSDE:
+Recordá/Ficha (datos registrados):
+• Tipo de receta admitido: Común - digital - electrónicas.
+• Vigencia registrada (días): 30
+• Membrete: Opcional
+• Límite de RP por receta: 3
+• Diagnóstico: Requiere
+• Monodroga: si
+• Nombre comercial: opcional
+• Sustitución: Requiere
+
+Normativa vigente (requisitos encontrados, lista no necesariamente exhaustiva):
+Para aceptar una receta de OSDE, se deben cumplir los siguientes requisitos:
+
+1. **Documentación de la Receta**:
+   - Nombre y Apellido del afiliado.
+   - Número de Afiliado.
+   - Nombre del medicamento y opción de marca comercial.
+   - Diagnóstico.
+   - Fecha de emisión.
+   - Firma del médico.
+   - Sello del médico.
+
+2. **Presentación de la Documentación**:
+   - Las recetas deben ser presentadas con su cierre correspondiente.
+   - Se deben adherir los troqueles a las recetas con goma de pegar, evitando el uso de abrochadora o cinta adhesiva.
+   - No enviar adjunta órdenes de OSDE.
+   - Acomode toda la documentación sin que supere el tamaño de una hoja A4.
+   - Verificar que la información (salvas, sellos, troqueles, datos del afiliado y ticket de validación) sea legible y no esté doblada.
+
+3. **Recetas Electrónicas**:
+   - Al dispensar, se imprime solo el ticket de venta y se pegan los troqueles en los espacios vacíos del ticket sin tapar ningún dato.
+
+No se menciona ningún tipo de receta diferente en los documentos disponibles, así que todos los requisitos son aplicables de manera uniforme.
+Documentos recuperados: Presentación de cierres y recetas Osde-converted.txt; Norma Osde-ocr.txt
+
+Comprobá el plan y circuito y revisá los campos directamente en la receta. Este resumen no autoriza por sí solo su recepción ni dispensación.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,,,,
+5043,2026-10-19T13:01:40.321731+00:00,Libertad,COLEGIO,OSDE,11,PILOT,"Tengo una receta sin fecha, ¿la puedo recibir?","Sí, la sucursal está habilitada para recibir esta obra social.
+Circuito operativo registrado: directo. 
+Esto no confirma que la receta sea válida: verificar plan, convenio, normativa y requisitos de Recordá/Ficha.",STRUCTURED_OPERATION,SUPABASE_OPERATION_RULE,SI,,,,,
+5044,2026-10-19T13:02:10.398343+00:00,Libertad,COLEGIO,OMINT,24,PILOT,¿Qué requisitos tiene una receta de OMINT?,"Revisión de receta para OMINT:
+Recordá/Ficha (datos registrados):
+• Tipo de receta admitido: Electrónica (única a partir del 1 de Agos)
+• Vigencia registrada (días): 30
+• Membrete: Opcional
+• Límite de RP por receta: 3
+• Diagnóstico: No Requiere
+• Monodroga: si
+• Nombre comercial: Opcional
+• Sustitución: Si Requiere
+
+Normativa vigente (requisitos encontrados, lista no necesariamente exhaustiva):
+Los requisitos para aceptar una receta de OMINT son los siguientes, diferenciando según el tipo de receta:
+
+### Requisitos Generales para Todos los Planes
+- **Recetario Convencional**:
+  - Planes ABIERTOS: Convencional.
+  - Planes CERRADOS: De profesionales e Instituciones Habilitadas.
+  - No se aceptan recetarios con publicidades, salvo que provengan de Hospitales Públicos.
+  - Se aceptan recetarios preimpresos por computadora con sello y firma originales del profesional.
+  - No se aceptan fotocopias de recetas.
+
+- **Receta Electrónica**:
+  - Validación siempre a través del sistema de validación online.
+  - Carga del N° de receta que figura en el margen superior derecho.
+
+#### Datos que debe contener la receta:
+1. Denominación de la entidad.
+2. Nombre y Apellido del afiliado y Número de afiliación.
+3. Fecha de emisión de la receta.
+4. Firma y sello aclaratorio del profesional (sello es obligatorio aunque los datos estén impresos).
+5. Detalle de los medicamentos (nombre, concentración, forma farmacéutica).
+6. Cantidades de los medicamentos en números y letras.
+7. Leyenda ""Tratamiento Prolongado"" si corresponde.
+
+### Validez
+- **Venta**: 30 días a partir de la fecha de emisión.
+- **Presentación**: 60 días corridos a partir de la fecha de venta.
+- **Refacturación**: 30 días corridos desde la recepción de la liquidación.
+
+### Cantidad de Medicamentos
+- **Tratamiento Normal**: Hasta 3 medicamentos distintos por receta y hasta 1 envase por renglón.
+- **Tratamiento Prolongado**: Hasta 3 medicamentos distintos por receta y hasta 2 envases por renglón.
+
+### Requisitos Específicos
+- **Leches Medicamentosas**: La receta debe validarse online.
+- **Antibióticos**:
+  - Monodosis: hasta 6 ampollas por receta.
+  - Multidosis: hasta 1 unidad.
+
+- **Psicofármacos**: Receta oficial y no se aceptan fotocopias.
+
+### Requisitos del Afiliado
+- Presentar credencial de afiliación vigente o provisional.
+- Verificación en el padrón de afiliados.
+- En caso de no estar habilitado en el padrón pero poseer certificado, se debe adjuntar una copia del certificado a la receta.
+
+No encuentro ningún requisito adicional específico para la presentación, validación o auditoría de recetas.
+Documentos recuperados: OMINT.pdf; Nota-OMINT- Campaña Vacunación Antigripal 2026-ocr.txt; OMINT OSIM - NORMAS AMBULATORIO.doc; OMINT OSIM - NORMA CRONICIDAD.docx
+
+Comprobá el plan y circuito y revisá los campos directamente en la receta. Este resumen no autoriza por sí solo su recepción ni dispensación.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,,,,
+5045,2026-10-19T13:02:35.12123+00:00,Libertad,COLEGIO,OSDEPYM,35,PILOT,"Tengo una receta sin fecha, ¿la puedo recibir?",No encontré una regla operativa confirmada para esta combinación de sucursal y obra social. No puedo asegurar si se recibe ni por qué circuito. Consultá con Administración antes de recibir la receta.,OPERATION_NOT_CONFIRMED,GDP_OPERATION_SAFETY,NO,,,,,
+5046,2026-10-19T13:06:13.637856+00:00,Libertad,COLEGIO,OSDE,11,PILOT,¿Qué datos obligatorios debe tener una receta de OSDE?,"Revisión de receta para OSDE:
+Recordá/Ficha (datos registrados):
+• Tipo de receta admitido: Común - digital - electrónicas.
+• Vigencia registrada (días): 30
+• Membrete: Opcional
+• Límite de RP por receta: 3
+• Diagnóstico: Requiere
+• Monodroga: si
+• Nombre comercial: opcional
+• Sustitución: Requiere
+
+Normativa vigente (requisitos encontrados, lista no necesariamente exhaustiva):
+Los requisitos para aceptar una receta de OSDE son los siguientes:
+
+### Requisitos Generales:
+1. **Nombre y Apellido del Paciente**
+2. **Número de Afiliado**
+3. **Nombre de la Droga y Opción de Marca Comercial**
+4. **Diagnóstico**
+5. **Fecha**
+6. **Firma del Médico**
+7. **Sello del Médico**
+
+### Presentación de la Documentación:
+- Las recetas deben estar ordenadas según un detalle específico.
+- Los troqueles deben estar pegados a las recetas con goma de pegar.
+- No se deben usar abrochadoras o cintas adhesivas.
+- Asegurarse de que ninguna receta ni ticket de autorización esté doblado.
+- Las salvas, sellos, troqueles, datos del afiliado y ticket de validación deben ser legibles.
+- La documentación no debe superar el tamaño de una hoja A4.
+- En caso de recetas electrónicas, se debe imprimir solo el ticket de venta y pegar los troqueles sin tapar ningún dato.
+
+Si deseas más detalles sobre otro aspecto relacionado, házmelo saber.
+Documentos recuperados: Presentación de cierres y recetas Osde-converted.txt; Norma Osde-ocr.txt
+
+Comprobá el plan y circuito y revisá los campos directamente en la receta. Este resumen no autoriza por sí solo su recepción ni dispensación.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,,,,
+5047,2026-10-19T13:06:47.342238+00:00,Libertad,COLEGIO,OSDE,11,PILOT,"Si a una receta de OSDE le falta la fecha de emisión, ¿cumple los requisitos normativos?","Revisión de receta para OSDE:
+Recordá/Ficha (datos registrados):
+• Tipo de receta admitido: Común - digital - electrónicas.
+• Vigencia registrada (días): 30
+• Membrete: Opcional
+• Límite de RP por receta: 3
+• Diagnóstico: Requiere
+• Monodroga: si
+• Nombre comercial: opcional
+• Sustitución: Requiere
+
+Normativa vigente (requisitos encontrados, lista no necesariamente exhaustiva):
+Los requisitos para aceptar una receta de OSDE son los siguientes:
+
+1. **Documentación General**:
+   - Presente las recetas con su cierre correspondiente.
+   - Utilice goma de pegar para adherir los troqueles a las recetas y el ticket de autorización.
+   - Las recetas y tickets no deben estar doblados.
+   - Verifique que la información sea legible y no esté cubierta.
+   - No envíe documentación no solicitada (como órdenes de OSDE).
+   - Acomode toda la documentación de modo que no supere el tamaño de una hoja A4.
+
+2. **Contenido de la Receta**:
+   - Nombre y Apellido del afiliado.
+   - Número de Afiliado.
+   - Nombre de la Droga y opción de marca comercial.
+   - Diagnóstico.
+   - Fecha.
+   - Firma.
+   - Sello.
+
+3. **Recetas Electrónicas**:
+   - Imprima solo el ticket de venta y pegue los troqueles en los espacios vacíos del ticket.
+   - Si el ticket no tiene suficiente espacio, utilice una hoja A4.
+   - Las recetas electrónicas y manuscritas se envían conjuntamente para la auditoría, sin necesidad de cierres separados por tipo de receta.
+
+No se encontraron más especificaciones respecto a otros tipos de receta o detalles adicionales en la normativa.
+Documentos recuperados: Presentación de cierres y recetas Osde-converted.txt; Norma Osde-ocr.txt
+
+Comprobá el plan y circuito y revisá los campos directamente en la receta. Este resumen no autoriza por sí solo su recepción ni dispensación.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,,,,
+5048,2026-10-19T13:07:24.645799+00:00,Libertad,COLEGIO,OMINT,24,PILOT,¿Qué normativa de OMINT establece que la receta electrónica es obligatoria desde agosto?,"Tipo de receta: Electrónica (única a partir del 1 de Agos).
+
+Fuente: Recordá/Ficha de OMINT.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,,,
+5049,2026-10-19T13:07:57.860985+00:00,Libertad,COLEGIO,OSDE,11,PILOT,¿Cuál es la fecha de emisión obligatoria de una receta de OSDE y qué ocurre cuando falta?,"La receta de OSDE debe tener fecha de emisión. Si falta, se considera incompleta y puede generar problemas en la validación.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5050,2026-10-19T13:08:23.954976+00:00,Libertad,COLEGIO,OSDE,11,PILOT,Tengo una receta de una obra social que no figura en el sistema. ¿Puedo usar el validador de otra?,No encuentro esa información en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5051,2026-10-19T13:08:53.491432+00:00,Libertad,COLEGIO,OSECAC,7,PILOT,Tengo una receta de una obra social que no figura en el sistema. ¿Puedo usar el validador de otra? ¿Por dónde valido OSECAC?,"¿Por dónde valida?: TYS.
+Validador: GMS.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de OSECAC.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,,,
+5052,2026-10-19T13:09:04.781962+00:00,Libertad,COLEGIO,OSECAC,7,PILOT,Ahora necesito validar una obra social llamada SALUD XYZ INVENTADA.,No encuentro esa información en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5053,2026-10-19T13:09:19.090952+00:00,Libertad,COLEGIO,OSECAC,7,PILOT,¿Seguís hablando de OSECAC?,No encuentro esa información en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5054,2026-10-19T13:12:32.501368+00:00,Libertad,COLEGIO,OSDE,11,PILOT,¿Una receta de OSDE sin firma del médico cumple los requisitos?,"Revisión de receta para OSDE:
+Recordá/Ficha (datos registrados):
+• Tipo de receta admitido: Común - digital - electrónicas.
+• Vigencia registrada (días): 30
+• Membrete: Opcional
+• Límite de RP por receta: 3
+• Diagnóstico: Requiere
+• Monodroga: si
+• Nombre comercial: opcional
+• Sustitución: Requiere
+
+Normativa vigente (requisitos encontrados, lista no necesariamente exhaustiva):
+Los requisitos para aceptar una receta de OSDE son los siguientes:
+
+### Requisitos Generales
+1. **Nombre y Apellido del afiliado.**
+2. **Número de Afiliado.**
+3. **Nombre de la Droga y opción de marca comercial.**
+4. **Diagnóstico.**
+5. **Fecha.**
+6. **Firma.**
+7. **Sello.**
+
+### Presentación de la Documentación
+- Las recetas deben ser organizadas junto con sus cierres y troqueles adheridos.
+- Utilizar goma de pegar para adherir los troqueles y no usar cintas adhesivas o abrochadoras.
+- Verificar que los datos (salvas, sellos, troqueles) sean legibles y no estén doblados.
+- La documentación no debe exceder el tamaño de una hoja A4.
+- Enviar únicamente la documentación solicitada, sin órdenes adicionales adjuntas.
+
+### Recetas Electrónicas
+- La farmacia imprime el ticket de venta y adhiere los troqueles en los espacios vacíos del ticket.
+- En caso de que no haya suficiente espacio en el ticket, se deberá utilizar una hoja A4 para completar.
+
+No se registran diferencias específicas en los requisitos de tipo de receta en la normativa consultada.
+Documentos recuperados: Presentación de cierres y recetas Osde-converted.txt; Norma Osde-ocr.txt
+
+Comprobá el plan y circuito y revisá los campos directamente en la receta. Este resumen no autoriza por sí solo su recepción ni dispensación.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,,,,
+5055,2026-10-19T13:13:18.985571+00:00,Libertad,COLEGIO,OSDE,11,PILOT,¿Una receta de OSDE sin diagnóstico cumple los requisitos?,"Revisión de receta para OSDE:
+Recordá/Ficha (datos registrados):
+• Tipo de receta admitido: Común - digital - electrónicas.
+• Vigencia registrada (días): 30
+• Membrete: Opcional
+• Límite de RP por receta: 3
+• Diagnóstico: Requiere
+• Monodroga: si
+• Nombre comercial: opcional
+• Sustitución: Requiere
+
+Normativa vigente (requisitos encontrados, lista no necesariamente exhaustiva):
+Para aceptar una receta de OSDE, se deben cumplir los siguientes requisitos:
+
+### Requisitos Generales de la Receta:
+1. **Nombre y Apellido del Afiliado.**
+2. **Número de Afiliado.**
+3. **Nombre de la Droga** y opción de marca comercial.
+4. **Diagnóstico.**
+5. **Fecha.**
+6. **Firma del Profesional.**
+7. **Sello del Profesional.**
+
+### Presentación de Documentación:
+- Las recetas deben ser acompañadas por su **ticket de autorización** correspondiente.
+- Los troqueles deben estar **adheridos** con goma de pegar (no usar abrochadora ni cinta adhesiva).
+- La **documentación** no debe sobrepasar el tamaño de una hoja A4.
+- Es importante que la receta y los tickets estén **legibles** y sin datos tapados.
+
+### Recetas Electrónicas:
+- Al momento de la dispensa, solo se imprime el **ticket de venta** y se adhieren los troqueles correspondientes asegurando que no se tape ningún dato.
+- No es necesario hacer **cierres separados** por tipo de receta; se incluyen ambas (electrónicas y manuscritas) en el mismo cierre.
+
+### Auditoría:
+- Deben enviarse conjuntamente las recetas electrónicas y manuscritas para la auditoría.
+
+Si necesitas más información sobre algún aspecto específico, házmelo saber.
+Documentos recuperados: Presentación de cierres y recetas Osde-converted.txt; Norma Osde-ocr.txt
+
+Comprobá el plan y circuito y revisá los campos directamente en la receta. Este resumen no autoriza por sí solo su recepción ni dispensación.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,,,,
+5056,2026-10-19T13:13:53.666493+00:00,Libertad,COLEGIO,OMINT,24,PILOT,¿Puedo dispensar una receta de OMINT sin fecha si el validador la acepta?,No encuentro esa información en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5057,2026-10-19T13:14:39.149207+00:00,Libertad,COLEGIO,OSDEPYM,35,PILOT,¿Qué requisitos tiene una receta de OSDEPYM?,"Revisión de receta para OSDEPYM:
+Recordá/Ficha (datos registrados):
+• Tipo de receta admitido: Común y telemedicina
+• Vigencia registrada (días): 30
+• Membrete: Opcional
+• Límite de RP por receta: 2
+• Diagnóstico: Si
+• Monodroga: Si
+• Nombre comercial: opcional
+• Sustitución: Si Requiere
+
+Normativa vigente (requisitos encontrados, lista no necesariamente exhaustiva):
+Los requisitos para aceptar una receta de OSDEPYM son los siguientes:
+
+### Requisitos Generales:
+1. **Beneficiario**:
+   - Credencial oficial.
+   - Documento de identidad.
+   - Receta física o digital.
+
+2. **Datos en la receta (física o digital)**:
+   - Nombre de la Entidad (si es un recetario no oficial).
+   - Nº del beneficiario paciente.
+   - Apellido y nombre del beneficiario paciente.
+   - Fecha de prescripción.
+   - Nombre genérico, potencia y presentación de lo prescripto.
+   - Diagnóstico.
+   - Aclaración de cantidad en letras y números.
+   - Firma y sello del médico u odontólogo con aclaración y N° de matrícula.
+   - Domicilio del beneficiario y/o tercero interviniente.
+   - Documento del beneficiario y/o tercero interviniente.
+   - Ticket fiscal o comprobante interno de la farmacia con N° de ticket abrochado a la receta.
+   - Firma y sello de la farmacia.
+
+3. **Validez de la receta**:
+   - Para presentación por primera vez: 90 días desde la fecha de prescripción.
+   - Refacturación: 60 días desde el periodo de presentación por primera vez.
+
+### Enmiendas:
+- **En la prescripción**: salvada al dorso y firmada por el médico.
+- **En el expendio**: salvada al dorso y firmada por el beneficiario si corresponde.
+
+### Requisitos Específicos según tipo de receta:
+- **Recetario para Patologías Crónicas y Tratamientos Prolongados**:
+  - Las recetas tienen hasta 4 renglones.
+
+No encontré más información específica sobre otros tipos de recetas o requisitos adicionales en la normativa vigente.
+Documentos recuperados: Instructivo general de OSDEPYM_actualizado_FINAL_16122025.doc; OSDEPYM - NORMAS.docx
+
+Comprobá el plan y circuito y revisá los campos directamente en la receta. Este resumen no autoriza por sí solo su recepción ni dispensación.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,,,,
+5058,2026-10-19T13:14:57.510553+00:00,Libertad,COLEGIO,OSDEPYM,35,PILOT,¿Y si la receta de OSDEPYM no tiene fecha?,"La receta de OSDEPYM debe tener fecha de prescripción; si carece de ella, no será válida para presentar. 
+
+¿Querés que te muestre",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5059,2026-10-19T13:23:26.657078+00:00,Libertad,COLEGIO,OSDE,11,PILOT,Requisitos osde,"Los requisitos para la presentación de recetas y cierres ante OSDE son los siguientes:
+
+1. **Documentación a presentar:**
+   - Carátula.
+   - Detalle.
+   - Recetas organizadas según el detalle, con los troqueles adheridos.
+   - No usar cintas ni abrochados, asegúrese de que los datos obligatorios no estén tapados.
+   - La presentación debe acomodarse sin superar el tamaño de una hoja A4.
+
+2. **Contenido de la receta:**
+   - Nombre y Apellido.
+   - Número de Afiliado.
+   - Nombre de Droga y opción de marca comercial.
+   - Diagnóstico.
+   - Fecha.
+   - Firma.
+   - Sello. 
+
+Si necesitas más información sobre otro aspecto relacionado, como la validación de recetas, házmelo saber.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5060,2026-10-19T13:24:00.039601+00:00,Libertad,COLEGIO,OSECAC,7,PILOT,por donde valido osecac?,"¿Por dónde valida?: TYS.
+Validador: GMS.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de OSECAC.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,,,
+5061,2026-10-19T13:24:18.333042+00:00,Libertad,COLEGIO,OSECAC,7,PILOT,que planes recibe osecac?,No encuentro esa información en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5062,2026-10-19T13:25:48.480009+00:00,Libertad,COLEGIO,OSECAC,7,PILOT,tipo de recetario osecac?,"Tipo de receta: OFICIAL Y DIGITAL OFICIAL.
+
+Fuente: Recordá/Ficha de OSECAC.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,,,
+5063,2026-10-19T13:26:19.150535+00:00,Libertad,COLEGIO,OSECAC,7,PILOT,Descuentos en osecac?,"Los descuentos en OSECAC son:
+
+- Activos/Monotributistas: 40%, 70% o monto fijo según el Vademécum.
+- Pasivos: 50%, 70% o monto fijo según el Vademécum.
+- PMI: 100% a cargo de la obra social【5:1†Instructivo general de Farmacias_O",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5064,2026-10-19T13:27:02.89229+00:00,Libertad,COLEGIO,BOREAL,20,PILOT,Planes de Boreal?,"Los planes comerciales de Boreal cubren medicación ambulatoria con un 50% (Planes A2, A3, M2, Magnum) o 40% (Planes Clásico, Integral, M1, Singular).",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5065,2026-10-19T13:27:52.463364+00:00,Libertad,COLEGIO,OMINT,24,PILOT,Es necesaria la receta para planes anticonceptivos?,Se requiere receta para la cobertura de anticonceptivos y debe validarse online.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5066,2026-10-19T13:47:47.83709+00:00,Libertad,COLEGIO,AVALIAN,19,PILOT,Requisitos avalian,No encuentro esa información en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5067,2026-10-19T13:48:47.143135+00:00,Libertad,COLEGIO,AVALIAN,19,PILOT,monodroga avalian?,"Monodroga: Si.
+
+Fuente: Recordá/Ficha de AVALIAN.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,,,
+5068,2026-10-19T13:50:14.202457+00:00,Libertad,COLEGIO,AVALIAN,19,PILOT,por donde valida?,La validación se realiza a través de www.plataformacsf.com o sistemas de facturación integrados.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5069,2026-10-19T13:50:43.353682+00:00,Libertad,COLEGIO,AVALIAN,19,PILOT,Cual es el validador?,"El validador es el sistema de validación online al que se accede mediante www.plataformacsf.com, y debe usarse para todas las recetas.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5070,2026-10-19T13:50:58.788748+00:00,Libertad,COLEGIO,OMINT,24,PILOT,Por donde valida OMINT?,"Omint valida recetas online mediante IMED. Se requiere el número de afiliado y datos correctos en caso de errores. 
+
+¿Querés que te muestre los requisitos?",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5071,2026-10-19T13:51:21.343963+00:00,Libertad,COLEGIO,OMINT,24,PILOT,"Detallá todos los requisitos generales que debe contener o cumplir la receta para esta obra social. Incluí solamente requisitos respaldados por la normativa vigente. Si la normativa distingue receta física, manuscrita, digital o electrónica, indicá esas diferencias. No respondas solamente vigencia, cobertura, facturación o presentación.","Revisión de receta para OMINT:
+Recordá/Ficha (datos registrados):
+• Tipo de receta admitido: Electrónica (única a partir del 1 de Agos)
+• Vigencia registrada (días): 30
+• Membrete: Opcional
+• Límite de RP por receta: 3
+• Diagnóstico: No Requiere
+• Monodroga: si
+• Nombre comercial: Opcional
+• Sustitución: Si Requiere
+
+Normativa vigente (requisitos encontrados, lista no necesariamente exhaustiva):
+A continuación se detallan los requisitos para aceptar una receta de OMINT, diferenciando según el tipo de receta cuando corresponde:
+
+### Requisitos Generales
+1. **Recetario Convencional (Planes Abiertos y Cerrados)**:
+   - Debe ser original y no fotocopiado.
+   - En el caso de Planes Cerrados, la receta debe provenir de profesionales e instituciones habilitadas.
+   - No se aceptan recetarios con publicidades, salvo que provengan de Hospitales Públicos.
+   - Recetarios preimpresos aceptados, siempre que la firma y el sello sean originales.
+   
+2. **Receta Electrónica (OMINT Médico Online)**:
+   - Validar a través del sistema de validación online.
+   - Incluir el número de receta en el margen superior derecho.
+
+### Datos que debe contener la receta
+- Denominación de la entidad.
+- Nombre y apellido del afiliado y su número de afiliación.
+- Nombre del profesional o institución que receta.
+- Fecha de emisión.
+- Detalle de los medicamentos (nombre, concentración, forma farmacéutica).
+- Cantidades de los medicamentos en números y letras.
+- Leyenda ""Tratamiento Prolongado"" si corresponde.
+- Firma y sello aclaratorio del profesional (obligatorio, excepto para recetas electrónicas).
+
+### Validez
+- **Para la venta**: 30 días a partir de la fecha de emisión.
+- **Para la presentación**: 60 días corridos desde la fecha de venta.
+- **Para la refacturación**: 30 días a partir de la liquidación.
+
+### Cantidad máxima de medicamentos
+- **Tratamiento Normal**: Hasta 3 medicamentos distintos por receta y hasta 1 envase por renglón.
+- **Tratamiento Prolongado**: Hasta 3 medicamentos distintos y hasta 2 envases por renglón.
+- Excepción para socios de la Línea O: Sin limitaciones en número de especialidades ni envases.
+
+### Requisitos para fotocopia de receta
+- No se aceptan fotocopias de recetas, salvo en casos de autorizaciones específicas.
+
+Esta información se basa en la normativa vigente de OMINT.
+Documentos recuperados: OMINT.pdf; OMINT OSIM - NORMA CRONICIDAD.docx; Nota-OMINT- Campaña Vacunación Antigripal 2026-ocr.txt; OMINT OSIM - NORMAS AMBULATORIO.doc
+
+Comprobá el plan y circuito y revisá los campos directamente en la receta. Este resumen no autoriza por sí solo su recepción ni dispensación.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,,,,
+5104,2026-10-19T18:19:29.338735+00:00,Libertad,COLEGIO,OSPELSYM,101,PILOT,Los planes cronicos de ospelsym se validan?,"Sí, los planes crónicos de Ospelsym se validan, pero requieren receta completa y la autorización correspondiente de la obra social.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5106,2026-10-19T18:20:09.96932+00:00,Libertad,COLEGIO,OSTES,9,PILOT,"El link de la pagina, no es solo para verificar el afiliado? en donde se validan?","Para OSTES en Libertad: circuito directo.  Verificá el validador específico habilitado y la normativa correspondiente.
+
+Por dónde valida: sin dato confirmado en Recordá/Ficha.
+Validador: sin validador.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de OSTES.
+Si el circuito indicado anteriormente difiere de la ficha, consultá con Administración antes de validar.",STRUCTURED_OPERATION,SUPABASE_OPERATION_RULE,SI,,,,,
+5112,2026-10-19T18:21:01.996491+00:00,Libertad,COLEGIO,OSPELSYM,101,PILOT,La consulta es por Ospelsym,"Ospelsym autoriza la venta de medicamentos al 40% y 70% con receta completa; para el 100% se requiere autorización escrita, salvo en recetas PMI.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,Contame qué necesitás consultar sobre OSPELSYM y te ayudo a resolver tu duda.,,
+5120,2026-10-19T18:22:31.957046+00:00,Libertad,COLEGIO,OSTES,9,PILOT,"Es decir que tiene que venir autorizado, solo forzamos la cobertura no se valida?",No encuentro esa información en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5129,2026-10-19T18:28:47.063577+00:00,Libertad,COLEGIO,PROVINCIA ART,3,PILOT,"Con respecto a Provincia art, si tengo una receta con 2 medicamentos y no supera los $80.000, pero cada medicamento supera los $20.000 debo pedir autorizacion?","Esta obra social tiene normativas de Cámara y Colegio. Necesito confirmar el circuito antes de responder, para no mezclar requisitos.",NORMATIVE_SCOPE_UNVERIFIED,GDP_NORMATIVE_SCOPE,NO,,INCORRECT,"si se debe solicitar autorización, ya que si cada medicamento supera los $20.000 necesita autorizacion de la obra social.",,"si se debe solicitar autorización, ya que si cada medicamento supera los $20.000 necesita autorizacion de la obra social."
+5130,2026-10-19T18:29:34.857177+00:00,Libertad,COLEGIO,PROVINCIA ART,3,PILOT,Es para facturar en un sucursal de Colegio.,"Esta obra social tiene normativas de Cámara y Colegio. Necesito confirmar el circuito antes de responder, para no mezclar requisitos.",NORMATIVE_SCOPE_UNVERIFIED,GDP_NORMATIVE_SCOPE,NO,,,,,
+5131,2026-10-19T18:29:55.475291+00:00,Libertad,COLEGIO,PROVINCIA ART,3,PILOT,colegio,"Esta obra social tiene normativas de Cámara y Colegio. Necesito confirmar el circuito antes de responder, para no mezclar requisitos.",NORMATIVE_SCOPE_UNVERIFIED,GDP_NORMATIVE_SCOPE,NO,,,,,
+5147,2026-10-19T19:54:59.260668+00:00,Libertad,COLEGIO,OSPELSYM,101,PILOT,Obra Social Ospelsym.,No encuentro esa información en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,Contame qué necesitás consultar sobre OSPELSYM y te ayudo a resolver tu duda.,,
+5149,2026-10-19T19:55:39.686165+00:00,Libertad,COLEGIO,OSPELSYM,101,PILOT,Ospelsym,"La normativa Ospelsym autoriza la venta de medicamentos al 40% y 70%, mientras que las recetas al 100% requieren autorización escrita de la obra social, excepto para el Plan Materno Infantil.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,Contame qué necesitás consultar sobre OSPELSYM y te ayudo a resolver tu duda.,,
+5150,2026-10-19T19:56:35.699247+00:00,Libertad,COLEGIO,OSPELSYM,101,PILOT,Los planes al 70% tienen que venir aurotizados?,"No, los planes al 70% no necesitan autorización según la normativa vigente, solo las recetas al 100% requieren autorización.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,"si deben venir con autorización emitida por la obra social, que les será enviada al mail del paciente.",,
+5154,2026-10-19T20:03:32.465707+00:00,Libertad,COLEGIO,OSPELSYM,101,PILOT,Segun la normativa veo que : Los crónicos llevan autorización de la obra social con un código para que sea valido (70 y 100). Podes verificarlo.,"Los crónicos requieren autorización de la obra social con un código para ser válidos, ya sea al 70% o al 100%. 
+
+¿Querés que te muestre los requisitos?",SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,"si los crónicos (70 y 700) deben traer autorización de la obra social, la cual debemos validar en la plataforma : https://autorizameevo.confluenciait.com/login  
+y anotar o imprimir la autorización.",,
+5155,2026-10-19T20:04:20.684995+00:00,Libertad,COLEGIO,OSPELSYM,101,PILOT,"Detallá todos los requisitos generales que debe contener o cumplir la receta para esta obra social. Incluí solamente requisitos respaldados por la normativa vigente. Si la normativa distingue receta física, manuscrita, digital o electrónica, indicá esas diferencias. No respondas solamente vigencia, cobertura, facturación o presentación.","Revisión de receta para OSPELSYM:
+Recordá/Ficha (datos registrados):
+• Tipo de receta admitido: oficial-común y digital
+• Vigencia registrada (días): 30
+• Membrete: Opcional
+• Límite de RP por receta: 2
+• Diagnóstico: SI
+• Monodroga: SI
+• Nombre comercial: opcional
+• Sustitución: si
+
+Normativa vigente (requisitos encontrados, lista no necesariamente exhaustiva):
+Los requisitos para aceptar una receta de OSPELSYM son los siguientes:
+
+1. **Tipo de Receta**:
+   - **Receta Ambulatoria** o **Receta Plan Materno Infantil**.
+
+2. **Datos que debe contener la receta**:
+   - Nombre completo del afiliado.
+   - Número de afiliado.
+   - Obra social.
+   - Monodroga.
+   - Diagnóstico.
+   - Fecha.
+   - Firma del profesional.
+
+3. **Documentación adicional**:
+   - Carnet de la Obra Social.
+
+4. **Limitaciones**:
+   - Se acepta la venta de un solo envase grande de los medicamentos indicados.
+   - Las recetas con cobertura del 100% deben estar autorizadas por escrito por la Obra Social, excepto para el Plan Materno Infantil, que puede expenderse al 100%.
+Documentos recuperados: NORMA OSPELSYM.pdf
+
+Comprobá el plan y circuito y revisá los campos directamente en la receta. Este resumen no autoriza por sí solo su recepción ni dispensación.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,INCORRECT,"Respuesta registrada
+
+Revisión de receta para OSPELSYM:
+Recordá/Ficha (datos registrados):
+• Tipo de receta admitido: oficial-común y digital
+• Vigencia registrada (días): 30
+• Membrete: Opcional
+• Límite de RP por receta: 2
+• Diagnóstico: SI
+• Monodroga: SI
+• Nombre comercial: opcional
+• Sustitución: si
+
+Normativa vigente (requisitos encontrados, lista no necesariamente exhaustiva):
+Los requisitos para aceptar una receta de OSPELSYM son los siguientes:
+
+1. **Tipo de Receta**:
+   - comun, digital y oficial 
+
+2. **Datos que debe contener la receta**:
+   - Nombre completo del afiliado.
+   - Número de afiliado.
+   - Obra social.
+   - Monodroga.
+   - Diagnóstico.
+   - Fecha.
+   - Firma y sello del profesional.
+
+3. **Documentación adicional**:
+   - Carnet de la Obra Social. en caso que tenga algun error el numero en la receta. 
+
+4. **Limitaciones**:
+   - Se acepta la venta de un solo envase grande de los medicamentos indicados.
+   - Las recetas con cobertura del 100% deben estar autorizadas por escrito por la Obra Social, excepto para el Plan Materno Infantil, que puede expenderse al 100%.
+Documentos recuperados: NORMA OSPELSYM.pdf
+
+Comprobá el plan y circuito y revisá los campos directamente en la receta. Este resumen no autoriza por sí solo su recepción ni dispensación.",,
+5157,2026-10-19T20:08:46.126997+00:00,Libertad,COLEGIO,PROVINCIA ART,3,PILOT,"Tengo dos medicamentos que superan $20.000 cada uno, pero el total no supera $80.000. ¿Necesito autorización de Provincia ART?","Sí, requiere autorización porque un medicamento/renglón supera el límite individual de $20.000, aunque no se alcance el otro tope.
+Referencia: Provincia ART: Anexo Farmacias 30/01/2025, pág. 2 (5.2–5.3); Normas octubre 2024, pág. 2.
+Verificá la vigencia de los importes y la autorización de la entidad antes de dispensar.",COMMON_AUTHORIZATION_LIMITS,DOCUMENTED_COMMON_NORMATIVE,SI,,,,,
+5172,2026-10-20T00:19:29.056065+00:00,Libertad,COLEGIO,OSDE,11,PILOT,Osde,No encuentro esa información en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5173,2026-10-20T00:20:15.281925+00:00,Libertad,COLEGIO,OSDE,11,PILOT,"En osde :Las leches  deplan materno, se realizan por extranet?",No encuentro esa información en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,"el plan PMI debe validarse por TYS, el paciente debe estar empadronado para obtener la cobertura de PMI",,
+5174,2026-10-20T00:21:24.236665+00:00,Libertad,COLEGIO,OSDE,11,PILOT,"En osde :Las leches  de plan materno, se realizan por extranet?",No encuentro esa información en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,"El plan materno se valida directo por TYS. el paciente debe empadronarse en la obra social,",,
+5175,2026-10-20T00:22:04.89362+00:00,Libertad,COLEGIO,OSDE,11,PILOT,plan materno es por extranet?,No encuentro esa información en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,"plan materno PMI debe validarse por TYS, el paciente debe estar empadronado.",,
+5180,2026-10-20T12:36:32.501245+00:00,Libertad,COLEGIO,OSPELSYM,101,PILOT,"GDPsotf, necesitó ayuda con la obra social Ospelsym",No encuentro esa información en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,"¡Sí, claro! 😊 Contame qué necesitás consultar sobre OSPELSYM y te ayudo a resolver tu duda.",,
+5181,2026-10-20T12:38:46.944512+00:00,Libertad,COLEGIO,OSPELSYM,101,PILOT,Los planes al 70% de Ospelsym. Deben venir autorizados?,Los planes al 70% de Ospelsym no requieren autorización. Solo las recetas al 100% necesitan estar autorizadas por escrito.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,"Sí. Para los planes 70%, 100% y PMI, el afiliado debe presentar:
+- Receta original.
+- Autorización en PDF, emitida por la farmacia de OSPELSYM.
+Luego, debemos realizar la autorización en la página:
+https://autorizameevo.confluenciait.com/login
+
+Usuario: [CREDENCIAL]
+Contraseña: [CREDENCIAL]
+
+Para la presentación, adjuntar autorización + receta original + comprobante de validación o número de validación otorgado por la página.
+
+Se puede reemplazar la marca autorizada.
+
+Observación operativa: si el paciente no cuenta con la autorización, podemos dispensar el medicamento con la cobertura que le corresponda según su plan, consultándola previamente en la página.
+
+Ante cualquier duda, comunicarse al 4050449.",,
+5296,2026-10-20T18:48:05.747935+00:00,Libertad,COLEGIO,HIGEA SALUD,119,PILOT,EN HIGEA PARA MEDICAMENTOS CRONICOS SE NECESITA RECETA,"Se necesita receta para medicamentos crónicos en HIGEA, que debe incluir firma, sello, diagnóstico y es válida por 15 días.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5297,2026-10-20T18:55:39.162691+00:00,Libertad,COLEGIO,PASTELEROS,62,PILOT,EN PASTELEROS CUANDO LA RECETA ES DIGITAL Y VIENE AUTORIZADA LA CARGO POR MIS VALIDACIONES,"Sí, la receta digital autorizada debe ser cargada a través del sistema de validaciones www.misvalidaciones.com.ar.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5298,2026-10-20T19:01:26.961366+00:00,Libertad,COLEGIO,PASTELEROS,62,PILOT,MEDICAMENTO DE VENTA LIBBRE AUTORIZADO AL 100 EN PATELEROS SE PUEDE ENTRAGAR,"Corroborar en el validador externo la cobertura y el porcentaje autorizados para el plan, afiliado y producto. SOLO cuando la obra social no está integrada a TYS y corresponde validar por página externa, y la normativa lo permite, se registra en TYS exactamente el porcentaje validado. Si falta esa validación o existe diferencia sin resolver, consultar al responsable y no inventar una cobertura.
+
+Fuente: Procedimiento interno aprobado de GDP Salud. Prevalece la normativa específica vigente de la obra social, plan y circuito. Ante contradicción, solicitar revisión al área de Obras Sociales.",INTERNAL_PROCEDURE_FALLBACK,GDP_INTERNAL_PROCEDURE,SI,,,,,
+5299,2026-10-20T19:06:05.820189+00:00,Libertad,COLEGIO,OSDEPYM,35,PILOT,OSDEPYM SE AUTORIZA POR GMS,"Verificar el nombre y posibles denominaciones alternativas en GDPSoft. Si no figura ningún convenio confirmado, no asumir que se acepta: explicar la situación al paciente y ofrecer alternativas comerciales disponibles. Administración debe verificar posibles convenios. Si la sucursal no recibe directamente la obra social, usar Cámara–Colegio solo cuando GDPSoft indique expresamente ese circuito.
+
+Fuente: Procedimiento interno aprobado de GDP Salud. Prevalece la normativa específica vigente de la obra social, plan y circuito. Ante contradicción, solicitar revisión al área de Obras Sociales.",INTERNAL_PROCEDURE_FALLBACK,GDP_INTERNAL_PROCEDURE,SI,,INCORRECT,"OSDEPYM si se autoriza por GMS, verificar si esta integrado el validador a TYS.",,
+5301,2026-10-20T19:51:15.159091+00:00,Libertad,COLEGIO,RECETARIO SOLIDARIO,63,PILOT,recetario solidario se puede cambiar marca,"Sustitución: Si Requiere.
+
+Fuente: Recordá/Ficha de RECETARIO SOLIDARIO.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,,,
+5320,2026-10-21T13:09:15.374206+00:00,Libertad,COLEGIO,NOBIS,123,PILOT,en nobis anticonceptivos se debe validar,"Se debe validar obligatoriamente el recetario para anticonceptivos en el sistema de validación online; de lo contrario, será rechazado.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5324,2026-10-21T14:27:42.930846+00:00,Libertad,COLEGIO,NOBIS,123,PILOT,si valido pastelero con sello y me lo rechaza igual lo facturo,No se puede facturar si la receta presentada con sello no fue validada. Esto motivará el rechazo del mismo.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,"✔️Recetas con sello autorizado: Probar primero si  valida, sino valida solo facturar.",,
+5342,2026-10-21T16:28:17.358616+00:00,Libertad,COLEGIO,NOBIS,123,PILOT,art si o si receta fisica o puede ser digital,"Se acepta tanto receta física (manuscrita) como receta digital con requisitos de identificación y validación; ambas deben ser impresas para la presentación.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,me podrías indicar a que ART haces referencia en la consulta?,,
+5364,2026-10-21T18:58:46.422134+00:00,Libertad,COLEGIO,RECETARIO SOLIDARIO,63,PILOT,por donde valido recetario solidario?,"Por dónde valida: TYS.
+Validador: MIS VALIDACIONES.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de RECETARIO SOLIDARIO.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,INCORRECT,"se valida por COFA: 
+https://principal.cofa.org.ar/",,
+5365,2026-10-21T19:01:58.259787+00:00,Libertad,COLEGIO,OSSEG,5,PILOT,osseg por donde se valida?,"La validación de las recetas de OSSEG se realiza online, exceptuando aquellas con autorización física. El sistema está disponible 24/7.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,"se factura mediante el circuito cámara colegio con la sucursal san francisco 
+se valida por imed.",,
+5366,2026-10-21T19:35:11.741373+00:00,Libertad,COLEGIO,RECETARIO SOLIDARIO,63,PILOT,obetide con recetario solidario tiene otro descuento,"El descuento para Obetide bajo el recetario solidario es del 20% sobre el precio de venta público, siempre que coincidan la D.C.I. y marca de lo dispensado.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5368,2026-10-21T19:36:02.152829+00:00,Libertad,COLEGIO,RECETARIO SOLIDARIO,63,PILOT,recetario solidario por donde se valida,"Validador: COFA.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de RECETARIO SOLIDARIO.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,,,
+5370,2026-10-21T19:36:29.670502+00:00,Libertad,COLEGIO,OSSEG,5,PILOT,osseg por donde se valida?,"se factura mediante el circuito cámara colegio con la sucursal san francisco 
+se valida por imed.",ADMIN_CORRECTION,ADMIN_CORRECTION,SI,,,,,
+5372,2026-10-21T19:37:08.012304+00:00,Libertad,COLEGIO,OSSEG,5,PILOT,que requisitos debe tener una receta de berckley,No pude identificar BERCKLEY entre las obras sociales activas de GDPSoft. ¿Quizás quisiste consultar por BERKLEY ART? Confirmame el nombre para poder ayudarte con la información correspondiente.,UNKNOWN_EXPLICIT_SOCIAL_WORK,SOCIAL_WORK_IDENTITY,NO,,,,,
+5374,2026-10-21T19:37:21.902469+00:00,Libertad,COLEGIO,BERKLEY ART,130,PILOT,que requisitos debe tener una receta de BERKLEY ART,"Requisitos de receta · BERKLEY ART
+- Tipo: común - digital (MIS RX-RCTA)
+- Vigencia: 10 días
+- Membrete: Opcional
+- RP por receta: 3
+- Diagnóstico: OPCIONAL
+- Monodroga: Si
+- Nombre comercial: opcional
+- Sustitución: si requiere
+Receta
+- Nombre y apellido del paciente.
+- Número de documento o CUIL.
+- Firma y sello con número de matrícula del profesional y especialidad.
+- Medicamentos recetados y cantidad de cada uno en números y letra. Si no se expresa cantidad, se expenderá solamente uno.
+- Fecha de prescripción.
+- Nota: Toda corrección o enmienda debe ser salvada por el médico con sello y firma.
+
+Cantidades
+- Máximo de 3 renglones por receta.
+- Hasta 6 envases en total.
+- Hasta 2 envases por renglón (para medicamentos generales).
+Facturación
+- Deben figurar los datos del médico escritos a mano con la misma tinta.
+- Adjuntar troqueles en el orden de prescripción
+- Número de orden de la receta.
+- Fecha de venta.
+- Precios unitarios y totales.
+- Sello y firma de la farmacia.
+- Firma del afiliado o tercero, con datos de contacto. La ausencia de estos datos es motivo de débito.
+Importante: Número de siniestro (su ausencia es motivo de débito).
+Importante: No se acepta solicitud de denuncia de siniestro.
+Fuente: NORMAS DE ATENCION BERKLEY ART SEPTIEMBRE 2024
+Aviso: este resumen no autoriza por sí solo la recepción ni la dispensación. Revisá los campos en la receta.",ADMIN_CORRECTION,ADMIN_CORRECTION,SI,,,,,
+5375,2026-10-21T19:37:54.026879+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Tengo que autorizar la receta de OYTE?,"No, no necesitas autorizar la receta de OYTE; solo se carga en la plataforma de Farmalive.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5376,2026-10-21T19:38:23.44273+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Qué pasa si la receta se vence mientras esperamos que llegue la medicación?,"La receta tiene una vigencia de 29 días.
+
+Fuente: Recordá/Ficha de OSEP.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,INCORRECT,"Si la receta ya se recibió y la medicación está en proceso de llegada, se puede dispensar aunque se venza durante esa espera.",,
+5377,2026-10-21T19:39:17.093652+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Qué hago si la medicación demora en llegar?,Comunicarte con la droguería asignada si la medicación se demora en llegar a la farmacia.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5379,2026-10-21T19:39:26.198526+00:00,Libertad,COLEGIO,BERKLEY ART,130,PILOT,requisitos berkley,"Requisitos de receta · BERKLEY ART
+Circuito: Colegio
+Ficha:
+- Tipo: comun
+- Vigencia: 10 días
+- Membrete: Opcional
+- RP por receta: 3
+- Diagnóstico: OPCIONAL
+- Monodroga: NO
+- Nombre comercial: SI
+- Sustitución: si requiere
+## Receta
+- ### Documentación del Beneficiario
+- Documento de identidad y receta.
+- ### Tipos de Receta
+- Receta convencional
+- Receta digital
+- Recetas escaneadas o fotografiadas (digitalizadas)
+- Nombre de la ART.
+- Nombre y apellido del paciente.
+- Número de documento o CUIL.
+- Medicamentos recetados y cantidad en números y letra (si no se expresa cantidad, se expenderá solamente uno).
+- Firma y sello con número de matrícula del profesional y especialidad.
+- Fecha de prescripción.
+- Correcciones o enmiendas deben ser salvadas por el médico con sello y firma.
+- ### Validez de la Receta
+- 30 días desde la fecha de prescripción.
+- ### Límites de Cantidades
+- ### Medicamentos Faltantes
+- La farmacia debe obtener los productos faltantes dentro de las 24 horas de ser requeridos.
+- ### Exclusiones
+- Los descuentos se aplican a especialidades medicinales de venta bajo receta, excluyendo productos farmacéuticos de venta libre y varios otros grupos.
+- ### Autorización
+- Antes de rechazar una receta por no cumplir los requisitos, se debe solicitar autorización al 0800-555-3031.
+## Cantidades
+- Cantidad de renglones: 3 (tres).
+- Por receta: Hasta 12 (doce) envases.
+- Por renglón: Hasta 4 (cuatro) envases.
+- Antibióticos inyectables monodosis: Hasta 5 (cinco) envases.
+- Antibióticos inyectables multidosis: Hasta 2 (dos) envases.
+## Facturación
+- ### Datos a Completar por la Farmacia
+- Adjuntar los troqueles en el orden de prescripción, incluyendo el código de barras, adheridos con cinta adhesiva.
+- Número de orden de la receta.
+- Fecha de venta.
+- Precios unitarios y totales (con valor sugerido en el Manual Farmacéutico).
+- Sello y firma de la farmacia.
+- Firma del afiliado o tercero, aclarando nombre completo, domicilio, teléfono y documento (su ausencia provoca débito).
+- Adjuntar copia del ticket de venta; notificando por escrito si no se puede hacer.
+Importante: Número de Siniestro (su ausencia provoca débito).
+Fuente: BERKLEY ART NORMAS DE ATENCION Farmacia Noviembre 2024
+Aviso: este resumen no autoriza por sí solo la recepción ni la dispensación. Revisá los campos en la receta.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,,,,
+5380,2026-10-21T19:39:43.822723+00:00,Libertad,COLEGIO,OSEP,59,PILOT,Qué hago si llega una medicación distinta de la prescripta,Iniciar el proceso de devolución.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5381,2026-10-21T19:40:09.855842+00:00,Libertad,COLEGIO,OSEP,59,PILOT,requisitos oyte,"Requisitos de receta · OSEP
+Circuito: Colegio
+Ficha:
+- Tipo: OFICIAL - DIGITAL
+- Vigencia: 29 días
+- Membrete: No Requiere
+- RP por receta: 2
+- Diagnóstico: Requiere
+- Monodroga: Requiere
+- Nombre comercial: Requiere
+- Sustitución: Requiere
+## Receta
+- Nombre y apellido del afiliado.
+- Número de receta.
+- La receta debe indicar explícitamente que corresponde a un ""PLAN ESPECIAL"" impreso digitalmente.
+- Solo se aceptan recetas de medicamentos que figuren en el listado de medicamentos autorizados.
+- Es necesaria la firma y aclaración del médico prescriptor y el sello correspondiente.
+- La receta debe ser cargada por la farmacia en el sistema Farmalive de manera inmediata tras su presentación por parte del afiliado.
+- Validación con el Token de OSEP que afecta automáticamente en el sistema.
+- La receta debe marcarse como ""Trazada y Finalizada"" una vez completados todos los pasos.
+## Facturación
+- GTIN y Código AlfaBeta.
+- Número de troquel, serie y lote.
+- En caso de existir un copago, se debe facturar el valor correspondiente aplicado al PVP, que será el monto cobrado al afiliado.
+- La receta debe enviarse junto con el ticket correspondiente y el remito de la droguería.
+- Crear un archivo digital que contenga la receta, Ticket No Fiscal (T.N.F.) y Ticket Fiscal (si aplica).
+Fuente: OSEP_OYTE_Preguntas_Frecuentes; osep oyte dispensa.pdf__OCR; VADEMECUM O y TE - FEBRERO 2025-converted
+Aviso: este resumen no autoriza por sí solo la recepción ni la dispensación. Revisá los campos en la receta.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,,,,
+5383,2026-10-21T19:40:19.506291+00:00,Libertad,COLEGIO,OSEP,59,PILOT,"Qué hago si llegó la medicación, pero la receta no aparece para registrar la recepción?",Debes esperar al menos 24 horas para que impacte el remito en el sistema antes de realizar cualquier acción .,SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5384,2026-10-21T19:40:50.430233+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Debo facturar la dispensa de OYTE en TYS,"Por dónde valida: TYS.
+Validador: VALIDADOR PROPIO.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de OSEP.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,INCORRECT,"Sí. Seleccioná obra social OSEP → plan ESPECIALES → producto OSEP OYTE MAYOR o MENOR, según corresponda por el PVP.",,
+5385,2026-10-21T19:41:04.247727+00:00,Libertad,COLEGIO,PROVINCIA ART,3,PILOT,requisitos de receta de Provincia ART,"Requisitos de receta · PROVINCIA ART
+Circuito: Colegio
+Ficha:
+- Tipo: comun
+- Vigencia: 30 días
+- Membrete: No requiere
+- RP por receta: 4
+- Diagnóstico: No requiere
+- Monodroga: si
+- Nombre comercial: opcional
+- Sustitución: si requiere
+## Receta
+- ### Requisitos Generales
+- Nombre y Apellido.
+- Número de DNI y/o Número de Siniestro.
+- Fecha de emisión de la receta.
+- Nombre y Apellido del Médico.
+- Tipo y Número de Matrícula.
+- Firma y sello aclaratorio del profesional (legible).
+- Nombre genérico de los medicamentos.
+- Cantidades en números y letras.
+- Si se incluye nombre o marca comercial, el farmacéutico debe expender según la monodroga.
+- ### Límites de Prescripción
+- Medicamentos por Receta: Se permite prescribir hasta 4 medicamentos diferentes.
+- Inyectables: Hasta 5 dosis en ampollas individuales o multidosis.
+- No debe tener enmiendas ni agregados no convalidados por la firma del profesional.
+- No se puede alterar la matrícula ni el nombre del médico.
+- Sello de la farmacia y firma del farmacéutico director técnico.
+- Fecha de dispensación y detalle de los medicamentos.
+- Importes unitarios y totales, y porcentaje a cargo de la entidad.
+- Cantidades entregadas de cada medicamento.
+- Número de autorización emitido por el sistema de validación online.
+- Datos de identificación de la persona que retira la receta (si no es el afiliado).
+- ### Observaciones
+## Cantidades
+- Medicamentos por Renglón: Se permite prescribir 1 medicamento por renglón.
+## Facturación
+- ### Presentación de la Receta
+- ### Datos a Completar por la Farmacia
+- AdjuntarTroquel con código de barras o solapa identificatoria de los productos.
+- Se debe adjuntar comprobante de autorización o copia del Ticket Fiscal.
+- Los medicamentos deben ser entregados en la presentación de menor contenido, salvo indicaciones contrarias.
+- En el caso de medicamentos bajo control, se retiene la receta original y se envía una copia firmada con la facturación.
+Fuente: PROVINCIA NORMAS OCT 24-ocr
+Aviso: este resumen no autoriza por sí solo la recepción ni la dispensación. Revisá los campos en la receta.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,,,,
+5387,2026-10-21T19:41:53.736547+00:00,Libertad,COLEGIO,PAP DESCUENTO,102,PILOT,la receta de pap descuento se debe completar los datos,"La receta de PAP Descuento debe contener los siguientes datos:
+
+1. Número de documento del paciente.
+2. Código de verificación de cuatro dígitos.
+3. Indicación de la prescripción por marca comercial.
+
+El código de PAP Descuento se anotará en la receta (física o digital).",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,,,
+5388,2026-10-21T19:42:11.753344+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Qué importe debo facturar cuando hay copago?,"Se debe facturar el importe que se cobra al afiliado, resultante del porcentaje aplicado al PVP .",SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5390,2026-10-21T19:42:55.334868+00:00,Libertad,COLEGIO,JERARQUICOS,32,PILOT,requisitos de receta de Jerarquicos,"Requisitos de receta · JERARQUICOS
+Circuito: Colegio
+Ficha:
+- Tipo: OFICIAL-COMÚN - DIGITAL/ELECTRÓNICA Mis RX
+- Vigencia: 30 días
+- Membrete: Opcional
+- RP por receta: 3
+- Diagnóstico: si
+- Monodroga: Si
+- Nombre comercial: opcional
+- Sustitución: si
+## Receta
+- Se acepta cualquier formato, siempre que incluya la sigla “Rp/” en su encabezado.
+- Aceptación de recetas digitales emitidas por sistemas autorizados (MIS RX, RCTA, RECETARIO, PRAXYS, COLEGIO MÉDICO DE LA PROVINCIA DE CORDOBA). Otras recetas digitales deben estar impresas y firmadas y selladas en original por el médico.
+- Nombre y Apellido del Socio.
+- N° de Socio.
+- Medicamento prescrito por nombre genérico, seguido de forma farmacéutica y dosis/unidad.
+- Diagnóstico presuntivo.
+- Localidad y fecha de emisión.
+- Firma y sello del médico prescriptor.
+- La receta debe ser legible y clara. Enmiendas, tachaduras o raspaduras deben ser salvadas por el profesional, indicando el dato correcto en el dorso y validado con firma y sello.
+- Las recetas son válidas hasta 30 días corridos desde la fecha de prescripción.
+- Las recetas sin fecha, sello o firma del médico prescriptor serán debitadas.
+- Recetas no salvadas e ilegibles no serán reconocidas.
+- Las farmacias son responsables de verificar el cumplimiento de estos requisitos antes de dispensar medicamentos.
+## Cantidades
+- Hasta 3 envases de antibióticos inyectables (monodosis).
+- Hasta 2 envases de antibióticos inyectables (multidosis), sin superar 3 envases por receta.
+- Hasta 6 envases para una sola especialidad.
+- Hasta 1 envase por receta en otros casos.
+## Facturación
+- Dependerá de cada caso, pero debe incluir documentación de respaldo como troqueles y otros requisitos específicos señalados por la obra social.
+Importante: No se aceptan copias de recetas.
+Fuente: NORMAS DE ATENCION JERARQUICOS SALUD 04-2026
+Aviso: este resumen no autoriza por sí solo la recepción ni la dispensación. Revisá los campos en la receta.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,,,,
+5391,2026-10-21T19:42:58.328935+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Qué hago si la receta es por Fortisip?,"Realizar la dispensa por Nutricionales (PEOL). 
+
+¿Querés que te muestre los requisitos?",SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5392,2026-10-21T19:43:40.845938+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Cómo preparo la documentación para presentar?,"Para presentar la documentación, debes incluir: receta, Ticket No Fiscal (T.N.F.) y, si aplica, Ticket Fiscal. Todo debe ser digitalizado y enviado al Prestador para pre-auditoría. 
+
+¿Querés que te detalle los pasos específicos?",SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5393,2026-10-21T19:44:22.636857+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Cómo me comunico con Farmalive?,"Para comunicarte con Farmalive, puedes hacerlo de las siguientes maneras:
+
+1. Llamar al **(011) 5272-7453** de **9 a 17 h** para soporte y asesoramiento.
+2. Dentro de la plataforma Farmalive, puedes solicitar soporte en la solapa **Ayuda → Solicitud de soporte**.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5395,2026-10-21T19:44:39.990087+00:00,Libertad,COLEGIO,OSECAC,7,PILOT,por donde valida osecac?,"Por dónde valida: TYS.
+Validador: GMS/SUC: San Francisco DP1.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de OSECAC.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,,,
+5396,2026-10-21T19:45:07.03968+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Cómo valido la entrega al afiliado?,"Para OSEP en Libertad: circuito validación habitual (Zetti u otro validador habilitado). No figura una obligación particular de Cámara–Colegio para esta combinación en el procedimiento; verificar convenio vigente y validador correspondiente (Zetti u otro). Verificá el validador específico habilitado y la normativa correspondiente.
+
+Por dónde valida: TYS.
+Validador: VALIDADOR PROPIO.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de OSEP.
+Si el circuito indicado anteriormente difiere de la ficha, consultá con Administración antes de validar.",STRUCTURED_OPERATION,GDP_OPERATION_PROCEDURE,SI,,INCORRECT,Mediante el token de OSEP en Farmalive. La validación debe quedar registrada en el sistema.,,
+5397,2026-10-21T19:46:18.288845+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Quién debe firmar el Ticket No Fiscal?,"El Ticket No Fiscal debe ser firmado por el afiliado o la persona autorizada para retirar el medicamento, indicando aclaración y documento de identidad en el dorso.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,"La persona que retira la medicación: el afiliado o un tercero autorizado. Debe colocar firma, aclaración y DNI en el dorso del Ticket No Fiscal.",,
+5398,2026-10-21T19:47:29.887656+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Qué hago con los troqueles?,"Para tratar los troqueles, debes seguir estos pasos:
+
+1. **Retirar los troqueles** de los Medicamentos OYTE que los tengan.
+2. **Pegar los troqueles** en el Ticket No Fiscal (T.N.F.) en el mismo orden en que fueron descriptos en la receta.
+3. Si un producto no tiene troquel conforme a las regulaciones de ANMAT, debes colocar la sigla **S/T** (Sin Troquel).
+4. **Fotos o troqueles digitales impresos no son válidos**.
+
+¿Querés que te muestre también los requisitos para la presentación de las recetas?",SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5399,2026-10-21T19:48:54.566933+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Qué documentación debo digitalizar?,"La normativa indica que debes digitalizar la siguiente documentación:
+
+1. **Ticket No Fiscal** (T.N.F.) firmado.
+2. **Troqueles** originales adheridos al T.N.F. en el mismo orden que la receta.
+3. **Remito** de la droguería.
+4. Cualquier otro documento relevante que forme parte del proceso de dispensación.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,"Creá un único archivo por dispensa que incluya la receta —frente y dorso cuando corresponda—, el Ticket No Fiscal conformado y el Ticket Fiscal si hubo copago.",,
+5401,2026-10-21T19:49:47.93981+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Qué hago si el afiliado no retira la medicación?,"Si el afiliado no retira la medicación, la farmacia debe registrar el evento como “Devolución” en Farmalive a los 30 días desde la recepción, asumiendo consecuencias por no hacerlo.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5425,2026-10-21T20:36:25.793131+00:00,Libertad,COLEGIO,OSEP,59,PILOT,en una receta de osep plan especial puede venir una insulina y metformina en la misma receta,"Esta obra social tiene normativa cargada solo para su plan especial (OYTE); no tengo normativa del plan general. Si tu consulta es por OSEP OYTE, escribí «OYTE» en la pregunta.",NORMATIVE_SCOPE_UNVERIFIED,GDP_NORMATIVE_SCOPE,NO,,,,,
+5429,2026-10-21T20:47:52.186325+00:00,Libertad,COLEGIO,UNIMED,50,PILOT,en unimed solo para anticonceptivos se requiere pre autoritacion,"Corroborar en el validador externo la cobertura y el porcentaje autorizados para el plan, afiliado y producto. SOLO cuando la obra social no está integrada a TYS y corresponde validar por página externa, y la normativa lo permite, se registra en TYS exactamente el porcentaje validado. Si falta esa validación o existe diferencia sin resolver, consultar al responsable y no inventar una cobertura.
+
+Fuente: Procedimiento interno aprobado de GDP Salud. Prevalece la normativa específica vigente de la obra social, plan y circuito. Ante contradicción, solicitar revisión al área de Obras Sociales.",INTERNAL_PROCEDURE_FALLBACK,GDP_INTERNAL_PROCEDURE,SI,,,,,
+5438,2026-10-21T23:16:29.18095+00:00,Libertad,COLEGIO,JERARQUICOS,32,PILOT,requisitos jerarquicos,"Requisitos de receta · JERARQUICOS
+Circuito: Colegio
+Ficha:
+- Tipo: OFICIAL-COMÚN - DIGITAL/ELECTRÓNICA Mis RX
+- Vigencia: 30 días
+- Membrete: Opcional
+- RP por receta: 3
+- Diagnóstico: si
+- Monodroga: Si
+- Nombre comercial: opcional
+- Sustitución: si
+## Receta
+- Debe estar en cualquier formato, con la sigla “Rp/” en el encabezado.
+- Aceptación de recetas digitales emitidas por sistemas autorizados, que deben ser impresas y firmadas por el médico en original.
+- Nombre y Apellido del Socio.
+- N° de Socio.
+- Nombre genérico del medicamento, forma farmacéutica y dosis/unidad.
+- Diagnóstico presuntivo.
+- Localidad y fecha de emisión.
+- Firma y Sello del profesional.
+- Cualquier receta con tachaduras o con datos no claramente legibles será invalidada.
+- Recetas sin diagnóstico o sin los datos requeridos serán debitadas.
+- Estos requisitos deben ser cumplidos para la aceptación y el expendio de medicamentos bajo el sistema de JERÁRQUICOS.
+## Cantidades
+- Se permiten hasta 3 renglones por receta.
+- Hasta 3 envases por renglón para medicamentos.
+- Dos envases, sin superar 3 por receta, para antibióticos multidosis.
+- Hasta 6 envases para una sola especialidad por receta.
+## Facturación
+- Troqueles adjuntos con pegamento (no cinta adhesiva ni abrochadora).
+- Ticket adherido en el dorso del recetario de forma vertical.
+Fuente: NORMAS DE ATENCION JERARQUICOS SALUD 04-2026
+Aviso: Este resumen no autoriza por sí solo la recepción ni la dispensación. Revisá los campos en la receta.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,CORRECT,,,
+5439,2026-10-21T23:16:48.485083+00:00,Libertad,COLEGIO,OSECAC,7,PILOT,por donde valida osecac,"Por dónde valida: TYS.
+Validador: GMS/SUC: San Francisco DP1.
+En Libertad, OSECAC se tramita por el circuito Cámara–Colegio. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de OSECAC.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,INCORRECT,"Por dónde valida: TYS.
+Validador: GMS
+
+Fuente: Recordá/Ficha de OSECAC.",,
+5440,2026-10-21T23:17:16.96546+00:00,Libertad,COLEGIO,OSEP,59,PILOT,cuándo puede osep usar stock propio,"Según la guía interna, si Cooperativa no tiene stock, el uso de stock propio en OSEP requiere adjuntar nota de falta de stock. También se mencionan insulinas, tiras, alimentos y sensores con esa nota. Ostomía se dispensa por droguería externa. Corroborar el circuito y la normativa específica antes de operar.
+
+Fuente: Procedimiento interno aprobado de GDP Salud. Prevalece la normativa específica vigente de la obra social, plan y circuito. Ante contradicción, solicitar revisión al área de Obras Sociales.",INTERNAL_PROCEDURE_BY_MEANING,GDP_INTERNAL_PROCEDURE,SI,,CORRECT,,,
+5441,2026-10-22T11:45:04.43144+00:00,Libertad,COLEGIO,No identificada,,PILOT,por donde valido recetario,"No pude identificar RECETARIO en las obras sociales activas de GDPSoft. Confirmá cómo figura en el listado; no voy a utilizar la Ficha de otra obra social.",UNKNOWN_EXPLICIT_SOCIAL_WORK,SOCIAL_WORK_IDENTITY,NO,,INCORRECT,¿Tu consulta es sobre Recetario Solidario? Confírmame así puedo ayudarte con la información correspondiente.,,
+5442,2026-10-22T11:53:39.984632+00:00,Libertad,COLEGIO,RECETARIO SOLIDARIO,63,PILOT,recetario solidario,"¿Qué necesitás saber sobre RECETARIO SOLIDARIO? Por ejemplo: requisitos de receta, validación, autorizaciones o facturación.",CLARIFICATION_NEEDED,GDP_CONVERSATION,NO,,INCORRECT,¿Qué te gustaría consultar sobre Recetario Solidario?,,
+5443,2026-10-22T11:53:59.337074+00:00,Libertad,COLEGIO,RECETARIO SOLIDARIO,63,PILOT,por donde se valida?,"Validador: COFA.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de RECETARIO SOLIDARIO.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,CORRECT,,,
+5448,2026-10-22T12:23:58.320411+00:00,Libertad,COLEGIO,OSDOP,111,PILOT,"Te consulto sobre obra social OSDOP, el cliente trae solo autorizacion previa, hace falta receta para dispensar medicamento?","Se requiere receta para dispensar medicamentos bajo la obra social OSDOP, incluso si el cliente presenta solo autorización previa.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5449,2026-10-22T12:43:41.697659+00:00,Libertad,COLEGIO,OSDOP,111,PILOT,para autorizar la dispensa se realiza declaracion de dispensa o validamos?,"Para autorizar la dispensa se requiere realizar la declaración de dispensa, no se valida. La declaración es obligatoria.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5450,2026-10-22T12:51:46.55927+00:00,Libertad,COLEGIO,OSDOP,111,PILOT,que quiere decir fecha de provision en la autorizacion previa?,No encontré información suficiente en las normativas vigentes para responder con seguridad.,SEMANTIC,OPENAI_FILE_SEARCH,NO,,INCORRECT,"La fecha de provisión es la fecha en que se entrega el medicamento al afiliado.
+
+En la autorización previa, se refiere a la fecha de entrega prevista. Si todavía no lo entregaste, no es la fecha de emisión de la receta ni de la autorización.",,
+5451,2026-10-22T12:56:38.495236+00:00,Libertad,COLEGIO,OSDOP,111,PILOT,el numero de formulario es el que dice solicitud o el que indica autorizacion?,"El número de formulario válido es el que indica ""autorización"" para los planes ambulatorios y tratamientos requeridos.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,"el numero de formulario de compañía, es el que indica autorización",COLEGIO,
+5452,2026-10-22T13:06:00.683612+00:00,Libertad,COLEGIO,PROVINCIA ART,3,PILOT,provincia art necesita copia denuncia?,No se menciona la necesidad de una copia de la denuncia para Provincia ART en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,CORRECT,,,
+5453,2026-10-22T13:14:10.3035+00:00,Libertad,COLEGIO,OSDOP,111,PILOT,al realizar la declaracion de dispensa se fuerza por sistema? no se valida?,"Encontré más de una obra social que coincide con «FUERZA»: OSFATLYF (LUZ Y FUERZA), MEDICUS - NO FUERZA DE SEGURIDAD. ¿A cuál te referís? Indicame el nombre y sigo con tu consulta.",AMBIGUOUS_SOCIAL_WORK,SOCIAL_WORK_IDENTITY,NO,,INCORRECT,"Sí, si se declara como dispensa, debemos forzar la cobertura en el sistema TYS",,
+5454,2026-10-22T13:23:12.047269+00:00,Libertad,COLEGIO,OSDOP,111,PILOT,"obra social OSDOP con formulario F5, solo se fuerza por tys?","Por dónde valida: TYS.
+Validador: COMPAÑIA.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de OSDOP.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,INCORRECT,el formulario debes declararlo como dispensa en compañía y facturarlo en tys forzando la cobertura.,COLEGIO,
+5455,2026-10-22T13:32:13.727532+00:00,Libertad,COLEGIO,PROVINCIA ART,3,PILOT,provincia art necesita copia denuncia?,No se menciona la necesidad de una copia de la denuncia para Provincia ART en la normativa vigente.,CACHE,CACHE,SI,,CORRECT,,BOTH,
+5456,2026-10-22T13:32:45.312077+00:00,Libertad,COLEGIO,PROVINCIA ART,3,PILOT,me piden copia de la denuncia en provincia art,Obligatorio presentar Receta NO REQUIERE DENUNCIA,ADMIN_CORRECTION,ADMIN_CORRECTION,SI,,CORRECT,,BOTH,
+5457,2026-10-22T13:33:10.5883+00:00,Libertad,COLEGIO,PROVINCIA ART,3,PILOT,provincia art necesita copia del DN,No se requiere copia del DNI para Provincia ART. Solo se necesita el número de documento de identidad de la persona que retira la receta.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,INCORRECT,No se requiere copia del DNI para Provincia ART.,BOTH,

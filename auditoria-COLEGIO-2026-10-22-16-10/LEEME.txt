@@ -1,0 +1,9 @@
+Auditoría GDPSoft — circuito COLEGIO
+Consultas desde: 2026-10-19T00:00:00-03:00
+Generado: 2026-10-22T16:11:48.616Z
+
+consultas.csv / consultas.jsonl  -> todas las consultas con la respuesta del bot, la ruta, y la corrección/veredicto del admin si existe.
+conocimiento/*.md                -> por obra social: Ficha, observaciones aprobadas, protocolos, FAQs, reglas, correcciones y normativas.
+resumen.json                     -> conteos y errores de la exportación.
+
+Los datos personales (DNI, afiliado, etc.) y las credenciales están enmascarados. Las observaciones de acceso (usuarios y claves) NO se exportan.

@@ -1,4 +1,5 @@
 import { requireActor } from "../../../../../../lib/decision-trees/auth";
+import { buildDuplicateMessage } from "../../../../../../lib/normatives/duplicate-message.mjs";
 import crypto from "crypto";
 
 import {
@@ -405,7 +406,7 @@ export async function POST(
         {
           ok: false,
           error:
-            "Este archivo ya existe en el sistema",
+            await buildDuplicateMessage(supabaseAdmin, existingNormative),
           existing_normative:
             existingNormative,
         },
