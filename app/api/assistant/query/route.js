@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { buildCourtesyAnswer, classifyCourtesy } from "../../../../lib/assistant/courtesy.mjs";
+import { isGenericFillerAnswer } from "../../../../lib/assistant/answer-guards.mjs";
 import { matchCorrectionSemantically } from "../../../../lib/assistant/correction-semantic.mjs";
 
 import {
@@ -132,6 +133,7 @@ async function logAssistantQuery({
   openaiResponseId = null,
   trafficType = "OTHER",
   deviceId = null,
+  conversationId = null,
 
 }) {
 
@@ -143,13 +145,7 @@ async function logAssistantQuery({
 
 
 
-    const { data: insertedLog, error } =
-
-      await supabaseAdmin
-
-        .from("assistant_query_log")
-
-        .insert({
+    const buildRow = () => ({
 
           branch_id: branchId,
           traffic_type: trafficType,
@@ -222,10 +218,14 @@ async function logAssistantQuery({
           openai_response_id:
 
             openaiResponseId,
-
-        })
-        .select("id")
-        .maybeSingle();
+    });
+    // v3.13.89 — guarda la conversación para poder mostrar la imagen adjunta en Validación.
+    const insertRow = (row) => supabaseAdmin.from("assistant_query_log").insert(row).select("id").maybeSingle();
+    let { data: insertedLog, error } = await insertRow(
+      conversationId ? { ...buildRow(), conversation_id: conversationId } : buildRow());
+    if (error && conversationId && /conversation_id/i.test(String(error.message || ""))) {
+      ({ data: insertedLog, error } = await insertRow(buildRow()));
+    }
     if (error) {
       console.error("assistant_query_log error:", error.message);
     } else if (trafficType === "PILOT" && found === true) {
@@ -5475,6 +5475,7 @@ async function handleAssistantQuery(request, { conversationState = null } = {}) 
     const logCurrentQuery = (payload) => logAssistantQuery({
       ...payload,
       deviceId: verifiedPilotBranch && Number(payload.branchId) === verifiedPilotBranch ? deviceId : null,
+      conversationId: /^[0-9a-f-]{36}$/i.test(String(body?.conversationId || "").trim()) ? String(body.conversationId).trim() : null,
       trafficType: verifiedPilotBranch && Number(payload.branchId) === verifiedPilotBranch
         ? "PILOT"
         : verifiedAdmin ? "ADMIN" : "OTHER",
@@ -8258,12 +8259,9 @@ if (followUp.isFollowUp && isNotFoundAnswer(result?.answer)) {
 
 
     const insufficientAnswer =
-
-      isInsufficientAnswer(
-
-        result.answer
-
-      );
+      isInsufficientAnswer(result.answer) ||
+      // v3.13.90 — «consultá con la obra social» sin ningún dato concreto no es una respuesta.
+      isGenericFillerAnswer(result.answer);
 
 
 

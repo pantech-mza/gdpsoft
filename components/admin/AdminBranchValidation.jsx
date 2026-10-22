@@ -189,6 +189,18 @@ export default function AdminBranchValidation() {
     openItem(target, item);
   }
 
+  // v3.13.89 — abre la imagen que la sucursal adjuntó en el chat (URL temporal).
+  async function openImage(imageId) {
+    const tab = window.open("", "_blank");
+    try {
+      const json = await api(`/api/admin/validacion/imagen?id=${encodeURIComponent(imageId)}`);
+      if (tab) tab.location.href = json.url; else window.location.href = json.url;
+    } catch (err) {
+      if (tab) tab.close();
+      setError(err.message || "No se pudo abrir la imagen");
+    }
+  }
+
   const answerBox = (item) => {
     const text = String(item.answer || "").trim() || "Sin respuesta";
     const long = text.length > 420 && !expanded[item.id];
@@ -312,6 +324,15 @@ export default function AdminBranchValidation() {
                     <div key={item.id}>
                       <div className="ml-auto w-max max-w-[78%] rounded-2xl rounded-br-sm bg-[#8f2a85] px-3.5 py-2 text-[13px] text-white">
                         {item.question}
+                        {(item.images || []).length > 0 && (
+                          <span className="mt-1 flex flex-wrap gap-1.5">
+                            {item.images.map((img) => (
+                              <button key={img.id} type="button" onClick={() => openImage(img.id)} className="rounded-md bg-white/20 px-2 py-0.5 text-[10.5px] font-bold text-white underline">
+                                📎 Ver imagen adjunta{item.images.length > 1 ? ` (${img.name})` : ""}
+                              </button>
+                            ))}
+                          </span>
+                        )}
                         <span className="mt-0.5 block text-[10px] opacity-70">{time(item.created_at)}{item.followUp ? " · seguimiento" : ""}</span>
                       </div>
                       <div className={`mt-1.5 max-w-[88%] rounded-2xl rounded-bl-sm border px-3.5 py-2.5 ${active ? "border-2 border-[#8f2a85]" : item.alerts.length && !item.review ? "border-red-200 bg-red-50/60" : "border-zinc-200 bg-white"} ${item.followUp ? "bg-zinc-50" : ""}`}>
