@@ -34,7 +34,7 @@ test('OCR: ruta solo para administración y flujo cliente conectado', () => {
   assert.equal(canAccessGDPApi(admin, '/api/normatives/ocr', 'POST'), true);
   const page = fs.readFileSync('app/admin/obras-sociales/[id]/page.jsx', 'utf8');
   assert.match(page, /async function ocrAndIndex\(call, id, onProgress\)/);
-  assert.match(page, /analysis\.recommendation === "OCR" && \/\\\.pdf\$\/i\.test\(analysis\.filename/);
+  assert.match(page, /analysis\.recommendation === "OCR" && \/\\\.\(pdf\|png\|jpe\?g\|webp\)\$\/i\.test\(analysis\.filename/);
   assert.match(page, /mode: "OCR"/);
   const route = fs.readFileSync('app/api/normatives/ocr/route.js', 'utf8');
   assert.match(route, /requireActor\(request, true\)/);
