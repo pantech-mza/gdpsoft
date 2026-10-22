@@ -1,0 +1,400 @@
+﻿id,fecha,sucursal,circuito,obra_social,obra_social_id,tipo_trafico,pregunta,respuesta_bot,ruta,fuente,encontro_info,conversacion,rastro,veredicto_admin,correccion_admin,alcance_correccion,comentario_admin
+4955,2026-10-15T12:16:02.861944+00:00,DP1,CAMARA,GALENO,1,PILOT,necesita membrete?,"Membrete: Opcional.
+
+Fuente: Recordá/Ficha de GALENO.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+4956,2026-10-15T12:16:18.608827+00:00,DP1,CAMARA,GALENO,1,PILOT,marca comercial?,"Nombre comercial: Opcional.
+
+Fuente: Recordá/Ficha de GALENO.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+4957,2026-10-15T12:42:37.337397+00:00,DP1,CAMARA,OMINT,24,PILOT,Vigencia receta,"La receta tiene una vigencia de 30 días.
+
+Fuente: Recordá/Ficha de OMINT.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5096,2026-10-19T16:59:15.710878+00:00,DP1,CAMARA,OSDE,11,PILOT,Tipo de receta?,"Tipo de receta: Común - digital - electrónicas.
+
+Fuente: Recordá/Ficha de OSDE.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5097,2026-10-19T16:59:37.519104+00:00,DP1,CAMARA,OSDE,11,PILOT,Requisitos osde receta,"Revisión de receta para OSDE:
+Recordá/Ficha (datos registrados):
+• Tipo de receta admitido: Común - digital - electrónicas.
+• Vigencia registrada (días): 30
+• Membrete: Opcional
+• Límite de RP por receta: 3
+• Diagnóstico: Requiere
+• Monodroga: si
+• Nombre comercial: opcional
+• Sustitución: Requiere
+
+No pude recuperar un listado completo respaldado por la normativa vigente.
+
+Comprobá el plan y circuito y revisá los campos directamente en la receta. Este resumen no autoriza por sí solo su recepción ni dispensación.",PRESCRIPTION_CHECKLIST_SAFE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5103,2026-10-19T17:38:54.783684+00:00,DP1,CAMARA,OSECAC,7,PILOT,se cayo el validador de osecac,"1. Verificar si la validación falla en TYS. 2. Probar la página del validador externo en una ventana de incógnito, si corresponde a esa obra social. 3. Si también falla, informar al paciente de la dificultad comprobada, sin afirmar que existe una caída nacional sin confirmación. 4. Consultar descuentos adicionales y la posibilidad de reintegro conforme al procedimiento y autorización vigentes. 5. Si hay dudas, contactar Obras Sociales o al farmacéutico responsable. Nunca forzar cobertura por el solo hecho de que el validador no funcione.
+
+No se declara una caída general ni una contingencia activa por el solo hecho de consultar: comprobar el estado real y seguir instrucciones del responsable.
+
+Fuente: Procedimiento interno aprobado de GDP Salud. Prevalece la normativa específica vigente de la obra social, plan y circuito. Ante contradicción, solicitar revisión al área de Obras Sociales.",APPROVED_INTERNAL_PROCEDURE,GDP_INTERNAL_PROCEDURE,SI,,,CORRECT,,,
+5104,2026-10-19T18:19:29.338735+00:00,Libertad,COLEGIO,OSPELSYM,101,PILOT,Los planes cronicos de ospelsym se validan?,"Sí, los planes crónicos de Ospelsym se validan, pero requieren receta completa y la autorización correspondiente de la obra social.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5105,2026-10-19T18:20:09.590013+00:00,DP1,CAMARA,OSDE,11,PILOT,¿Cómo se llama el validador de OSDE?,"El validador de OSDE es SITEL - Extranet.
+Por dónde valida: TYS.
+
+Fuente: Recordá/Ficha de OSDE.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5110,2026-10-19T18:20:49.038435+00:00,DP1,CAMARA,OSDEPYM,35,PILOT,¿Qué validador utiliza OSDEPYM?,"El validador de OSDEPYM es GMS.
+Por dónde valida: TYS.
+
+Fuente: Recordá/Ficha de OSDEPYM.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5125,2026-10-19T18:23:18.591057+00:00,DP1,CAMARA,OSSEG,5,PILOT,¿OSSEG está activa?,"Sí, OSSEG está activa en GDPSoft.
+
+Fuente: Recordá/Ficha de OSSEG. Este estado no confirma la habilitación del convenio en tu sucursal.",STRUCTURED_SOCIAL_WORK_STATUS,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5138,2026-10-19T19:21:14.03306+00:00,Farma Uco,CAMARA,OSDE,11,PILOT,OSDE acepta recetas manuales?,"OSDE acepta recetas manuales y electrónicas, y ambas se envían conjuntamente para la auditoría.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5178,2026-10-20T12:28:19.352359+00:00,DP1,CAMARA,PREMEDIC,152,PILOT,por donde se valida premedic,"Por dónde valida: POR FUERA.
+Validador: ADMIFARM.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de PREMEDIC.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,"https://gdr.admifarmgroup.com/Validador.aspx  
+link del validador"
+5183,2026-10-20T12:43:32.953285+00:00,DP1,CAMARA,PREMEDIC,152,PILOT,debe venir autorizado por la obra social?,"Sí, la receta debe contar con la autorización previa de la obra social para ciertos casos, como en cronicidad y planes especiales.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,"*Toda receta que no tome el validador deberá venir autorizada por la obra social. *Marca comercial autorizada, la farmacia deberá entregar exclusivamente la marca indicada en dicha autorización. *Si se encuentre emitida por principio activo, la farmacia deberá dispensar la opción más económica disponible."
+5188,2026-10-20T13:00:18.534354+00:00,Econo Más,CAMARA,SECASFPI,46,PILOT,COMO SE FACTURA SECASFPI,No encontré normativas vigentes asociadas a esta obra social.,NORMATIVE_SCOPE_UNVERIFIED,GDP_NORMATIVE_SCOPE,NO,,,CORRECT,"Se factura por TYS,f orzando la cobertura.  debemos corroborar que el paciente este activo .Para ver el estado del afiliado entran a la pagina con código: F108 y mail: mterraza@gdpsalud.com.ar,  de lo contrario se pide carnet o bono para verificar afiliación. NO PARTICULAR",,
+5189,2026-10-20T13:08:37.930018+00:00,DP1,CAMARA,FONDO COMPENSADOR,82,PILOT,"prodrias indicar,e em que casos se aplica fondo compensador y en que caso no se aplica","El fondo compensador se aplica en casos generales de medicamentos, excepto en patologías crónicas, diabetes o coberturas con porcentaje superior al 50%.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5192,2026-10-20T13:27:36.831486+00:00,DP1,CAMARA,SANCOR,43,PILOT,sancor autorizados especiales formulario numero 4,El formulario N° 4 se utiliza para autorizaciones especiales y debe presentar la fecha de prescripción coincidente con la receta original.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5195,2026-10-20T13:31:28.654511+00:00,DP1,CAMARA,SANCOR,43,PILOT,sancor autorizados especiales formulario numero 4,El formulario N° 4 se utiliza para autorizaciones especiales y debe presentar la fecha de prescripción coincidente con la receta original.,CACHE,CACHE,SI,,,CORRECT,,,
+5199,2026-10-20T13:33:22.6328+00:00,DP1,CAMARA,MPN,89,PILOT,"Tengo una receta con 2 medicamentos, el total no supera $80.000 pero cada uno supera $20.000. ¿Necesito autorización?","Necesitás autorización, ya que cada medicamento supera $20.000, independientemente de que el total no supere $80.000.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5200,2026-10-20T13:33:43.293773+00:00,DP1,CAMARA,OSDE,11,PILOT,Como se llama el validador de OSDE,"El validador de OSDE es SITEL - Extranet.
+Por dónde valida: TYS.
+
+Fuente: Recordá/Ficha de OSDE.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5201,2026-10-20T13:34:03.540281+00:00,DP1,CAMARA,OSDEPYM,35,PILOT,Por donde valida osdepym?,"Por dónde valida: TYS.
+Validador: GMS.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de OSDEPYM.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5206,2026-10-20T13:36:57.522331+00:00,DP1,CAMARA,OSECAC,7,PILOT,se cayo el validador de osecac,"1. Verificar si la validación falla en TYS. 2. Probar la página del validador externo en una ventana de incógnito, si corresponde a esa obra social. 3. Si también falla, informar al paciente de la dificultad comprobada, sin afirmar que existe una caída nacional sin confirmación. 4. Consultar descuentos adicionales y la posibilidad de reintegro conforme al procedimiento y autorización vigentes. 5. Si hay dudas, contactar Obras Sociales o al farmacéutico responsable. Nunca forzar cobertura por el solo hecho de que el validador no funcione.
+
+No se declara una caída general ni una contingencia activa por el solo hecho de consultar: comprobar el estado real y seguir instrucciones del responsable.
+
+Fuente: Procedimiento interno aprobado de GDP Salud. Prevalece la normativa específica vigente de la obra social, plan y circuito. Ante contradicción, solicitar revisión al área de Obras Sociales.",APPROVED_INTERNAL_PROCEDURE,GDP_INTERNAL_PROCEDURE,SI,,,CORRECT,,,
+5207,2026-10-20T13:37:20.810668+00:00,DP1,CAMARA,OSPAT,36,PILOT,ospat esta activa?,"No, OSPAT figura inactiva en GDPSoft.
+
+Fuente: Recordá/Ficha de OSPAT. Este estado no confirma la habilitación del convenio en tu sucursal.",STRUCTURED_SOCIAL_WORK_STATUS,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5216,2026-10-20T14:24:15.536449+00:00,DP1,CAMARA,SANCOR,43,PILOT,Requisitos para f4,"Los requisitos para presentar el Formulario F4 son los siguientes:
+
+1. **Validez**: No requiere autorización previa, pero debe validarse obligatoriamente.
+   
+2. **Recetario**: 
+   - Los datos de afiliación y prescripción deben estar preimpresos. No se acepta prescripción manuscrita.
+   - No es necesario que esté acompañado por la prescripción original. 
+   - El troquel correspondiente debe adjuntarse en el recetario.
+
+3. **Validación**: Debe realizarse en la plataforma o sistema correspondiente; de lo contrario, la receta será rechazada.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,"la fecha de la receta, debe coincidir con la fecha del formulario."
+5217,2026-10-20T14:24:46.826139+00:00,DP1,CAMARA,SANCOR,43,PILOT,Cual es la plataforma para validarlo?,La plataforma para validar es www.plataformacsf.com o sistemas de facturación integrados.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5220,2026-10-20T14:29:28.442636+00:00,DP1,CAMARA,OSDE,11,PILOT,Osde necesita membrete?,"Membrete: Opcional.
+
+Fuente: Recordá/Ficha de OSDE.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5221,2026-10-20T14:29:51.802715+00:00,DP1,CAMARA,OSPELSYM,101,PILOT,"GDPsotf, necesito ayuda con la obra social Ospelsym","¿Qué necesitás saber sobre OSPELSYM? Por ejemplo: requisitos de receta, validación, autorizaciones o facturación.",CLARIFICATION_NEEDED,GDP_CONVERSATION,NO,,,CORRECT,,,
+5224,2026-10-20T14:32:44.260781+00:00,DP1,CAMARA,SANCOR,43,PILOT,Y por donde se registra?,"se declara dispensa en compañia:   https://www.plataformacsf.com/login.xhtml 
+luego se fuerza la cobertura en TYS.",ADMIN_CORRECTION,ADMIN_CORRECTION,SI,,,CORRECT,,,
+5225,2026-10-20T14:33:03.351488+00:00,DP1,CAMARA,SANCOR,43,PILOT,Cual es el sistema?,"Para registrar la dispensa del Formulario 4, se debe declarar la dispensa en la compañía a través del sistema indicado por SanCor, que es la plataforma disponible en [www.plataformacsf.com](http://www.plataformacsf.com).",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5226,2026-10-20T14:33:21.572112+00:00,DP1,CAMARA,SANCOR,43,PILOT,Y si está vencido?,"Si el Formulario de Autorización N° 4 de SanCor está vencido, carece de validez para la autorización de los medicamentos solicitados. La normativa establece que es necesario controlar la fecha de vencimiento del formulario.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5243,2026-10-20T15:08:38.772405+00:00,,,OSDE,11,ADMIN,osde requiere membrete?,"Membrete: Opcional.
+
+Fuente: Recordá/Ficha de OSDE.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5244,2026-10-20T15:14:08.890503+00:00,DP1,CAMARA,OSECAC,7,PILOT,como tramito osecac?,"En DP1, OSECAC se valida con el validador de San Francisco (SUC: San Francisco).
+
+Por dónde valida: TYS.
+Validador: GMS/SUC: San Francisco DP1.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de OSECAC.
+
+¿Querés que te muestre los pasos para validar o los requisitos?",BRANCH_VALIDATION_GUIDE,GDP_OPERATION_PROCEDURE,SI,,,CORRECT,,,
+5262,2026-10-20T16:23:12.57301+00:00,DP1,CAMARA,No identificada,,PILOT,oste la recibimos,"No pude identificar OSTE entre las obras sociales activas de GDPSoft. ¿Quizás quisiste consultar por OSTEL, OSTES o MEDICUS - OSTEL? Confirmame el nombre para poder ayudarte con la información correspondiente.",UNKNOWN_EXPLICIT_SOCIAL_WORK,SOCIAL_WORK_IDENTITY,NO,,,CORRECT,,,
+5273,2026-10-20T17:07:24.559801+00:00,,,PAP DESCUENTO,102,ADMIN,pap descuento,"¿Qué necesitás saber sobre PAP DESCUENTO? Por ejemplo: requisitos de receta, validación, autorizaciones o facturación.",CLARIFICATION_NEEDED,GDP_CONVERSATION,NO,,,CORRECT,,,
+5274,2026-10-20T17:07:48.991008+00:00,,,PAP DESCUENTO,102,ADMIN,y si es con obra social?,"Si el paciente tiene cobertura al utilizar PAP Descuento, se le aplicará el descuento al importe a cargo del cliente resultante de la validación por su financiador. Si no posee cobertura, el descuento se aplicará sobre el PVP del producto. 
+
+¿Querés que te muestre también los requisitos para la presentación de las recetas?",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5286,2026-10-20T18:10:36.199489+00:00,DP1,CAMARA,OSPELSYM,101,PILOT,"Ospelsym los planes al 70% y cronicos, deben venir autorizados?","Sí, los planes al 70% y los crónicos deben venir con autorización de la obra social para ser válidos.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5289,2026-10-20T18:18:02.920263+00:00,,,OSEP,59,ADMIN,"receta de OSEP, que contiene tiras reactivas, las cuales están en falta en droguería Coope. Se la podemos entregar de nuestro stock?","Sí, pueden dispensar las tiras reactivas de su stock, adjuntando la nota de falta de stock correspondiente.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5290,2026-10-20T18:18:42.000659+00:00,,,OSEP,59,ADMIN,"receta de OSEP, que contiene tiras reactivas, las cuales están en falta en droguería Coope. Se la podemos entregar de nuestro stock?","Si puedes dispensarlas del stock, adjuntando la nota de falta de stock.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5292,2026-10-20T18:32:50.342792+00:00,,,OSEP,59,ADMIN,"receta de OSEP, que contiene tiras reactivas, las cuales están en falta en droguería Coope. Se la podemos entregar de nuestro stock?","Puedes dispensar las tiras reactivas de tu stock, pero debes adjuntar una nota que justifique la falta de stock de la droguería.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5295,2026-10-20T18:40:38.93737+00:00,,,DAMSU,22,ADMIN,"tengo una receta de DAMSU, que tiene el nombre de la obra social en observaciones, puedo recibirla?","Criterio: En las recetas manuales, el técnico o farmacéutico de la sucursal puede corregir únicamente los últimos tres dígitos del número de afiliado. Se debe adjuntar una fotocopia del carnet.
+Si la receta no indica la obra social, se puede adjuntar una copia del carnet. Este criterio aplica tanto a recetas manuales como electrónicas.
+En las recetas electrónicas, se puede recibir la receta si la obra social está aclarada debajo, siempre que esa aclaración forme parte de la propia receta.
+
+Fuente: Procedimiento interno aprobado de GDP Salud. Prevalece la normativa específica vigente de la obra social, plan y circuito. Ante contradicción, solicitar revisión al área de Obras Sociales.",INTERNAL_PROCEDURE_FALLBACK,GDP_INTERNAL_PROCEDURE,SI,,,CORRECT,,,
+5296,2026-10-20T18:48:05.747935+00:00,Libertad,COLEGIO,HIGEA SALUD,119,PILOT,EN HIGEA PARA MEDICAMENTOS CRONICOS SE NECESITA RECETA,"Se necesita receta para medicamentos crónicos en HIGEA, que debe incluir firma, sello, diagnóstico y es válida por 15 días.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5297,2026-10-20T18:55:39.162691+00:00,Libertad,COLEGIO,PASTELEROS,62,PILOT,EN PASTELEROS CUANDO LA RECETA ES DIGITAL Y VIENE AUTORIZADA LA CARGO POR MIS VALIDACIONES,"Sí, la receta digital autorizada debe ser cargada a través del sistema de validaciones www.misvalidaciones.com.ar.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5302,2026-10-20T20:11:14.542249+00:00,DP1,CAMARA,NOBIS,123,PILOT,"Y si tiene autorizacion por plan Maternoi, debería tomarlo el sistema al validarlo?","Sí, si tiene autorización por plan Materno Infantil, debe validarse electrónicamente en el sistema para que sea aceptado en la farmacia.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5303,2026-10-20T21:05:27.808108+00:00,DP1,CAMARA,SUMA,48,PILOT,suma salud está activa?,"No, SUMA figura inactiva en GDPSoft.
+
+Fuente: Recordá/Ficha de SUMA. Este estado no confirma la habilitación del convenio en tu sucursal.",STRUCTURED_SOCIAL_WORK_STATUS,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5304,2026-10-20T21:50:06.153935+00:00,DP1,CAMARA,BOREAL,20,PILOT,BOREAL VIGENCIA DE RECETA,"La receta tiene una vigencia de 20 días.
+
+Fuente: Recordá/Ficha de BOREAL.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5307,2026-10-21T00:24:15.86463+00:00,Econo San Martín,CAMARA,LA SEGUNDA ART / LA SEGUNDA PERSONAS,55,PILOT,La segunda art requiere denuncia del siniestro? o se puede recibir la receta sin ella?,"La segunda ART requiere el número de siniestro en la receta, pero no menciona que sea necesaria la denuncia del siniestro para recibir la receta.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5315,2026-10-21T11:12:35.986038+00:00,DP1,CAMARA,DASUTEN,53,PILOT,Que tipos de Recetarios puede tener DASUTEN?,"DASUTEN puede tener recetarios particulares y pre-impresos oficiales, así como recetas electrónicas según normativa vigente.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5316,2026-10-21T12:18:32.156679+00:00,,,OSPEGAP - PETROLEROS CUYO COSEGURO,88,ADMIN,"En ospegap , datos de abrego alejandro ernesto","Alejandro Ernesto Abrego, DNI [DATO DEL PACIENTE], nacido el 23/09/1980, es titular en Luján de Cuyo, Mendoza, con cobertura del 40% en Pecom Servicios Energía S.A.U.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5317,2026-10-21T12:41:12.494107+00:00,,,TV SALUD,97,ADMIN,Tv salud por donde se valida?,La validación de TV Salud se realiza a través del sistema en www.plataformacsf.com o mediante sistemas de facturación integrados.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5319,2026-10-21T12:45:38.02756+00:00,,,DAMSU,22,ADMIN,"tengo una receta de DAMSU, que tiene el nombre de la obra social en observaciones, puedo recibirla?","En las recetas electrónicas, se puede recibir la receta si la obra social está aclarada debajo, siempre que esa aclaración forme parte de la propia receta.",ADMIN_CORRECTION,ADMIN_CORRECTION,SI,,,CORRECT,,,
+5320,2026-10-21T13:09:15.374206+00:00,Libertad,COLEGIO,NOBIS,123,PILOT,en nobis anticonceptivos se debe validar,"Se debe validar obligatoriamente el recetario para anticonceptivos en el sistema de validación online; de lo contrario, será rechazado.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5321,2026-10-21T13:29:50.83647+00:00,DP1,CAMARA,ENSALUD,31,PILOT,RECIBIMOS ENSALUD? ESTA ACTIVA ENSALUD?,"No, ENSALUD figura inactiva en GDPSoft.
+
+Fuente: Recordá/Ficha de ENSALUD. Este estado no confirma la habilitación del convenio en tu sucursal.",STRUCTURED_SOCIAL_WORK_STATUS,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5322,2026-10-21T13:36:47.448226+00:00,DP1,CAMARA,OSPIHMP - HIELO,69,PILOT,"Hola Gdpsoft, quiero consultarte sobre OSPIHMP-Hielo. Las recetas correspondientes a plan materno infantil., hace falta que vengan autorizadas? o Solo con que se indique en la receta el plan PMI es suficiente?","No se requiere autorización previa para las recetas del plan materno infantil; basta con que indique la leyenda ""Plan Materno Infantil"" de puño y letra del profesional.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5328,2026-10-21T15:23:14.357458+00:00,DP1,CAMARA,OSEP,59,PILOT,OYTE si aun no llega la medicacion que  puedo hacer? osep oyte,Comunicate con la droguería asignada si la medicación se demora en llegar a la farmacia.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5344,2026-10-21T17:02:54.722887+00:00,DP1,CAMARA,RECETARIO SOLIDARIO,63,PILOT,si solo presenta el numero de recetario puedo solo validarlo sin la receta impresa?,"No se puede validar solo con el número de recetario; es obligatorio presentar la receta impresa o copia digital para la validación.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5345,2026-10-21T17:03:19.822536+00:00,DP1,CAMARA,OSDEPYM,35,PILOT,osdepym se autoriza por gms,"OSDEPYM si se autoriza por GMS, verificar si esta integrado el validador a TYS.",ADMIN_CORRECTION,ADMIN_CORRECTION,SI,,,CORRECT,,,
+5346,2026-10-21T17:03:36.960223+00:00,DP1,CAMARA,OSDEPYM,35,PILOT,que requisitos debe tener una receta de berckley?,No pude identificar BERCKLEY entre las obras sociales activas de GDPSoft. ¿Quizás quisiste consultar por BERKLEY ART? Confirmame el nombre para poder ayudarte con la información correspondiente.,UNKNOWN_EXPLICIT_SOCIAL_WORK,SOCIAL_WORK_IDENTITY,NO,,,CORRECT,,,
+5348,2026-10-21T17:04:19.918749+00:00,DP1,CAMARA,OSEP,59,PILOT,requisitos oyte,"La normativa no especifica requisitos directamente vinculados a ""OYTE"". Sin embargo, se mencionan varios procesos y condiciones generales relacionados con la dispensa al afiliado. A continuación se detallan algunos requisitos relevantes para la dispensa de medicamentos OYTE:
+
+1. **Validación de Entrega**:
+   - Validar la entrega mediante el token de OSEP en el sistema Farmalive.
+   - Registrar la validación en el sistema.
+
+2. **Impresión de Tickets**:
+   - Imprimir el Ticket No Fiscal (T.N.F.) habilitado por OSEP.
+   - Recabar la firma del afiliado o de la persona autorizada en el dorso del T.N.F.
+
+3. **Troqueles**:
+   - Adherir los troqueles de los medicamentos en el T.N.F. según el orden de la receta.
+
+4. **Registro de Entrega**:
+   - Registrar la entrega a través del sistema Farmalive.
+
+5. **Archivo Digital**:
+   - Crear un archivo digital que incluya la receta, T.N.F., y Ticket Fiscal (si aplica) para el inicio de la pre-auditoría.
+
+Si deseas más información sobre otro aspecto específico, házmelo saber.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5349,2026-10-21T17:10:21.133988+00:00,DP1,CAMARA,No identificada,,PILOT,requisitos debe tener una receta de berckley?,No pude identificar BERCKLEY entre las obras sociales activas de GDPSoft. ¿Quizás quisiste consultar por BERKLEY ART? Confirmame el nombre para poder ayudarte con la información correspondiente.,UNKNOWN_EXPLICIT_SOCIAL_WORK,SOCIAL_WORK_IDENTITY,NO,,,CORRECT,,,
+5350,2026-10-21T17:10:52.417002+00:00,DP1,CAMARA,BERKLEY ART,130,PILOT,requisitos debe tener una receta de BERKLEY ART?,"Revisión de receta para BERKLEY ART:
+Recordá/Ficha (datos registrados):
+• Tipo de receta admitido: común - digital (MIS RX-RCTA)
+• Vigencia registrada (días): 10
+• Membrete: Opcional
+• Límite de RP por receta: 3
+• Diagnóstico: OPCIONAL
+• Monodroga: Si
+• Nombre comercial: opcional
+• Sustitución: si requiere
+
+Normativa vigente (requisitos encontrados, lista no necesariamente exhaustiva):
+Para aceptar una receta de BERKLEY ART, se deben cumplir los siguientes requisitos:
+
+1. **Documentación del Beneficiario**:
+   - Nombre de la ART.
+   - Nombre completo y apellido del paciente.
+   - Número de documento o CUIL.
+   - Número de siniestro (su ausencia es motivo de débito).
+
+2. **Recetario**:
+   - Medicamentos recetados y cantidad de cada uno en números y letras. Si no se expresa cantidad, se expedirá solo uno.
+   - Firma y sello con número de matrícula del profesional y especialidad.
+   - Fecha de prescripción.
+   - Toda corrección o enmienda debe ser salvada por el médico con sello y firma.
+
+3. **Validez**: 
+   - 10 días desde la fecha de prescripción.
+
+4. **Cantidad de Envases**:
+   - Hasta 6 envases por receta.
+   - Hasta 2 envases por renglón.
+
+5. **Especificaciones de suministro**:
+   - Si el médico no indica tamaño, debe entregarse el de menor valor.
+   - Si el médico solo indica ""GRANDE"", debe entregarse el tamaño siguiente al menor.
+   - Si el médico equivoca cantidad, debe entregarse el tamaño inmediato inferior.
+
+6. **Adjuntar Troqueles**:
+   - Según el orden de prescripción, incluyendo el código de barras, adheridos con cinta adhesiva.
+
+7. **Datos a completar por la farmacia**:
+   - Número de orden de la receta.
+   - Fecha de venta.
+   - Precios unitarios y totales, tomando como valor el sugerido en el Manual Farmacéutico Alfabeta o Agenda Farmacéutica Kairos.
+   - Sello y firma de la farmacia.
+   - Firma del afiliado o tercero, aclarando nombre completo, domicilio, teléfono y documento. La falta de estos datos es motivo de débito.
+   - Adjuntar copia del ticket de venta. Si no se puede hacer, notificar por escrito las razones.
+Documentos recuperados: NORMAS DE ATENCION BERKLEY ART SEPTIEMBRE 2024.pdf
+
+Comprobá el plan y circuito y revisá los campos directamente en la receta. Este resumen no autoriza por sí solo su recepción ni dispensación.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,,CORRECT,,,
+5355,2026-10-21T18:06:20.545256+00:00,DP1,CAMARA,RECETARIO SOLIDARIO,63,PILOT,que recetas digitales recibe recetario solidario?,"recibe recetas de la plataforma MisRX, RC+",ADMIN_CORRECTION,ADMIN_CORRECTION,SI,,,CORRECT,,,
+5360,2026-10-21T18:51:05.521421+00:00,DP1,CAMARA,No identificada,,PILOT,requisitos de receta de berckley,No pude identificar BERCKLEY entre las obras sociales activas de GDPSoft. ¿Quizás quisiste consultar por BERKLEY ART? Confirmame el nombre para poder ayudarte con la información correspondiente.,UNKNOWN_EXPLICIT_SOCIAL_WORK,SOCIAL_WORK_IDENTITY,NO,,,CORRECT,,,
+5361,2026-10-21T18:51:16.109414+00:00,DP1,CAMARA,BERKLEY ART,130,PILOT,requisitos de receta de BERKLEY ART,"Requisitos de receta · BERKLEY ART
+- Tipo: común - digital (MIS RX-RCTA)
+- Vigencia: 10 días
+- Membrete: Opcional
+- RP por receta: 3
+- Diagnóstico: OPCIONAL
+- Monodroga: Si
+- Nombre comercial: opcional
+- Sustitución: si requiere
+Receta
+- Nombre y apellido del paciente.
+- Número de documento o CUIL.
+- Firma y sello con número de matrícula del profesional y especialidad.
+- Medicamentos recetados y cantidad de cada uno en números y letra. Si no se expresa cantidad, se expenderá solamente uno.
+- Fecha de prescripción.
+- Nota: Toda corrección o enmienda debe ser salvada por el médico con sello y firma.
+- La normativa no indica un tipo de receta específica para BERKLEY ART más allá de los requisitos mencionados.
+- .
+Cantidades
+- Máximo de 3 renglones por receta.
+- Hasta 6 envases en total.
+- Hasta 2 envases por renglón (para medicamentos generales).
+Facturación
+- Deben figurar los datos del médico escritos a mano con la misma tinta.
+- Adjuntar troqueles en el orden de prescripción, incluyendo el código de barras, adheridos con cinta adhesiva.
+- Número de orden de la receta.
+- Fecha de venta.
+- Precios unitarios y totales.
+- Sello y firma de la farmacia.
+- Firma del afiliado o tercero, con datos de contacto. La ausencia de estos datos es motivo de débito.
+Importante: Número de siniestro (su ausencia es motivo de débito).
+Importante: No se acepta solicitud de denuncia de siniestro.
+Fuente: NORMAS DE ATENCION BERKLEY ART SEPTIEMBRE 2024
+Aviso: este resumen no autoriza por sí solo la recepción ni la dispensación. Revisá los campos en la receta.",ADMIN_CORRECTION,ADMIN_CORRECTION,SI,,,CORRECT,,,
+5362,2026-10-21T18:51:17.600704+00:00,DP1,CAMARA,RECETARIO SOLIDARIO,63,PILOT,recetario solidario por donde se valida?,"Por dónde valida: TYS.
+Validador: MIS VALIDACIONES.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de RECETARIO SOLIDARIO.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5375,2026-10-21T19:37:54.026879+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Tengo que autorizar la receta de OYTE?,"No, no necesitas autorizar la receta de OYTE; solo se carga en la plataforma de Farmalive.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5377,2026-10-21T19:39:17.093652+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Qué hago si la medicación demora en llegar?,Comunicarte con la droguería asignada si la medicación se demora en llegar a la farmacia.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5380,2026-10-21T19:39:43.822723+00:00,Libertad,COLEGIO,OSEP,59,PILOT,Qué hago si llega una medicación distinta de la prescripta,Iniciar el proceso de devolución.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5383,2026-10-21T19:40:19.506291+00:00,Libertad,COLEGIO,OSEP,59,PILOT,"Qué hago si llegó la medicación, pero la receta no aparece para registrar la recepción?",Debes esperar al menos 24 horas para que impacte el remito en el sistema antes de realizar cualquier acción .,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5388,2026-10-21T19:42:11.753344+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Qué importe debo facturar cuando hay copago?,"Se debe facturar el importe que se cobra al afiliado, resultante del porcentaje aplicado al PVP .",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5391,2026-10-21T19:42:58.328935+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Qué hago si la receta es por Fortisip?,"Realizar la dispensa por Nutricionales (PEOL). 
+
+¿Querés que te muestre los requisitos?",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5392,2026-10-21T19:43:40.845938+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Cómo preparo la documentación para presentar?,"Para presentar la documentación, debes incluir: receta, Ticket No Fiscal (T.N.F.) y, si aplica, Ticket Fiscal. Todo debe ser digitalizado y enviado al Prestador para pre-auditoría. 
+
+¿Querés que te detalle los pasos específicos?",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5393,2026-10-21T19:44:22.636857+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Cómo me comunico con Farmalive?,"Para comunicarte con Farmalive, puedes hacerlo de las siguientes maneras:
+
+1. Llamar al **(011) 5272-7453** de **9 a 17 h** para soporte y asesoramiento.
+2. Dentro de la plataforma Farmalive, puedes solicitar soporte en la solapa **Ayuda → Solicitud de soporte**.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5398,2026-10-21T19:47:29.887656+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Qué hago con los troqueles?,"Para tratar los troqueles, debes seguir estos pasos:
+
+1. **Retirar los troqueles** de los Medicamentos OYTE que los tengan.
+2. **Pegar los troqueles** en el Ticket No Fiscal (T.N.F.) en el mismo orden en que fueron descriptos en la receta.
+3. Si un producto no tiene troquel conforme a las regulaciones de ANMAT, debes colocar la sigla **S/T** (Sin Troquel).
+4. **Fotos o troqueles digitales impresos no son válidos**.
+
+¿Querés que te muestre también los requisitos para la presentación de las recetas?",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5401,2026-10-21T19:49:47.93981+00:00,Libertad,COLEGIO,OSEP,59,PILOT,¿Qué hago si el afiliado no retira la medicación?,"Si el afiliado no retira la medicación, la farmacia debe registrar el evento como “Devolución” en Farmalive a los 30 días desde la recepción, asumiendo consecuencias por no hacerlo.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5407,2026-10-21T20:12:58.556362+00:00,DP1,CAMARA,OSEP,59,PILOT,ozempic osep,"1. Ingresar a F9 y colocar 29% de cobertura.
+2. Cuando el sistema pregunte si deseás validarlo, seleccionar Sí.
+3. Continuar con la validación para obtener la autorización.
+
+Fuente: observación operativa aprobada por Administración (no es normativa oficial).",APPROVED_NOTES_FALLBACK,SOCIAL_WORK_NOTES,SI,,,CORRECT,,,
+5421,2026-10-21T20:32:34.97683+00:00,DP1,CAMARA,OSEP,59,PILOT,ozempic osep,"Para validar OZEMPIC en OSEP, seguí estos pasos:
+
+1. Ingresar a F9 y colocar 29% de cobertura.
+2. Cuando el sistema pregunte si deseás validarlo, seleccionar Sí.
+3. Continuar con la validación para obtener la autorización.
+
+Fuente: observación operativa aprobada por Administración (no es normativa oficial).",APPROVED_NOTES_FALLBACK,SOCIAL_WORK_NOTES,SI,,,CORRECT,,,
+5427,2026-10-21T20:38:51.292998+00:00,DP1,CAMARA,OSEP,59,PILOT,como se valida ose,"No pude identificar OSE entre las obras sociales activas de GDPSoft. ¿Quizás quisiste consultar por OSEP, OSADEF - OSEF - EMPLEADOS DE FCIAS o OSECAC? Confirmame el nombre para poder ayudarte con la información correspondiente.",UNKNOWN_EXPLICIT_SOCIAL_WORK,SOCIAL_WORK_IDENTITY,NO,,,CORRECT,,,
+5430,2026-10-21T23:12:45.742226+00:00,DP1,CAMARA,OSEP,59,PILOT,como se factura osep oyte,"Para facturar OSEP OYTE, se debe facturar como obra social OSEP, plan ESPECIALES, y seleccionar el producto OSEP OYTE MAYOR o MENOR, según corresponda por el PVP.",CACHE,CACHE,SI,,,CORRECT,,,
+5431,2026-10-21T23:13:06.098569+00:00,DP1,CAMARA,OSEP,59,PILOT,ozempic osep,"1. Ingresar a F9 y colocar 29% de cobertura.
+2. Cuando el sistema pregunte si deseás validarlo, seleccionar Sí.
+3. Continuar con la validación para obtener la autorización.
+
+Fuente: observación operativa aprobada por Administración (no es normativa oficial).",APPROVED_NOTES_FALLBACK,SOCIAL_WORK_NOTES,SI,,,CORRECT,,,
+5433,2026-10-21T23:13:52.633233+00:00,DP1,CAMARA,OSEP,59,PILOT,como se valida osep oyte,"Para validar la entrega de medicamentos OSEP OYTE, se deben seguir estos pasos:
+
+1. **Validar la Identidad**: Ingresar el Token de OSEP en el sistema Farmalive. Esta acción impacta automáticamente en SISAO.
+
+2. **Imprimir el Ticket No Fiscal (T.N.F.)**: Emitir el T.N.F. habilitado por OSEP.
+
+3. **Recabar Firmas**: Obtener la firma, aclaración y DNI del afiliado (o de la persona autorizada a retirar el medicamento) en el dorso del T.N.F.
+
+4. **Adherir Troqueles**: Pegar troqueles originales en el T.N.F. en el mismo orden que figuran en la receta. Si no hay troqueles, se debe escribir ‘S/T’. No se aceptan fotografías o troqueles digitales.
+
+5. **Cobro y Ticket Fiscal**: Imprimir el Ticket Fiscal solo si corresponde a un copago autorizado.
+
+6. **Registrar la entrega**: Asegurarse de que la entrega quede registrada en el sistema Farmalive. 
+
+¿Querés que te muestre cómo se realiza la presentación de las recetas?",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5434,2026-10-21T23:14:08.095862+00:00,DP1,CAMARA,OSEP,59,PILOT,como se valida ose,"No pude identificar OSE entre las obras sociales activas de GDPSoft. ¿Quizás quisiste consultar por OSEP, OSADEF - OSEF - EMPLEADOS DE FCIAS o OSECAC? Confirmame el nombre para poder ayudarte con la información correspondiente.",UNKNOWN_EXPLICIT_SOCIAL_WORK,SOCIAL_WORK_IDENTITY,NO,,,CORRECT,,,
+5435,2026-10-21T23:14:25.326982+00:00,DP1,CAMARA,OSEP,59,PILOT,como se valida OSEP,"Información · OSEP
+Intro: No tengo una normativa específica cargada para esta consulta. Esto es lo que figura en la Ficha de la obra social:
+Ficha:
+- Validador: VALIDADOR PROPIO (TYS)
+- Tipo de receta: OFICIAL - DIGITAL
+- Vigencia de la receta: 29 días
+- Membrete: No Requiere
+- RP: 2
+- Diagnóstico: Requiere
+- Monodroga: Requiere
+- Nombre comercial: Requiere
+- Sustitución: Requiere
+Aviso: Información de la Ficha, no de la normativa. Ante dudas, consultá con Obras Sociales.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5437,2026-10-21T23:15:12.40127+00:00,DP1,CAMARA,OSECAC,7,PILOT,por donde valida osecac,"En DP1, OSECAC se valida con el validador de San Francisco (SUC: San Francisco).
+
+Por dónde valida: TYS.
+Validador: GMS/SUC: San Francisco DP1.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de OSECAC.
+
+¿Querés que te muestre los pasos para validar o los requisitos?",BRANCH_VALIDATION_GUIDE,GDP_OPERATION_PROCEDURE,SI,,,CORRECT,,,
+5438,2026-10-21T23:16:29.18095+00:00,Libertad,COLEGIO,JERARQUICOS,32,PILOT,requisitos jerarquicos,"Requisitos de receta · JERARQUICOS
+Circuito: Colegio
+Ficha:
+- Tipo: OFICIAL-COMÚN - DIGITAL/ELECTRÓNICA Mis RX
+- Vigencia: 30 días
+- Membrete: Opcional
+- RP por receta: 3
+- Diagnóstico: si
+- Monodroga: Si
+- Nombre comercial: opcional
+- Sustitución: si
+## Receta
+- Debe estar en cualquier formato, con la sigla “Rp/” en el encabezado.
+- Aceptación de recetas digitales emitidas por sistemas autorizados, que deben ser impresas y firmadas por el médico en original.
+- Nombre y Apellido del Socio.
+- N° de Socio.
+- Nombre genérico del medicamento, forma farmacéutica y dosis/unidad.
+- Diagnóstico presuntivo.
+- Localidad y fecha de emisión.
+- Firma y Sello del profesional.
+- Cualquier receta con tachaduras o con datos no claramente legibles será invalidada.
+- Recetas sin diagnóstico o sin los datos requeridos serán debitadas.
+- Estos requisitos deben ser cumplidos para la aceptación y el expendio de medicamentos bajo el sistema de JERÁRQUICOS.
+## Cantidades
+- Se permiten hasta 3 renglones por receta.
+- Hasta 3 envases por renglón para medicamentos.
+- Dos envases, sin superar 3 por receta, para antibióticos multidosis.
+- Hasta 6 envases para una sola especialidad por receta.
+## Facturación
+- Troqueles adjuntos con pegamento (no cinta adhesiva ni abrochadora).
+- Ticket adherido en el dorso del recetario de forma vertical.
+Fuente: NORMAS DE ATENCION JERARQUICOS SALUD 04-2026
+Aviso: Este resumen no autoriza por sí solo la recepción ni la dispensación. Revisá los campos en la receta.",PRESCRIPTION_CHECKLIST_FICHA_NORMATIVE,SOCIAL_WORK_PROFILE_AND_NORMATIVE,SI,,,CORRECT,,,
+5440,2026-10-21T23:17:16.96546+00:00,Libertad,COLEGIO,OSEP,59,PILOT,cuándo puede osep usar stock propio,"Según la guía interna, si Cooperativa no tiene stock, el uso de stock propio en OSEP requiere adjuntar nota de falta de stock. También se mencionan insulinas, tiras, alimentos y sensores con esa nota. Ostomía se dispensa por droguería externa. Corroborar el circuito y la normativa específica antes de operar.
+
+Fuente: Procedimiento interno aprobado de GDP Salud. Prevalece la normativa específica vigente de la obra social, plan y circuito. Ante contradicción, solicitar revisión al área de Obras Sociales.",INTERNAL_PROCEDURE_BY_MEANING,GDP_INTERNAL_PROCEDURE,SI,,,CORRECT,,,
+5443,2026-10-22T11:53:59.337074+00:00,Libertad,COLEGIO,RECETARIO SOLIDARIO,63,PILOT,por donde se valida?,"Validador: COFA.
+Corroborá el plan y el circuito operativo de tu sucursal antes de realizar la validación. La ficha no autoriza por sí sola una receta.
+
+Fuente: Recordá/Ficha de RECETARIO SOLIDARIO.",STRUCTURED_PROFILE,SOCIAL_WORK_PROFILE,SI,,,CORRECT,,,
+5446,2026-10-22T12:16:18.906198+00:00,,,OSEP,59,ADMIN,como gestiono osep lic obstetrica,"Para gestionar recetas de Lic. en Obstetricia de OSEP, debes seguir estos pasos:
+
+1. Asegurarte de que la farmacia esté habilitada en SISAO.
+2. Si no cuentas con acceso, comunicarte con OSEP para solicitar el usuario y la contraseña.
+3. Una vez habilitado, ingresar a SISAO con las credenciales proporcionadas por OSEP.
+4. Seleccionar la opción ""Consumir receta"".
+5. Realizar el consumo de la receta correspondiente.
+
+Es necesario registrar el consumo en SISAO para completar la dispensa.
+
+Fuente: observación operativa aprobada por Administración (no es normativa oficial).",APPROVED_NOTES_FALLBACK,SOCIAL_WORK_NOTES,SI,,,CORRECT,,,
+5448,2026-10-22T12:23:58.320411+00:00,Libertad,COLEGIO,OSDOP,111,PILOT,"Te consulto sobre obra social OSDOP, el cliente trae solo autorizacion previa, hace falta receta para dispensar medicamento?","Se requiere receta para dispensar medicamentos bajo la obra social OSDOP, incluso si el cliente presenta solo autorización previa.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5449,2026-10-22T12:43:41.697659+00:00,Libertad,COLEGIO,OSDOP,111,PILOT,para autorizar la dispensa se realiza declaracion de dispensa o validamos?,"Para autorizar la dispensa se requiere realizar la declaración de dispensa, no se valida. La declaración es obligatoria.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5452,2026-10-22T13:06:00.683612+00:00,Libertad,COLEGIO,PROVINCIA ART,3,PILOT,provincia art necesita copia denuncia?,No se menciona la necesidad de una copia de la denuncia para Provincia ART en la normativa vigente.,SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,,
+5455,2026-10-22T13:32:13.727532+00:00,Libertad,COLEGIO,PROVINCIA ART,3,PILOT,provincia art necesita copia denuncia?,No se menciona la necesidad de una copia de la denuncia para Provincia ART en la normativa vigente.,CACHE,CACHE,SI,,,CORRECT,,BOTH,
+5456,2026-10-22T13:32:45.312077+00:00,Libertad,COLEGIO,PROVINCIA ART,3,PILOT,me piden copia de la denuncia en provincia art,Obligatorio presentar Receta NO REQUIERE DENUNCIA,ADMIN_CORRECTION,ADMIN_CORRECTION,SI,,,CORRECT,,BOTH,
+5458,2026-10-22T13:34:09.244858+00:00,DP1,CAMARA,OSECAC,7,PILOT,como tramito osecac,"Para OSECAC en DP1, el circuito indicado es directo por el validador de San Francisco. DP1 opera OSECAC de forma directa por el validador de San Francisco. 
+Confirmá convenio, validador y requisitos normativos antes de recibir o dispensar.",ADMIN_CORRECTION,ADMIN_CORRECTION,SI,,,CORRECT,,BOTH,
+5459,2026-10-22T13:34:33.177809+00:00,DP1,CAMARA,OSEP,59,PILOT,"hola tengo una receta de osep con tiras reactivas en falta en coope, la entregamos de stock?","Si podes dispensarlas del stock, adjuntando la nota de falta de stock",ADMIN_CORRECTION,ADMIN_CORRECTION,SI,,,CORRECT,,BOTH,
+5460,2026-10-22T13:41:13.920962+00:00,DP1,CAMARA,OSECAC,7,PILOT,Como tramito osecac?,"Para OSECAC en DP1, el circuito indicado es directo por el validador de San Francisco.
+Confirmá convenio, validador y requisitos normativos antes de recibir o dispensar.",ADMIN_CORRECTION,ADMIN_CORRECTION,SI,,,CORRECT,,BOTH,
+5461,2026-10-22T13:46:12.84885+00:00,DP1,CAMARA,PROVINCIA ART,3,PILOT,provincia art necesita copia denuncia?,Obligatorio presentar Receta NO REQUIERE DENUNCIA,ADMIN_CORRECTION,ADMIN_CORRECTION,SI,,,CORRECT,,BOTH,
+5462,2026-10-22T13:48:07.198654+00:00,,,VALE SALUD,141,ADMIN,Buenas! Alguien sabe con quién hay que hablar por el tema del saldo para Vale Salud?,"Para consultas sobre el saldo de Vale Salud, puedes contactar al soporte a través del correo electrónico: soporte@misvalidaciones.com.ar.",SEMANTIC,OPENAI_FILE_SEARCH,SI,,,CORRECT,,BOTH,
+5464,2026-10-22T13:49:42.459052+00:00,DP1,CAMARA,PROVINCIA ART,3,PILOT,provincia art necesita copia denuncia?,Provincia ART no requiere copia de la denuncia. Es obligatorio presentar la receta.,ADMIN_CORRECTION,ADMIN_CORRECTION,SI,,,CORRECT,,BOTH,

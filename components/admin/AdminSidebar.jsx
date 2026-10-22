@@ -124,6 +124,7 @@ export default function AdminSidebar({ collapsed, onToggle }) {
             <SidebarItem item={{ label: "Gastos OpenAI", href: "/admin/openai", emoji: "💳" }} />
             {currentUser?.is_super_admin && (
               <>
+                <SidebarItem item={{ label: "Auditoría de respuestas", href: "/admin/auditoria", emoji: "🔎" }} />
                 <SidebarItem item={{ label: "Estadísticas IA · QA técnico", href: "/admin/estadisticas-ia", emoji: "📈" }} />
                 <SidebarItem item={{ label: "Historial de cambios", href: "/admin/historial", emoji: "🕘", available: false }} />
               </>

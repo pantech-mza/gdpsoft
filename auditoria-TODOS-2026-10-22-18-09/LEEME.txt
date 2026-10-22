@@ -1,0 +1,10 @@
+Auditoría GDPSoft — circuito TODOS
+Consultas desde: 1970-01-01T00:00:00Z
+Generado: 2026-10-22T18:15:38.369Z
+
+aprobadas.csv / corregidas.csv    -> las consultas que el admin marcó correctas, y las que corrigió (con su corrección).
+consultas.csv / consultas.jsonl  -> todas las consultas con la respuesta del bot, la ruta, y la corrección/veredicto del admin si existe.
+conocimiento/*.md                -> por obra social: Ficha, observaciones aprobadas, protocolos, FAQs, reglas, correcciones y normativas.
+resumen.json                     -> conteos y errores de la exportación.
+
+Los datos personales (DNI, afiliado, etc.) y las credenciales están enmascarados. Las observaciones de acceso (usuarios y claves) NO se exportan.
