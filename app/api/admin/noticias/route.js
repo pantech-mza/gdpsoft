@@ -48,7 +48,22 @@ export async function PATCH(request) {
   const actor=await actorFromRequest(request);
   if(!adminActor(actor)) return jsonError('No autorizado',403);
   const body=await request.json().catch(()=>({}));const id=Number(body.id);
-  if(!Number.isInteger(id)||id<1||!['archive','republish'].includes(body.action)) return jsonError('Acción inválida');
+  if(!Number.isInteger(id)||id<1||!['archive','republish','edit'].includes(body.action)) return jsonError('Acción inválida');
+  // v3.13.93 — corregir título, mensaje o prioridad de un aviso ya publicado (errores de tipeo).
+  // Los destinatarios no cambian. Con reshow=true además se reinician los cierres para que vuelva a mostrarse.
+  if (body.action === 'edit') {
+    const title=String(body.title||'').trim(), message=String(body.body||'').trim();
+    const severity=String(body.severity||'').toUpperCase();
+    if (title.length<3 || title.length>140 || message.length<3 || message.length>4000 || !['INFO','IMPORTANT','URGENT'].includes(severity)) return jsonError('Título, mensaje o importancia inválidos');
+    const {data:updated,error:editError}=await supabaseAdmin.from('branch_notices').update({title,body:message,severity}).eq('id',id).select('id').maybeSingle();
+    if(editError)return jsonError(editError.message,500);
+    if(!updated)return jsonError('Aviso inexistente',404);
+    if (body.reshow === true) {
+      const {error:ackError}=await supabaseAdmin.from('branch_notice_ack').delete().eq('notice_id',id);
+      if(ackError)return jsonError('Se guardó el texto, pero no se pudieron restablecer los cierres: '+ackError.message,500);
+    }
+    return Response.json({ok:true});
+  }
   // Volver a mostrar: reiniciar acks de todas las PCs. No duplica la noticia.
   if (body.action === 'republish') {
     const {data:found,error:lookupError}=await supabaseAdmin.from('branch_notices').select('id').eq('id',id).maybeSingle();

@@ -1898,6 +1898,12 @@ function buildVisualAnswer({
   if (
     !lines.length
   ) {
+    // v3.13.92 — documentos que no son recetas (órdenes, solicitudes, autorizaciones):
+    // si la lectura no dejó campos clasificados, se usa la descripción general de la imagen.
+    const summary = String(analysis?.summary || "").trim();
+    if (summary.length >= 20) {
+      return summary + "\n\nNo puedo confirmar si el documento está completo o correcto: verificalo contra la normativa de la obra social.";
+    }
     return (
       "No puedo identificar datos con suficiente certeza en esta imagen."
     );
@@ -3411,7 +3417,7 @@ async function logVisionPilotQuestion({request, conversation, activeImage, quest
 
     const normalized = String(question || "").normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
-    const {error} = await supabaseAdmin.from("assistant_query_log").insert({
+    const row = {
       branch_id: conversation.branch_id,
       device_id: conversation.device_id || null,
       social_work_id: response.context?.social_work_id || response.social_work?.id || conversation.active_social_work_id || null,
@@ -3427,7 +3433,12 @@ async function logVisionPilotQuestion({request, conversation, activeImage, quest
       total_tokens: response.usage?.total_tokens ?? 0,
       elapsed_ms: elapsedMs,
       openai_response_id: response.response_id || null,
-    });
+    };
+    // v3.13.92 — guarda la conversación para mostrar la imagen adjunta en Validación.
+    let {error} = await supabaseAdmin.from("assistant_query_log").insert({...row, conversation_id: conversation.id || null});
+    if (error && /conversation_id/i.test(String(error.message || ""))) {
+      ({error} = await supabaseAdmin.from("assistant_query_log").insert(row));
+    }
     if (error) console.error("No se pudo registrar consulta de receta digital en el piloto:", error.message);
   } catch (error) {
     // El registro estadístico no debe interrumpir una respuesta de receta válida.
