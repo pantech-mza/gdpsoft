@@ -1090,6 +1090,14 @@ export default function FloatingAssistant() {
       return;
     }
 
+    if (action.type === "CHOICE" && action.option?.label) {
+      await requestAssistant({
+        displayText: action.option.label,
+        question: action.option.label,
+      });
+      return;
+    }
+
     if (
       action.type ===
       "OPTION"
@@ -1541,6 +1549,27 @@ export default function FloatingAssistant() {
 
                           </div>
                         )}
+
+                      {message.role === "assistant" && message?.ui?.type === "CHOICES" && (
+                        <div className="mt-2 max-w-[90%]">
+                          {message.ui.prompt && (
+                            <p className="mb-2 text-xs font-medium leading-5 text-zinc-600">{message.ui.prompt}</p>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            {(message.ui.options || []).map((option) => (
+                              <button
+                                key={option.id}
+                                type="button"
+                                disabled={!actionsEnabled}
+                                onClick={() => handleAction({ message, action: { type: "CHOICE", option } })}
+                                className="rounded-xl border border-[#8f2a85]/20 bg-white px-3 py-2 text-xs font-semibold text-[#8f2a85] shadow-sm transition hover:border-[#8f2a85]/40 hover:bg-[#8f2a85]/5 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {message.role ===
                         "assistant" &&

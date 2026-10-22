@@ -51,7 +51,7 @@ test("una corrección de una sucursal de Cámara no se aplica a Colegio (dos cir
 
 test("el servidor aplica el filtro de circuito a las correcciones", () => {
   const q = fs.readFileSync("app/api/assistant/query/route.js", "utf8");
-  assert.match(q, /restrictCorrectionsToCircuit\(supabaseAdmin, adminCorrections, socialWorkId/);
+  assert.match(q, /restrictCorrectionsToCircuit\(supabaseAdmin, allCorrections, socialWorkId/);
 });
 
 import { resolveDeclaredCircuitPolicy, formatCircuitLine, applyCircuitLine, CIRCUIT_LEGEND } from "../../lib/operations/camara-colegio-policy.mjs";

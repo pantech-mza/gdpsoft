@@ -57,9 +57,12 @@ export async function GET(request) {
     const ids = rows.map(r=>r.id);
     let reviewRows = [];
     for (let i = 0; i < ids.length; i += 200) {
-      const result = await supabaseAdmin.from("branch_response_reviews")
-        .select("query_id,verdict,suggested_answer,comment,updated_at")
+      const readReviews = (columns) => supabaseAdmin.from("branch_response_reviews")
+        .select(columns)
         .eq("reviewer_profile_id",access.actor.id).in("query_id",ids.slice(i,i + 200));
+      let result = await readReviews("query_id,verdict,suggested_answer,comment,updated_at,applies_to");
+      // Sin la migración del alcance (applies_to) la pantalla funciona igual.
+      if (result.error) result = await readReviews("query_id,verdict,suggested_answer,comment,updated_at");
       if (result.error) throw result.error;
       reviewRows.push(...(result.data || []));
     }
@@ -98,6 +101,8 @@ export async function POST(request) {
     const queryId = Number(b.queryId), verdict = String(b.verdict || "").toUpperCase();
     const comment = String(b.comment || "").trim().slice(0,3000);
     const suggested = String(b.suggestedAnswer || "").trim().slice(0,12000);
+    // Alcance de la corrección: ambos circuitos (por defecto), solo Cámara o solo Colegio.
+    const appliesTo = ["BOTH","CAMARA","COLEGIO"].includes(String(b.appliesTo || "").toUpperCase()) ? String(b.appliesTo).toUpperCase() : "BOTH";
     if (!Number.isSafeInteger(queryId) || queryId<=0 || !ALLOWED.has(verdict))
       return jsonError("Validación inválida",400);
     const [scope,result] = await Promise.all([
@@ -107,11 +112,13 @@ export async function POST(request) {
     if (result.error) throw result.error;
     if (!isPilotReviewable(result.data,scope))
       return jsonError("La consulta no pertenece al alcance operativo del piloto",404);
-    const {data,error} = await supabaseAdmin.from("branch_response_reviews")
-      .upsert({query_id:queryId,reviewer_profile_id:access.actor.id,verdict,
-        comment,suggested_answer:suggested,updated_at:new Date().toISOString()},
-        {onConflict:"query_id,reviewer_profile_id"})
-      .select("query_id,verdict").single();
+    const baseRow = {query_id:queryId,reviewer_profile_id:access.actor.id,verdict,
+      comment,suggested_answer:suggested,updated_at:new Date().toISOString()};
+    const save = (row) => supabaseAdmin.from("branch_response_reviews")
+      .upsert(row,{onConflict:"query_id,reviewer_profile_id"}).select("query_id,verdict").single();
+    let {data,error} = await save({...baseRow,applies_to:appliesTo});
+    // Si todavía no se corrió la migración del alcance, se guarda igual (sin alcance).
+    if (error && /applies_to/i.test(String(error.message || ""))) ({data,error} = await save(baseRow));
     if (error) throw error;
     // v3.13.21 — una respuesta incorrecta/parcial no debe seguir sirviéndose
     // desde la caché; la corrección sugerida pasa a usarse en las próximas respuestas.

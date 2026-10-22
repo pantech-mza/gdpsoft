@@ -984,7 +984,7 @@ function NormativesView({
         return payload;
       };
       const analysis = await call(`/api/normatives/analyze?normativeId=${id}`);
-      if (analysis.recommendation === "OCR" && /\.pdf$/i.test(analysis.filename || "")) {
+      if (analysis.recommendation === "OCR" && /\.(pdf|png|jpe?g|webp)$/i.test(analysis.filename || "")) {
         await ocrAndIndex(call, id, setProcessMessage);
         setProcessMessage("Normativa leída con OCR e indexada correctamente.");
       } else if (analysis.recommendation !== "DIRECT") {
@@ -1470,7 +1470,7 @@ function UploadNormativeModal({
     };
     setAutoProgress("Analizando el documento recién cargado...");
     const analysis = await call(`/api/normatives/analyze?normativeId=${id}`);
-    if (analysis.recommendation === "OCR" && /\.pdf$/i.test(analysis.filename || "")) {
+    if (analysis.recommendation === "OCR" && /\.(pdf|png|jpe?g|webp)$/i.test(analysis.filename || "")) {
       await ocrAndIndex(call, id, setAutoProgress);
       return {
         status: "INDEXED",

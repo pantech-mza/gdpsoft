@@ -2,6 +2,7 @@ import { requireActor } from "../../../../lib/decision-trees/auth";
 import { supabaseAdmin } from "../../../../lib/supabase/admin";
 import { getDocumentProxy } from "unpdf";
 import { isSpreadsheetFile, spreadsheetBufferToText } from "../../../../lib/normatives/spreadsheet-text.mjs";
+import { imageMimeType } from "../../../../lib/normatives/ocr.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -363,7 +364,7 @@ export async function POST(request) {
     const looksLikeOle = bytes[0] === 0xd0 && bytes[1] === 0xcf && bytes[2] === 0x11 && bytes[3] === 0xe0;
     const isTextDocument =
       signature !== "%PDF-" &&
-      ((extension === "docx" && looksLikeZip) || (extension === "doc" && looksLikeOle) || ["txt", "md", "html", "htm"].includes(extension));
+      ((["docx", "pptx"].includes(extension) && looksLikeZip) || (["doc", "ppt"].includes(extension) && looksLikeOle) || ["txt", "md", "html", "htm"].includes(extension));
     // v3.13.47 — Excel (.xlsx/.xls): OpenAI no indexa planillas; se genera un texto
     // equivalente (una línea por fila con sus columnas) y ese texto se indexa.
     if (isSpreadsheetFile(normative.original_filename, bytes)) {
@@ -414,6 +415,33 @@ export async function POST(request) {
       });
     }
 
+    // v3.13.86 — captura o foto de una normativa: se lee con OCR de visión (PNG, JPG, WEBP).
+    if (signature !== "%PDF-" && imageMimeType(bytes, normative.original_filename)) {
+      const analyzedAtImage = new Date().toISOString();
+      const imageReason = "Imagen: no tiene texto digital; se lee con OCR de visión antes de indexarla.";
+      await updateAnalysis(normativeId, {
+        status: "READY_TO_PROCESS",
+        analysis_stage: "COMPLETED",
+        analysis_progress: 100,
+        processing_recommended: "OCR",
+        analysis_confidence: 1,
+        analysis_reason: imageReason,
+        analysis_details: { engine: "image-ocr", extension, mime: imageMimeType(bytes, normative.original_filename), analyzed_at: analyzedAtImage, analysis_version: "1.0" },
+        analyzed_at: analyzedAtImage,
+        error_message: null,
+      });
+      return Response.json({
+        ok: true,
+        normative_id: normative.id,
+        filename: normative.original_filename,
+        recommendation: "OCR",
+        confidence: 1,
+        reason: imageReason,
+        metrics: { extension },
+        processing_selected: normative.processing_selected ?? null,
+        requires_admin_confirmation: true,
+      });
+    }
     if (isTextDocument) {
       const analyzedAtText = new Date().toISOString();
       await updateAnalysis(normativeId, {
@@ -443,8 +471,11 @@ export async function POST(request) {
     if (
       signature !== "%PDF-"
     ) {
+      // v3.13.87 — el mensaje dice qué formato llegó y cuáles se aceptan.
       throw new Error(
-        "El archivo almacenado no parece ser un PDF válido"
+        extension
+          ? `El formato «.${extension}» no se puede analizar. Se aceptan PDF, imágenes (PNG, JPG, WEBP), Word, PowerPoint, Excel/CSV, TXT, MD y HTML. Convertilo a PDF o a uno de esos formatos y volvé a cargarlo.`
+          : "El archivo almacenado no parece ser un PDF válido"
       );
     }
 

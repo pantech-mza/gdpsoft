@@ -75,7 +75,7 @@ test('route.js: el prompt exige decir qué dato específico no figura', () => {
 
 test('analyze: los documentos de texto (DOCX) se marcan listos para indexar en modo DIRECT', () => {
   const src = fs.readFileSync(new URL('../../app/api/normatives/analyze/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(src, /extension === "docx" && looksLikeZip/);
+  assert.match(src, /\["docx", "pptx"\]\.includes\(extension\) && looksLikeZip/);
   assert.match(src, /processing_recommended: "DIRECT"/);
   // el PDF sigue validándose igual
   assert.match(src, /signature !== "%PDF-"/);
@@ -130,7 +130,7 @@ test('observaciones de apoyo: degradan sin romper y la consulta filtra por GENER
 test('route.js usa las observaciones solo si no hay normativa o no respondió', () => {
   const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   assert.equal((src.match(/route: "APPROVED_NOTES_FALLBACK"/g) || []).length, 4); // 2 puntos de uso × (log + respuesta)
-  assert.match(src, /if \(!normativeScope\.ambiguous\) \{\n\s+const notesSupport/);
+  assert.match(src, /if \(!normativeScope\.ambiguous\) \{\n(?:\s+\{ const earlyFicha[^\n]*\n)?\s+const notesSupport/);
   assert.ok(src.indexOf('v3.13.36 — la normativa no respondió') < src.indexOf('resolveInternalProcedure({\n        question, socialWorkId, billingChannelId: activeBillingChannelId || (await getBranchCircuit()).channelId,'));
 });
 
@@ -271,7 +271,7 @@ test('ficha sin dato de validación consulta la normativa antes de responder «s
   assert.match(route, /if \(!found && profileFallback\) return respondProfileFallback\(\)/);
   assert.match(route, /if \(profileFallback\) return respondProfileFallback\(\)/);
   const analyze = rd('app/api/normatives/analyze/route.js');
-  assert.match(analyze, /extension === "doc" && looksLikeOle/);
+  assert.match(analyze, /\["doc", "ppt"\]\.includes\(extension\) && looksLikeOle/);
 });
 
 import { formatMoneyUsdPrecise } from '../../lib/assistant/format-money-usd.mjs';

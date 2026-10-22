@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { requireActor } from "../../../../lib/decision-trees/auth";
 import { supabaseAdmin } from "../../../../lib/supabase/admin";
-import { ocrPdfToText } from "../../../../lib/normatives/ocr.mjs";
+import { isImageFile, ocrImageToText, ocrPdfToText } from "../../../../lib/normatives/ocr.mjs";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -22,8 +22,9 @@ export async function POST(request) {
     const { data: normative, error } = await supabaseAdmin.from("normatives")
       .select("id,original_filename,storage_path_original,mime_type,status").eq("id", normativeId).single();
     if (error || !normative) throw new Error(error?.message || "Normativa no encontrada");
-    if (!/\.pdf$/i.test(normative.original_filename || "")) {
-      return Response.json({ ok: false, error: "El OCR automático solo funciona con archivos PDF" }, { status: 400 });
+    const nameLooksValid = /\.(pdf|png|jpe?g|webp)$/i.test(normative.original_filename || "");
+    if (!nameLooksValid) {
+      return Response.json({ ok: false, error: "El OCR automático solo funciona con archivos PDF o imágenes (PNG, JPG, WEBP)" }, { status: 400 });
     }
     if (!normative.storage_path_original) throw new Error("La normativa no tiene archivo original");
 
@@ -33,10 +34,11 @@ export async function POST(request) {
     const bytes = new Uint8Array(await blob.arrayBuffer());
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const text = await ocrPdfToText({
-      openai, bytes, filename: normative.original_filename,
-      model: process.env.OPENAI_OCR_MODEL || process.env.OPENAI_MODEL || "gpt-4.1-mini",
-    });
+    const ocrModel = process.env.OPENAI_OCR_MODEL || process.env.OPENAI_MODEL || "gpt-4.1-mini";
+    // v3.13.86 — las capturas y fotos se leen con visión; los PDF siguen igual.
+    const text = isImageFile(bytes, normative.original_filename)
+      ? await ocrImageToText({ openai, bytes, model: ocrModel })
+      : await ocrPdfToText({ openai, bytes, filename: normative.original_filename, model: ocrModel });
 
     const processedPath = `${normativeId}/${Date.now()}__ocr.txt`;
     const upload = () => supabaseAdmin.storage.from(PROCESSED_BUCKET)
