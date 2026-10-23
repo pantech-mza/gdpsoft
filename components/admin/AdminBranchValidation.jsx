@@ -189,6 +189,65 @@ export default function AdminBranchValidation() {
     openItem(target, item);
   }
 
+  // v3.13.89 — abre la imagen que la sucursal adjuntó en el chat (URL temporal).
+  async function openImage(imageId) {
+    const tab = window.open("", "_blank");
+    try {
+      const json = await api(`/api/admin/validacion/imagen?id=${encodeURIComponent(imageId)}`);
+      if (tab) tab.location.href = json.url; else window.location.href = json.url;
+    } catch (err) {
+      if (tab) tab.close();
+      setError(err.message || "No se pudo abrir la imagen");
+    }
+  }
+
+  // v3.13.97 — «¿Cómo llegó a esta respuesta?»: pasos que recorrió el bot, en orden.
+  const TRACE_TITLES = {
+    correcciones_admin: "Correcciones del administrador",
+    respuesta_guardada: "Respuesta guardada",
+    alcance_normativo: "Normativas consideradas",
+    buscador_normativas: "Buscador de normativas",
+    correccion_del_otro_circuito: "Corrección del otro circuito",
+    ficha: "Ficha de la obra social",
+    ficha_como_respaldo: "Ficha usada como respaldo",
+    regla_de_operacion: "Regla de operación / circuito",
+    protocolo_interno: "Protocolo interno",
+    protocolo_ultimo_recurso: "Protocolo interno (último recurso)",
+    observaciones_aprobadas: "Observaciones aprobadas",
+    requisitos_ficha_y_normativa: "Requisitos: Ficha + normativa",
+    respuesta_final: "Respuesta final",
+  };
+  const traceBox = (item) => {
+    const steps = Array.isArray(item.trace) ? item.trace : [];
+    if (!steps.length) return null;
+    const open = !!expanded[`trace-${item.id}`];
+    return (
+      <div className="mt-2 rounded-lg border border-zinc-100 bg-zinc-50 px-2.5 py-1.5">
+        <button type="button" className="text-[11px] font-semibold text-[#8f2a85]" onClick={() => setExpanded((p) => ({ ...p, [`trace-${item.id}`]: !p[`trace-${item.id}`] }))}>
+          {open ? "Ocultar cómo llegó a esta respuesta" : "¿Cómo llegó a esta respuesta?"}
+        </button>
+        {open && (
+          <ol className="mt-1.5 space-y-1.5 text-[11.5px] leading-4 text-zinc-600">
+            {steps.map((st) => (
+              <li key={st.n || st.stage}>
+                <span className="font-bold text-zinc-800">{st.n ? `${st.n}. ` : ""}{TRACE_TITLES[st.stage] || st.stage}</span>
+                {st.stage === "respuesta_final" ? <span> — {st.descripcion || st.ruta}{st.fuente ? ` (fuente: ${st.fuente})` : ""}</span> : null}
+                {st.motivo ? <div className="text-zinc-500">Por qué: {st.motivo}</div> : null}
+                {st.resultado ? <span> — {st.resultado}</span> : null}
+                {st.candidatas_de_este_circuito !== undefined ? <span> · candidatas: {st.candidatas_de_este_circuito} (otro circuito: {st.candidatas_del_otro_circuito})</span> : null}
+                {st.normativas_consideradas !== undefined ? <span> · {st.normativas_consideradas} normativa(s){st.ids?.length ? ` (IDs ${st.ids.join(", ")})` : ""}</span> : null}
+                {st.pregunta_enviada ? <div className="text-zinc-500">Consulta enviada: «{st.pregunta_enviada}»</div> : null}
+                {(st.fuentes_recuperadas || []).map((f, i) => (
+                  <div key={i} className="ml-3 text-zinc-500">↳ {f.archivo || "archivo"}{f.normativa_id ? ` (#${f.normativa_id})` : ""}{f.puntaje !== null && f.puntaje !== undefined ? ` · ${f.puntaje}` : ""} — «{f.extracto}»</div>
+                ))}
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    );
+  };
+
   const answerBox = (item) => {
     const text = String(item.answer || "").trim() || "Sin respuesta";
     const long = text.length > 420 && !expanded[item.id];
@@ -312,6 +371,15 @@ export default function AdminBranchValidation() {
                     <div key={item.id}>
                       <div className="ml-auto w-max max-w-[78%] rounded-2xl rounded-br-sm bg-[#8f2a85] px-3.5 py-2 text-[13px] text-white">
                         {item.question}
+                        {(item.images || []).length > 0 && (
+                          <span className="mt-1 flex flex-wrap gap-1.5">
+                            {item.images.map((img) => (
+                              <button key={img.id} type="button" onClick={() => openImage(img.id)} className="rounded-md bg-white/20 px-2 py-0.5 text-[10.5px] font-bold text-white underline">
+                                📎 Ver imagen adjunta{item.images.length > 1 ? ` (${img.name})` : ""}
+                              </button>
+                            ))}
+                          </span>
+                        )}
                         <span className="mt-0.5 block text-[10px] opacity-70">{time(item.created_at)}{item.followUp ? " · seguimiento" : ""}</span>
                       </div>
                       <div className={`mt-1.5 max-w-[88%] rounded-2xl rounded-bl-sm border px-3.5 py-2.5 ${active ? "border-2 border-[#8f2a85]" : item.alerts.length && !item.review ? "border-red-200 bg-red-50/60" : "border-zinc-200 bg-white"} ${item.followUp ? "bg-zinc-50" : ""}`}>
@@ -321,6 +389,7 @@ export default function AdminBranchValidation() {
                           {item.review && <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-emerald-700">Revisada</span>}
                         </div>
                         {answerBox(item)}
+                        {traceBox(item)}
                         <VerdictButtons item={item} active={active} onPick={pick} muted={item.followUp} />
                       </div>
                     </div>

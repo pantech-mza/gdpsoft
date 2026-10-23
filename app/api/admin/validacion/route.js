@@ -66,6 +66,49 @@ export async function GET(request) {
       if (result.error) throw result.error;
       reviewRows.push(...(result.data || []));
     }
+    // v3.13.89 — imágenes que la sucursal adjuntó en la conversación (opcional: si falta
+    // la columna o la tabla, la pantalla funciona igual sin imágenes).
+    const imagesByQuery = new Map();
+    try {
+      const convByQuery = new Map();
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data, error } = await supabaseAdmin.from("assistant_query_log")
+          .select("id,conversation_id").in("id",ids.slice(i,i + 200)).not("conversation_id","is",null);
+        if (error) throw error;
+        for (const r of data || []) convByQuery.set(String(r.id),String(r.conversation_id));
+      }
+      const convIds = [...new Set(convByQuery.values())];
+      const imgs = [];
+      for (let i = 0; i < convIds.length; i += 100) {
+        const { data, error } = await supabaseAdmin.from("conversation_images")
+          .select("id,conversation_id,original_filename,mime_type,created_at")
+          .in("conversation_id",convIds.slice(i,i + 100)).is("deleted_at",null).order("created_at",{ascending:true});
+        if (error) throw error;
+        imgs.push(...(data || []));
+      }
+      for (const row of rows) {
+        const conv = convByQuery.get(String(row.id));
+        if (!conv) continue;
+        const list = imgs.filter(im => String(im.conversation_id) === conv &&
+          new Date(im.created_at).getTime() <= new Date(row.created_at).getTime() + 60000)
+          .map(im => ({id:im.id,name:im.original_filename || "Imagen adjunta",mime:im.mime_type || ""}));
+        if (list.length) imagesByQuery.set(String(row.id),list);
+      }
+    } catch (err) {
+      console.warn("Validación: imágenes adjuntas no disponibles:",err?.message);
+    }
+    // v3.13.97 — rastro de pasos de cada respuesta (opcional: sin la columna trace la pantalla funciona igual).
+    const traceByQuery = new Map();
+    try {
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data, error } = await supabaseAdmin.from("assistant_query_log")
+          .select("id,trace").in("id",ids.slice(i,i + 200)).not("trace","is",null);
+        if (error) throw error;
+        for (const r of data || []) traceByQuery.set(String(r.id),r.trace);
+      }
+    } catch (err) {
+      console.warn("Validación: rastro de pasos no disponible:",err?.message);
+    }
     const reviewMap = new Map(reviewRows.map(r=>[String(r.query_id),r]));
     const branchIds = [...new Set(rows.map(r=>r.branch_id).filter(Boolean))];
     const swIds = [...new Set(rows.map(r=>r.social_work_id).filter(Boolean))];
@@ -86,6 +129,8 @@ export async function GET(request) {
       social_work_name:workMap.get(String(r.social_work_id)) || "No identificada",
       device_name:r.device_id ? (deviceMap.get(String(r.device_id)) || null) : null,
       review:reviewMap.get(String(r.id)) || null,
+      images:imagesByQuery.get(String(r.id)) || [],
+      trace:traceByQuery.get(String(r.id)) || null,
     }))}, {headers:{"Cache-Control":"no-store"}});
   } catch(error) {
     console.error("GET validacion operativa",error);

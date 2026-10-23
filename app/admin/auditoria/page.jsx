@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { refreshStoredSession } from '../../../lib/client/session';
 
@@ -44,11 +45,12 @@ export default function AuditoriaAdmin() {
   const causes = Object.entries(s?.by_cause || {}).sort((a, b) => b[1] - a[1]).slice(0, 12);
   return <div className="mx-auto max-w-[1250px] space-y-6">
     <div><p className="text-xs font-bold uppercase tracking-widest text-[#8f2a85]">Superadmin</p><h1 className="mt-1 text-2xl font-bold">Auditoría de respuestas</h1>
-      <p className="text-sm text-zinc-600">Revisión consulta por consulta con evidencia. Nada cambia en el bot hasta que aprobás una respuesta.</p></div>
+      <p className="text-sm text-zinc-600">Revisión consulta por consulta con evidencia. Nada cambia en el bot hasta que aprobás una respuesta.</p>
+      <Link href="/admin/auditoria/en-vivo" className="mt-2 inline-block rounded-xl bg-[#8f2a85] px-4 py-2 text-sm font-semibold text-white">▶ Auditoría en vivo (agentes)</Link></div>
     {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-red-800">{error}</div>}
     {s && <>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {[['Consultas auditadas', s.judged], ['Correctas', (s.acceptance_pct ?? 0) + ' %'], ['Correctas + parciales', (s.acceptance_with_partial_pct ?? 0) + ' %'], ['Pendientes de aprobar', s.by_status.PENDING], ['Posiblemente ya resueltas', s.by_aging.POSIBLEMENTE_RESUELTA]].map(([a, b]) =>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        {[['Consultas auditadas', s.judged], ...(s.replay?.judged ? [['Motor nuevo (' + s.replay.judged + ' repetidas)', `${s.replay.correct_pct} % vs ${s.replay.current_correct_pct} % actual`]] : []), ['Correctas', (s.acceptance_pct ?? 0) + ' %'], ['Correctas + parciales', (s.acceptance_with_partial_pct ?? 0) + ' %'], ['Pendientes de aprobar', s.by_status.PENDING], ['Posiblemente ya resueltas', s.by_aging.POSIBLEMENTE_RESUELTA]].map(([a, b]) =>
           <div key={a} className="rounded-2xl border border-[#eaddeb] bg-white p-4 shadow-sm"><p className="text-xs text-zinc-500">{a}</p><p className="mt-1 text-3xl font-extrabold text-[#8f2a85]">{b}</p></div>)}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -83,9 +85,13 @@ export default function AuditoriaAdmin() {
             <div><p className="text-xs font-bold text-zinc-500">Respuesta propuesta (editable)</p>
               <textarea rows={5} className="w-full rounded-xl border border-[#e5d9e6] p-3" value={e.answer ?? it.proposed_answer ?? ''} onChange={(ev) => setEdit((x) => ({ ...x, [it.id]: { ...e, answer: ev.target.value } }))} /></div>
             <div><p className="text-xs font-bold text-zinc-500">Dónde está (evidencia)</p>
-              {(it.sources || []).map((src, i) => <blockquote key={i} className="mt-1 border-l-4 border-[#8f2a85] bg-[#faf5fb] p-2"><p className="whitespace-pre-wrap">«{src.cita}»</p><p className="mt-1 text-[11px] text-zinc-500">{src.archivo} › {src.seccion}</p></blockquote>)}
+              {(it.sources || []).map((src, i) => <blockquote key={i} className="mt-1 border-l-4 border-[#8f2a85] bg-[#faf5fb] p-2"><p className="whitespace-pre-wrap">«{src.cita}»</p><p className="mt-1 text-[11px] text-zinc-500">{src.archivo} › {src.seccion}{src.verificada === false ? ' · ⚠ cita no encontrada literalmente en las fuentes' : ''}</p></blockquote>)}
               {!it.sources?.length && <p className="text-zinc-500">Sin fuentes citadas.</p>}</div>
             {it.note && <p className="text-zinc-600"><b>Nota:</b> {it.note}</p>}
+            {it.replay_verdict && <div className="rounded-xl border border-[#d9c6dc] bg-[#faf5fb] p-3"><p className="text-xs font-bold text-zinc-500">Motor de contexto completo ({it.replay_model}) — {VERDICT[it.replay_verdict]?.[0] || it.replay_verdict}</p>
+              <p className="mt-1 whitespace-pre-wrap">{it.replay_answer || '(sin respuesta)'}</p>
+              {it.replay_detail?.motivo && <p className="mt-1 text-xs text-zinc-600">Juez: {it.replay_detail.motivo}</p>}
+              {(it.replay_detail?.conflicts || []).map((c, i) => <p key={i} className="mt-1 rounded bg-amber-50 p-2 text-xs text-amber-900">Conflicto entre fuentes — {c.tema}: gana «{String(c.gana?.cita || '').slice(0, 160)}» ({c.gana?.fecha || 's/f'}) sobre «{String(c.pierde?.cita || '').slice(0, 160)}» ({c.pierde?.fecha || 's/f'})</p>)}</div>}
             {vs.length > 0 && <details><summary className="cursor-pointer text-xs font-bold text-zinc-500">Preguntas parecidas para pruebas ({vs.length})</summary><ul className="mt-1 list-disc pl-5">{vs.map((v, i) => <li key={i}>{v.variant_question}</li>)}</ul></details>}
             {it.status === 'PENDING' && <div className="flex flex-wrap items-center gap-2">
               <select className={sel} value={e.applies ?? it.applies_to_suggested} onChange={(ev) => setEdit((x) => ({ ...x, [it.id]: { ...e, applies: ev.target.value } }))}><option value="BOTH">Aplica a ambos circuitos</option><option value="CAMARA">Solo Cámara</option><option value="COLEGIO">Solo Colegio</option></select>

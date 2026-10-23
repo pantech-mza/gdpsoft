@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { buildDuplicateMessage } from "../../../../../lib/normatives/duplicate-message.mjs";
 
 import {
   supabaseAdmin,
@@ -599,7 +600,7 @@ export async function POST(
         {
           ok: false,
           error:
-            "Este archivo ya existe en el sistema",
+            await buildDuplicateMessage(supabaseAdmin, existingNormative),
           existing_normative:
             existingNormative,
         },

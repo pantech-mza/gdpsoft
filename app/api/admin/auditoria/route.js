@@ -6,8 +6,8 @@ import { summarize, validateDecision, defaultAppliesTo } from '../../../../lib/a
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 const PAGE = 1000;
-const LIGHT = 'id,query_id,social_work_id,social_work_name,circuit,branch_name,verdict_ai,cause,status,aging,admin_verdict,agrees_admin,query_created_at';
-const FULL = `${LIGHT},question,bot_answer,route,proposed_answer,sources,note,applies_to_suggested,aging_detail,replay_verdict,replay_answer,replay_at,final_answer,final_applies_to,decided_at`;
+const LIGHT = 'id,query_id,social_work_id,social_work_name,circuit,branch_name,verdict_ai,cause,status,aging,admin_verdict,agrees_admin,query_created_at,replay_verdict';
+const FULL = `${LIGHT},question,bot_answer,route,proposed_answer,sources,note,applies_to_suggested,aging_detail,replay_verdict,replay_answer,replay_at,replay_model,replay_detail,final_answer,final_applies_to,decided_at`;
 
 async function superAdmin(request) {
   const a = await requireAdminActor(request);

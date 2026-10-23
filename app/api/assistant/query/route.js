@@ -1,5 +1,9 @@
 import OpenAI from "openai";
 import { buildCourtesyAnswer, classifyCourtesy } from "../../../../lib/assistant/courtesy.mjs";
+import { createTrace, describeSearchResults, finalStep } from "../../../../lib/assistant/trace.mjs";
+import { after } from "next/server";
+import { shadowConfig, shouldShadow, runShadow } from "../../../../lib/assistant/context-engine/shadow.mjs";
+import { isGenericFillerAnswer } from "../../../../lib/assistant/answer-guards.mjs";
 import { matchCorrectionSemantically } from "../../../../lib/assistant/correction-semantic.mjs";
 
 import {
@@ -132,6 +136,8 @@ async function logAssistantQuery({
   openaiResponseId = null,
   trafficType = "OTHER",
   deviceId = null,
+  conversationId = null,
+  trace = null,
 
 }) {
 
@@ -143,13 +149,7 @@ async function logAssistantQuery({
 
 
 
-    const { data: insertedLog, error } =
-
-      await supabaseAdmin
-
-        .from("assistant_query_log")
-
-        .insert({
+    const buildRow = () => ({
 
           branch_id: branchId,
           traffic_type: trafficType,
@@ -222,10 +222,21 @@ async function logAssistantQuery({
           openai_response_id:
 
             openaiResponseId,
-
-        })
-        .select("id")
-        .maybeSingle();
+    });
+    // v3.13.89 — guarda la conversación para poder mostrar la imagen adjunta en Validación.
+    const insertRow = (row) => supabaseAdmin.from("assistant_query_log").insert(row).select("id").maybeSingle();
+    // v3.13.97 — rastro de pasos (assistant_query_log.trace). Si las columnas nuevas todavía no existen,
+    // se reintenta sin ellas: registrar la consulta tiene prioridad.
+    const extras = {};
+    if (conversationId) extras.conversation_id = conversationId;
+    if (Array.isArray(trace) && trace.length) extras.trace = trace;
+    let { data: insertedLog, error } = await insertRow({ ...buildRow(), ...extras });
+    for (const column of ["trace", "conversation_id"]) {
+      if (error && column in extras && new RegExp(column, "i").test(String(error.message || ""))) {
+        delete extras[column];
+        ({ data: insertedLog, error } = await insertRow({ ...buildRow(), ...extras }));
+      }
+    }
     if (error) {
       console.error("assistant_query_log error:", error.message);
     } else if (trafficType === "PILOT" && found === true) {
@@ -5438,6 +5449,23 @@ export async function POST(request) {
   } catch {
     // el formato y el nombre son solo de presentación: nunca deben romper la respuesta
   }
+  // v3.13.100 — motor de contexto completo en MODO SOMBRA: responde en paralelo y guarda el resultado;
+  // nunca cambia lo que ve la sucursal (apagado por defecto: CONTEXT_ENGINE_MODE=shadow para activarlo).
+  try {
+    const shadowCfg = shadowConfig();
+    if (shadowCfg.enabled) {
+      const fj = await response.clone().json();
+      const swId = Number(fj?.context?.social_work_id), brId = Number(fj?.context?.branch_id);
+      if (shouldShadow(shadowCfg, { socialWorkId: swId, branchId: brId, route: fj?.route || fj?.source, ok: fj?.ok === true })) {
+        const shadowCircuit = Number.isInteger(brId) && brId > 0 ? await resolveBranchGroup(supabaseAdmin, brId) : null;
+        const shadowConv = /^[0-9a-f-]{36}$/i.test(String(wrapperConversationId || "")) ? wrapperConversationId : null;
+        after(() => runShadow({ supabase: supabaseAdmin, cfg: shadowCfg, question: rawQuestion, socialWorkId: swId, branchId: brId, circuit: shadowCircuit,
+          conversationId: shadowConv, currentAnswer: fj.answer_plain || fj.answer, currentRoute: fj.route || fj.source }));
+      }
+    }
+  } catch {
+    // la sombra es opcional: nunca debe romper la respuesta
+  }
   return response;
 }
 
@@ -5472,9 +5500,12 @@ async function handleAssistantQuery(request, { conversationState = null } = {}) 
     } catch (err) {
       console.warn("No se pudo clasificar tráfico de sucursal:", err?.message);
     }
+    const trace = createTrace();
     const logCurrentQuery = (payload) => logAssistantQuery({
       ...payload,
+      trace: [...trace.snapshot(), finalStep({ route: payload.route, source: payload.source, found: payload.found })],
       deviceId: verifiedPilotBranch && Number(payload.branchId) === verifiedPilotBranch ? deviceId : null,
+      conversationId: /^[0-9a-f-]{36}$/i.test(String(body?.conversationId || "").trim()) ? String(body.conversationId).trim() : null,
       trafficType: verifiedPilotBranch && Number(payload.branchId) === verifiedPilotBranch
         ? "PILOT"
         : verifiedAdmin ? "ADMIN" : "OTHER",
@@ -6220,6 +6251,12 @@ if (conversationId) {
       if (!exactCorrection && adminCorrections.length && !resolveFollowUp({ question, state: conversationState, socialWorkId }).isFollowUp) {
         exactCorrection = await matchCorrectionSemantically({ client: openai, question, corrections: adminCorrections, model: process.env.OPENAI_MODEL || "gpt-4.1-mini" });
       }
+      trace.add("correcciones_admin", {
+        candidatas_de_este_circuito: adminCorrections.length,
+        candidatas_del_otro_circuito: crossCircuitCandidates.length,
+        resultado: exactCorrection ? "coincide con una corrección aprobada" : "ninguna coincide con esta pregunta",
+        corrige_la_pregunta: exactCorrection ? exactCorrection.question : undefined,
+      });
       if (exactCorrection) {
         const answer = exactCorrection.suggested;
         const elapsedMs = Date.now() - startedAt;
@@ -6345,6 +6382,10 @@ if (conversationId) {
     const internalProcedure = isImmediateOperationalContingency(question)
       ? await resolveInternalProcedure({ question, socialWorkId, billingChannelId: activeBillingChannelId || (await getBranchCircuit()).channelId })
       : null;
+    trace.add("protocolo_interno", {
+      motivo: isImmediateOperationalContingency(question) ? "la pregunta se interpretó como una contingencia operativa (falla, rechazo, autorización)" : "la pregunta no es una contingencia: no se buscó protocolo en este punto",
+      resultado: internalProcedure ? "protocolo " + (internalProcedure.code || "") + " aprobado" : "sin protocolo aplicable",
+    });
     if (internalProcedure) {
       const elapsedMs = Date.now() - startedAt;
       await logCurrentQuery({
@@ -6493,6 +6534,11 @@ if (conversationId) {
 
 
 
+        trace.add("regla_de_operacion", {
+          motivo: "la pregunta se clasificó como consulta operativa (" + (operationIntent.operationType || "circuito") + "), no como pregunta de normativa",
+          resultado: (operationResult.ok && operationResult.resolved) ? "se encontró una regla (" + (operationResult.source || "sin origen") + ")" : "no hay regla operativa confirmada",
+          origen: operationResult.source,
+        });
         if (
 
           operationResult.ok &&
@@ -7056,6 +7102,12 @@ if (asksForPrescriptionChecklist(question)) {
           maxOutputTokens: 1200,
         }) : null;
     const hasDocument = Boolean(normative?.search?.results?.length && normative.answer && !isInsufficientAnswer(normative.answer));
+    trace.add("requisitos_ficha_y_normativa", {
+      motivo: "la pregunta pide los requisitos de la receta: se arma con la Ficha y la normativa",
+      campos_de_la_ficha: fichaLines.length,
+      fuentes_recuperadas: describeSearchResults(normative?.search?.results),
+      resultado: hasDocument ? "la normativa aportó requisitos" : "la normativa no aportó un listado respaldado",
+    });
     const sections = [`Revisión de receta para ${ficha?.name || "esta obra social"}:`];
     if (fichaLines.length) sections.push("Recordá/Ficha (datos registrados):", ...fichaLines);
     else sections.push("No hay campos de receta disponibles en Recordá/Ficha.");
@@ -7122,6 +7174,7 @@ const profileIntent =
   );
 let profileFallback = null;
 const respondProfileFallback = async () => {
+  trace.add("ficha_como_respaldo", { motivo: "la normativa no devolvió un dato concreto, por eso se usó el dato de la Ficha" });
   const fallbackElapsedMs = Date.now() - startedAt;
   const fallbackUsage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
   await logCurrentQuery({ branchId, socialWorkId, question, answer: profileFallback.answer,
@@ -7143,6 +7196,13 @@ if (
       circuitGroup: (await getBranchCircuit()).group,
     });
 
+  trace.add("ficha", {
+    motivo: "la pregunta se clasificó como dato puntual de la Ficha: " + (profileIntent.key || "") + (profileIntent.field ? " (campo " + profileIntent.field + ")" : ""),
+    circuito_de_la_sucursal: (await getBranchCircuit()).group || "sin dato",
+    resultado: result.found && !result.incomplete
+      ? "la Ficha tiene el dato y responde directamente, sin consultar la normativa"
+      : (result.found ? "el dato de la Ficha está incompleto: se guarda como respaldo y primero se consulta la normativa" : "la Ficha no tiene ese dato: se sigue con la normativa"),
+  });
   // v3.13.22 — la ficha de validación no debe contradecir la excepción de la sucursal.
   if (result.found && ["VALIDATION_METHOD", "VALIDATOR_NAME"].includes(profileIntent.key)) {
     const validatorException = await getBranchValidatorException({ branchId, branchCode, socialWorkId });
@@ -7877,6 +7937,9 @@ if (prescriptionMissingField) {
   // v3.13.84 — una respuesta «no se menciona / no encontré» no se sirve desde la caché: así una corrección
   // del administrador (o una normativa nueva) tiene oportunidad de responder.
   const cachedAnswer = cachedAnswerRow && !answerSaysNoInfo(cachedAnswerRow.answer) && !isNotFoundAnswer(cachedAnswerRow.answer) ? cachedAnswerRow : null;
+  trace.add("respuesta_guardada", {
+    resultado: cachedAnswer ? "hay una respuesta guardada y se usa" : (cachedAnswerRow ? "había una respuesta guardada pero decía «no encuentro», se descartó" : "no hay respuesta guardada"),
+  });
 
 
 
@@ -8094,6 +8157,11 @@ const normativeScope = await getLinkedCurrentNormativeScope(
   supabaseAdmin, socialWorkId, activeBillingChannelId, fileSearchQuestion, generalPlanVariant,
 );
 activeBillingChannelId = channelBeforeBranchResolution;
+trace.add("alcance_normativo", {
+  normativas_consideradas: (normativeScope.normativeIds || []).length,
+  ids: (normativeScope.normativeIds || []).slice(0, 12),
+  variante_de_plan: generalPlanVariant || undefined,
+});
 const respondFichaSummary = async () => {
   // v3.13.80 — sin normativa específica: se responde con la Ficha (del circuito de la sucursal).
   // No se usa la Ficha base para consultas de un plan (OYTE) que no tiene Ficha propia.
@@ -8123,7 +8191,8 @@ if (!normativeScope.ok) {
   if (!normativeScope.ambiguous) {
     { const earlyFicha = await respondFichaSummary(); if (earlyFicha) return earlyFicha; }
     const notesSupport = await answerFromApprovedNotes({ question: fileSearchQuestion, socialWorkId, variant: generalPlanVariant });
-    if (notesSupport) {
+    trace.add("observaciones_aprobadas", { motivo: "la normativa no respondió: se buscó en las observaciones aprobadas", resultado: notesSupport ? "una observación respondió" : "ninguna observación respondió" });
+      if (notesSupport) {
       const notesElapsedMs = Date.now() - startedAt;
       await logCurrentQuery({ branchId, socialWorkId, question, answer: notesSupport.answer,
         source: "SOCIAL_WORK_NOTES", route: "APPROVED_NOTES_FALLBACK", found: true,
@@ -8169,6 +8238,11 @@ let result = await queryFileSearch({
   branchCircuit: buildBranchCircuitPrompt((await getBranchCircuit()).group),
   userConstraints: buildConstraintsPrompt(userConstraintSplit),
 });
+trace.add("buscador_normativas", {
+  pregunta_enviada: fileSearchQuestion,
+  fuentes_recuperadas: describeSearchResults(result?.search?.results),
+  resultado: (isNotFoundAnswer(result?.answer) || answerSaysNoInfo(result?.answer) || isGenericFillerAnswer(result?.answer)) ? "no encontró un dato concreto" : "encontró texto que responde",
+});
 // v3.13.83 — la normativa de este circuito no tiene el dato, pero Administración ya corrigió la misma pregunta en el otro circuito.
 let crossCircuitCorrection = null;
 if (crossCircuitCandidates.length && (isNotFoundAnswer(result?.answer) || answerSaysNoInfo(result?.answer))) {
@@ -8176,6 +8250,7 @@ if (crossCircuitCandidates.length && (isNotFoundAnswer(result?.answer) || answer
   crossCircuitCorrection = findSimilarCorrection(crossCircuitCandidates, normalizeQuestion(question), crossName || "")
     || await matchCorrectionSemantically({ client: openai, question, corrections: crossCircuitCandidates, model: process.env.OPENAI_MODEL || "gpt-4.1-mini" });
 }
+if (crossCircuitCandidates.length) trace.add("correccion_del_otro_circuito", { resultado: crossCircuitCorrection ? "se usa porque la normativa de este circuito no tenía el dato" : "no aplica" });
 if (crossCircuitCorrection) {
   const crossAnswer = buildCrossCircuitAnswer(crossCircuitCorrection);
   const crossElapsedMs = Date.now() - startedAt;
@@ -8258,12 +8333,9 @@ if (followUp.isFollowUp && isNotFoundAnswer(result?.answer)) {
 
 
     const insufficientAnswer =
-
-      isInsufficientAnswer(
-
-        result.answer
-
-      );
+      isInsufficientAnswer(result.answer) ||
+      // v3.13.90 — «consultá con la obra social» sin ningún dato concreto no es una respuesta.
+      isGenericFillerAnswer(result.answer);
 
 
 
@@ -8332,6 +8404,7 @@ if (followUp.isFollowUp && isNotFoundAnswer(result?.answer)) {
         question: prescriptionMissingField ? question : fileSearchQuestion,
         socialWorkId, billingChannelId: activeBillingChannelId || (await getBranchCircuit()).channelId,
       });
+      trace.add("protocolo_ultimo_recurso", { motivo: "ni la normativa ni las observaciones respondieron: se buscó un protocolo interno", resultado: lastResortProcedure ? "se usó un protocolo interno (" + (lastResortProcedure.code || "") + ")" : "no hay protocolo aplicable" });
       if (lastResortProcedure) {
         const procedureElapsedMs = Date.now() - startedAt;
         await logCurrentQuery({
