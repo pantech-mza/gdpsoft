@@ -1,6 +1,7 @@
 import { requireAdminActor, jsonError } from '../../../../../lib/server/gdp-actor';
 import { supabaseAdmin } from '../../../../../lib/supabase/admin';
 import { modelList, validModel, PRICES } from '../../../../../lib/audit/live-core.mjs';
+import { engineDiagnostics } from '../../../../../lib/assistant/context-engine/live.mjs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,7 +33,7 @@ export async function GET(request) {
     }
     const { data: hb } = await supabaseAdmin.from('audit_runner').select('heartbeat_at,host').eq('id', 1).maybeSingle();
     const connected = !!hb && Date.now() - Date.parse(hb.heartbeat_at) < 20000;
-    return Response.json({ ok: true, runs: runs || [], run, workers, feed, counts, runner: { connected, host: hb?.host || null },
+    return Response.json({ ok: true, runs: runs || [], run, workers, feed, counts, runner: { connected, host: hb?.host || null }, motor: engineDiagnostics(),
       models: modelList(process.env.AUDIT_MODELS), prices: PRICES }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {
     console.error('GET auditoria/runs', e);

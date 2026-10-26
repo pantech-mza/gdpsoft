@@ -36,6 +36,8 @@ export default function AuditoriaEnVivo() {
     {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-red-800">{error}</div>}
     {d && <p className={`rounded-xl p-3 text-sm ${d.runner.connected ? 'bg-green-50 text-green-900' : 'bg-amber-50 text-amber-900'}`}>
       {d.runner.connected ? `Script conectado (${d.runner.host || 'PC'}).` : <>Script desconectado. En tu PC, desde la carpeta del proyecto, corré: <code className="rounded bg-white px-1">node scripts/auditar-en-vivo.mjs --esperar</code></>}</p>}
+    {d?.motor && <p className={`rounded-xl p-3 text-sm ${d.motor.mode === 'live' && d.motor.hasKey ? 'bg-green-50 text-green-900' : 'bg-amber-50 text-amber-900'}`}>
+      Motor de contexto completo: modo <b>{d.motor.mode}</b>{d.motor.modeRaw !== d.motor.mode ? ` (valor cargado: «${d.motor.modeRaw}»)` : ''} · modelo {d.motor.model} · sucursales {d.motor.branches.length ? d.motor.branches.join(', ') : 'todas'} · porcentaje {d.motor.pct} % · clave OpenAI {d.motor.hasKey ? 'sí' : 'NO'} · entorno {d.motor.vercelEnv || '—'} · rama {d.motor.gitBranch || '—'} · commit {d.motor.commit || '—'}</p>}
     {d && <form onSubmit={start} className="flex flex-wrap items-end gap-3 rounded-2xl border border-[#eaddeb] bg-white p-4 shadow-sm">
       <label className="text-sm font-medium">Modelo<select className={`${sel} mt-1 block`} value={model} onChange={(e) => setModel(e.target.value)}>
         {d.models.map((m) => <option key={m} value={m}>{m}{d.prices[m] ? ` — aprox. US$ ${d.prices[m][0]} / ${d.prices[m][1]} por millón de tokens` : ''}</option>)}<option value={OTHER}>Otro (escribir nombre)…</option></select></label>

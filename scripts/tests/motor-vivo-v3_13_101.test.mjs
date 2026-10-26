@@ -39,3 +39,12 @@ test('el enganche en la ruta es opcional y va antes de la sombra', () => {
   assert.ok(i > 0 && j > i);
   assert.match(s.slice(i, j), /catch \{\s*\/\/ el motor vivo es opcional/);
 });
+
+test('tolera comillas y espacios en las variables y expone un diagnóstico sin claves', async () => {
+  const { engineDiagnostics } = await import('../../lib/assistant/context-engine/live.mjs');
+  const env = { CONTEXT_ENGINE_MODE: ' "live" ', CONTEXT_ENGINE_BRANCHES: '"1, 24"', OPENAI_API_KEY: 'sk-secreta', VERCEL_GIT_COMMIT_REF: 'piloto-v3.13.101' };
+  const c = liveConfig(env); assert.equal(c.enabled, true); assert.deepEqual(c.branches, [1, 24]);
+  const d = engineDiagnostics(env); assert.equal(d.mode, 'live'); assert.equal(d.hasKey, true);
+  assert.ok(!JSON.stringify(d).includes('sk-secreta'));
+  assert.equal(engineDiagnostics({}).mode, 'off'); assert.equal(engineDiagnostics({}).modeRaw, '(sin cargar)');
+});
