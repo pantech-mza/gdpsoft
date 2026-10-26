@@ -8,13 +8,13 @@ import {
   classifyStepIcon,
 } from "../../lib/assistant/format-message.mjs";
 import { parseRequirementsMessage } from "../../lib/assistant/requirements-view.mjs";
-import { splitLinks } from "../../lib/assistant/linkify.mjs";
+import { splitWithValidators } from "../../lib/assistant/validator-links.mjs";
 
 // Texto con enlaces clickeables (solo http/https; React escapa el contenido, nunca se inserta HTML).
 function Linkified({ text }) {
-  return splitLinks(text).map((part, index) =>
+  return splitWithValidators(text).map((part, index) =>
     part.type === "link"
-      ? <a key={index} href={part.href} target="_blank" rel="noopener noreferrer" className="break-all font-semibold text-[#8f2a85] underline">{part.value}</a>
+      ? <a key={index} href={part.href} target="_blank" rel="noopener noreferrer" className="break-words font-semibold text-[#8f2a85] underline">{part.label || part.value}</a>
       : <span key={index}>{part.value}</span>
   );
 }

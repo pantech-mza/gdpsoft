@@ -17,3 +17,12 @@ test('solo http/https: no convierte javascript: ni otros esquemas ni texto sin e
   assert.deepEqual(splitLinks('sin enlaces'), [{ type: 'text', value: 'sin enlaces' }]);
   assert.deepEqual(splitLinks(null), [{ type: 'text', value: '' }]);
 });
+
+test('el enlace del vademécum se muestra con un texto corto y las direcciones largas, solo con el sitio', async () => {
+  const { linkLabel } = await import('../../lib/assistant/linkify.mjs');
+  assert.equal(linkLabel('https://www.farmalive.com.ar/index.asp'), 'Abrir vademécum de Farmalive');
+  assert.equal(linkLabel('http://didiosistemas.com.ar:18084/andessalud/ruta/larga/de/ejemplo'), 'didiosistemas.com.ar');
+  assert.equal(linkLabel('https://a.com/x'), 'https://a.com/x');
+  const l = splitLinks('Cobertura: https://www.farmalive.com.ar/index.asp').find((x) => x.type === 'link');
+  assert.equal(l.href, 'https://www.farmalive.com.ar/index.asp'); assert.equal(l.label, 'Abrir vademécum de Farmalive');
+});
