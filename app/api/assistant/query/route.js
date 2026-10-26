@@ -6390,6 +6390,20 @@ if (conversationId) {
         socialWorks: statusWorks || [], aliases: statusAliasesError ? [] : (statusAliases || []),
       });
       const matches = detectSocialWorks({text:question, dictionary});
+      // v3.13.102o — «recibimos ampes salud»: si se nombró algo que no existe («AMPES SALUD»), no se asume la obra social parecida.
+      const statusUnresolved = unresolvedExplicitSocialWork({question, dictionary, matches});
+      if (statusUnresolved) {
+        let statusSuggestions = [];
+        try { statusSuggestions = suggestSocialWorks(statusUnresolved, (statusWorks || []).filter((w) => w.active).map((w) => w.name)); } catch { statusSuggestions = []; }
+        const unresolvedAnswer = buildSuggestionAnswer(statusUnresolved, statusSuggestions) ||
+          `No pude identificar ${statusUnresolved} en las obras sociales activas de GDPSoft. Confirmá cómo figura en el listado; no voy a utilizar la Ficha de otra obra social.`;
+        const unresolvedMs = Date.now() - startedAt;
+        await logCurrentQuery({branchId, socialWorkId, question, answer: unresolvedAnswer, source:"SOCIAL_WORK_IDENTITY",
+          route:"UNKNOWN_EXPLICIT_SOCIAL_WORK", found:false, elapsedMs: unresolvedMs, usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+        return Response.json({ok:true,question,answer:unresolvedAnswer,source:"SOCIAL_WORK_IDENTITY",route:"UNKNOWN_EXPLICIT_SOCIAL_WORK",found:false,
+          ...(statusSuggestions.length ? { suggestion: { unresolved: statusUnresolved, name: statusSuggestions[0], options: statusSuggestions } } : {}),
+          elapsed_ms:unresolvedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+      }
       const namedWork = matches.length === 1
         ? (statusWorks || []).find(item => Number(item.id) === Number(matches[0].id))
         : null;

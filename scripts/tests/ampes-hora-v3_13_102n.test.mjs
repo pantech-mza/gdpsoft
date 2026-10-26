@@ -22,3 +22,16 @@ test('«todas las marcas» no cambia a PASTELEROS por su alias «TODAS LAS SUCUR
   assert.deepEqual(detectSocialWorks({ text: 'ingresan todas las marcas?', dictionary }), []);
   assert.equal(detectSocialWorks({ text: 'recibimos pasteleros', dictionary })[0]?.id, 62);
 });
+
+test('«recibimos ampes salud» (consulta de aceptación) también se marca como no resuelta', () => {
+  assert.equal(unresolvedExplicitSocialWork({ question: 'recibimos ampes salud', dictionary, matches: m }), 'AMPES SALUD');
+});
+test('el motor traduce «el resto de las sucursales» a la sucursal que consulta', async () => {
+  const { ENGINE_SYSTEM_PROMPT } = await import('../../lib/assistant/context-engine/core.mjs');
+  assert.match(ENGINE_SYSTEM_PROMPT, /resto de las sucursales/);
+});
+
+test('stripMarkdown deja una sola vez el nombre del enlace', async () => {
+  const { stripMarkdown } = await import('../../lib/assistant/plain-text.mjs');
+  assert.equal(stripMarkdown('por [Mis Validaciones](https://www.misvalidaciones.com.ar/) ([Mis Validaciones](https://www.misvalidaciones.com.ar/)), verificando'), 'por Mis Validaciones, verificando');
+});
