@@ -48,3 +48,17 @@ test('tolera comillas y espacios en las variables y expone un diagnóstico sin c
   assert.ok(!JSON.stringify(d).includes('sk-secreta'));
   assert.equal(engineDiagnostics({}).mode, 'off'); assert.equal(engineDiagnostics({}).modeRaw, '(sin cargar)');
 });
+
+test('las citas toleran formato markdown y fragmentos con puntos suspensivos, pero no inventos', async () => {
+  const { verifyEngineOutput } = await import('../../lib/assistant/context-engine/core.mjs');
+  const doc = '### Observación\n*Todas las recetas se validan. * Si supera los 100 mil pesos (a pagar) el afiliado deberá pedir autorización.\nOtra línea sobre vigencia de 30 días.';
+  const mk = (cita) => JSON.stringify({ respuesta: 'ok', fuentes: [{ seccion: 'Obs', fecha: null, cita }] });
+  assert.equal(verifyEngineOutput(mk('Todas las recetas se validan. Si supera los 100 mil pesos'), doc).status, 'OK');
+  assert.equal(verifyEngineOutput(mk('Todas las recetas se validan ... deberá pedir autorización'), doc).status, 'OK');
+  assert.equal(verifyEngineOutput(mk('No hace falta receta para crónicos nunca'), doc).status, 'UNVERIFIED');
+  assert.equal(verifyEngineOutput(mk('Todas las recetas se validan ... texto inventado que no está'), doc).status, 'UNVERIFIED');
+});
+test('el prompt pide respuestas breves y sin citar las fuentes descartadas', async () => {
+  const { ENGINE_SYSTEM_PROMPT } = await import('../../lib/assistant/context-engine/core.mjs');
+  assert.match(ENGINE_SYSTEM_PROMPT, /BREVE/); assert.match(ENGINE_SYSTEM_PROMPT, /NO se menciona ni se cita/);
+});
