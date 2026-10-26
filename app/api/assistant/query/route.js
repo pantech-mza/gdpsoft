@@ -4,6 +4,7 @@ import { createTrace, describeSearchResults, finalStep } from "../../../../lib/a
 import { after } from "next/server";
 import { shadowConfig, shouldShadow, runShadow } from "../../../../lib/assistant/context-engine/shadow.mjs";
 import { liveConfig, shouldGoLive, runLive, syncQueryLog } from "../../../../lib/assistant/context-engine/live.mjs";
+import { withVademecum } from "../../../../lib/assistant/vademecum-link.mjs";
 import { isGenericFillerAnswer } from "../../../../lib/assistant/answer-guards.mjs";
 import { matchCorrectionSemantically } from "../../../../lib/assistant/correction-semantic.mjs";
 
@@ -5474,6 +5475,14 @@ export async function POST(request) {
     }
   } catch {
     // el motor vivo es opcional: ante cualquier error queda la respuesta del bot actual
+  }
+  // v3.13.102c — OSEP-OYTE: enlace al vademécum actualizado en las respuestas sobre medicamentos.
+  try {
+    const vj = await response.clone().json();
+    const withLink = withVademecum({ ...vj, question: rawQuestion });
+    if (withLink) { const { question: _q, ...rest } = withLink; response = Response.json({ ...rest, ...(vj.question !== undefined ? { question: vj.question } : {}) }, { status: response.status }); }
+  } catch {
+    // el enlace es opcional: nunca debe romper la respuesta
   }
   // v3.13.100 — motor de contexto completo en MODO SOMBRA: responde en paralelo y guarda el resultado;
   // nunca cambia lo que ve la sucursal (apagado por defecto: CONTEXT_ENGINE_MODE=shadow para activarlo).
