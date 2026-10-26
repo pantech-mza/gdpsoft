@@ -50,7 +50,7 @@ export default function AuditoriaAdmin() {
     {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-red-800">{error}</div>}
     {s && <>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-        {[['Consultas auditadas', s.judged], ...(s.replay?.judged ? [['Motor nuevo (' + s.replay.judged + ' repetidas)', `${s.replay.correct_pct} % vs ${s.replay.current_correct_pct} % actual`]] : []), ['Correctas', (s.acceptance_pct ?? 0) + ' %'], ['Correctas + parciales', (s.acceptance_with_partial_pct ?? 0) + ' %'], ['Pendientes de aprobar', s.by_status.PENDING], ['Posiblemente ya resueltas', s.by_aging.POSIBLEMENTE_RESUELTA]].map(([a, b]) =>
+        {[['Consultas auditadas', s.judged], ...(s.replay?.judged ? [['Motor nuevo (' + s.replay.judged + ' repetidas)', `${s.replay.correct_pct} % vs ${s.replay.current_correct_pct} % actual${s.replay.same_judge ? ' (mismo juez)' : ' (juez distinto: no comparable)'}`]] : []), ['Correctas', (s.acceptance_pct ?? 0) + ' %'], ['Correctas + parciales', (s.acceptance_with_partial_pct ?? 0) + ' %'], ['Pendientes de aprobar', s.by_status.PENDING], ['Posiblemente ya resueltas', s.by_aging.POSIBLEMENTE_RESUELTA]].map(([a, b]) =>
           <div key={a} className="rounded-2xl border border-[#eaddeb] bg-white p-4 shadow-sm"><p className="text-xs text-zinc-500">{a}</p><p className="mt-1 text-3xl font-extrabold text-[#8f2a85]">{b}</p></div>)}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">

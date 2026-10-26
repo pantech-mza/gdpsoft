@@ -3,6 +3,7 @@ import { buildCourtesyAnswer, classifyCourtesy } from "../../../../lib/assistant
 import { createTrace, describeSearchResults, finalStep } from "../../../../lib/assistant/trace.mjs";
 import { after } from "next/server";
 import { shadowConfig, shouldShadow, runShadow } from "../../../../lib/assistant/context-engine/shadow.mjs";
+import { liveConfig, shouldGoLive, runLive, syncQueryLog } from "../../../../lib/assistant/context-engine/live.mjs";
 import { isGenericFillerAnswer } from "../../../../lib/assistant/answer-guards.mjs";
 import { matchCorrectionSemantically } from "../../../../lib/assistant/correction-semantic.mjs";
 
@@ -5448,6 +5449,30 @@ export async function POST(request) {
     }
   } catch {
     // el formato y el nombre son solo de presentación: nunca deben romper la respuesta
+  }
+  // v3.13.101 — motor de contexto completo en MODO VIVO (CONTEXT_ENGINE_MODE=live): lee toda la información de la obra
+  // social junta y responde; ante cualquier falla se conserva la respuesta del bot actual.
+  try {
+    const liveCfg = liveConfig();
+    if (liveCfg.enabled) {
+      const lj = await response.clone().json();
+      const swId = Number(lj?.context?.social_work_id), brId = Number(lj?.context?.branch_id);
+      if (shouldGoLive(liveCfg, { socialWorkId: swId, branchId: brId, route: lj?.route || lj?.source, ok: lj?.ok === true })) {
+        const liveCircuit = Number.isInteger(brId) && brId > 0 ? await resolveBranchGroup(supabaseAdmin, brId) : null;
+        const liveConv = /^[0-9a-f-]{36}$/i.test(String(wrapperConversationId || "")) ? wrapperConversationId : null;
+        const live = await runLive({ supabase: supabaseAdmin, cfg: liveCfg, question: rawQuestion, socialWorkId: swId, branchId: brId, circuit: liveCircuit,
+          conversationId: liveConv, currentAnswer: lj.answer_plain || lj.answer, currentRoute: lj.route || lj.source });
+        if (live.used) {
+          const eng = live.result;
+          const liveJson = { ...lj, found: eng.status === "OK", answer: eng.answer, answer_plain: eng.answer, source: "CONTEXT_ENGINE", route: "CONTEXT_ENGINE",
+            engine: { status: eng.status, model: liveCfg.model, sources: (eng.sources || []).slice(0, 4).map((s) => ({ seccion: s.seccion, fecha: s.fecha })) } };
+          response = Response.json(liveJson, { status: response.status });
+          await syncQueryLog(supabaseAdmin, { branchId: brId, socialWorkId: swId, question: rawQuestion, answer: eng.answer, route: "CONTEXT_ENGINE" });
+        }
+      }
+    }
+  } catch {
+    // el motor vivo es opcional: ante cualquier error queda la respuesta del bot actual
   }
   // v3.13.100 — motor de contexto completo en MODO SOMBRA: responde en paralelo y guarda el resultado;
   // nunca cambia lo que ve la sucursal (apagado por defecto: CONTEXT_ENGINE_MODE=shadow para activarlo).
