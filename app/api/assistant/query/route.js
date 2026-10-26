@@ -5459,10 +5459,12 @@ export async function POST(request) {
       const lj = await response.clone().json();
       const swId = Number(lj?.context?.social_work_id), brId = Number(lj?.context?.branch_id);
       if (shouldGoLive(liveCfg, { socialWorkId: swId, branchId: brId, route: lj?.route || lj?.source, ok: lj?.ok === true,
-        followUp: resolveFollowUp({ question: rawQuestion, state: conversationState, socialWorkId: swId }).isFollowUp })) {
+        followUp: resolveFollowUp({ question: rawQuestion, state: conversationState, socialWorkId: swId }).isFollowUp,
+        semanticCorrection: lj?.correction_match === "SEMANTIC" })) {
         const liveCircuit = Number.isInteger(brId) && brId > 0 ? await resolveBranchGroup(supabaseAdmin, brId) : null;
         const liveConv = /^[0-9a-f-]{36}$/i.test(String(wrapperConversationId || "")) ? wrapperConversationId : null;
-        const live = await runLive({ supabase: supabaseAdmin, cfg: liveCfg, question: rawQuestion, socialWorkId: swId, branchId: brId, circuit: liveCircuit,
+        const liveVariant = resolvePlanVariant({ question: rawQuestion, state: conversationState, socialWorkId: swId });
+        const live = await runLive({ supabase: supabaseAdmin, cfg: liveCfg, question: rawQuestion, socialWorkId: swId, branchId: brId, circuit: liveCircuit, variant: liveVariant,
           conversationId: liveConv, currentAnswer: lj.answer_plain || lj.answer, currentRoute: lj.route || lj.source, state: conversationState });
         if (live.used) {
           const eng = live.result;
@@ -6284,8 +6286,10 @@ if (conversationId) {
       // v3.13.83 — «misma pregunta» tolera saludos y muletillas («hola», «tengo una», «en mi sucursal»).
       // v3.13.84 — y cualquier otra forma de preguntar lo mismo (embeddings + juez); ante duda no coincide.
       let exactCorrection = findSimilarCorrection(adminCorrections, normalizeQuestion(question), correctionWorkName || "");
+      let correctionMatchKind = exactCorrection ? "TEXT" : null;
       if (!exactCorrection && adminCorrections.length && !resolveFollowUp({ question, state: conversationState, socialWorkId }).isFollowUp) {
         exactCorrection = await matchCorrectionSemantically({ client: openai, question, corrections: adminCorrections, model: process.env.OPENAI_MODEL || "gpt-4.1-mini" });
+        if (exactCorrection) correctionMatchKind = "SEMANTIC";
       }
       trace.add("correcciones_admin", {
         candidatas_de_este_circuito: adminCorrections.length,
@@ -6300,7 +6304,7 @@ if (conversationId) {
         await logCurrentQuery({ branchId, socialWorkId, question, answer,
           source: "ADMIN_CORRECTION", route: "ADMIN_CORRECTION", found: true, elapsedMs, usage });
         return Response.json({ ok: true, question, answer, source: "ADMIN_CORRECTION",
-          route: "ADMIN_CORRECTION", found: true, context: responseContext,
+          route: "ADMIN_CORRECTION", found: true, correction_match: correctionMatchKind, context: responseContext,
           elapsed_ms: elapsedMs, usage });
       }
     }
