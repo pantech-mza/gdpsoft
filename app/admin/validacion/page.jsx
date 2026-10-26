@@ -1,5 +1,6 @@
 "use client";
 
+import { stripMarkdown } from "../../../lib/assistant/plain-text.mjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
@@ -502,7 +503,7 @@ function SuperAdminValidationPage() {
 
             <div className="flex-1 overflow-y-auto px-6 py-5">
               <Block label="Pregunta"><p className="text-[15px] font-semibold leading-6 text-[#2e1f35]">{selected.question}</p></Block>
-              <Block label="Respuesta de GDPSoft"><p className="whitespace-pre-wrap text-[15px] leading-7 text-black/75">{answerText(selected.actual) || "Sin respuesta registrada."}</p></Block>
+              <Block label="Respuesta de GDPSoft"><p className="whitespace-pre-wrap text-[15px] leading-7 text-black/75">{stripMarkdown(answerText(selected.actual)) || "Sin respuesta registrada."}</p></Block>
               <Block label="Fuente"><p className="text-sm text-black/65">{selected.normatives?.title || selected.normatives?.original_filename || selected.source || "Sin fuente identificada"}</p></Block>
               <Block label="Resultado QA automático">
                 <div className="flex flex-wrap items-center gap-3">

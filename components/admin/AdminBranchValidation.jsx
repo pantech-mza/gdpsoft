@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { refreshStoredSession } from "../../lib/client/session";
 import { filterSegments, groupIntoSegments, summarize } from "../../lib/review/conversation-groups.mjs";
+import { stripMarkdown } from "../../lib/assistant/plain-text.mjs";
 
 // GDPSoft v3.13.70 — Validación de respuestas por conversación (tramo = sucursal + dispositivo + obra social + horario).
 
@@ -249,7 +250,7 @@ export default function AdminBranchValidation() {
   };
 
   const answerBox = (item) => {
-    const text = String(item.answer || "").trim() || "Sin respuesta";
+    const text = stripMarkdown(String(item.answer || "")).trim() || "Sin respuesta";
     const long = text.length > 420 && !expanded[item.id];
     return (
       <>
@@ -426,7 +427,7 @@ export default function AdminBranchValidation() {
                 </div>
               </div>
               <label className="block text-xs font-bold text-zinc-600">Corrección sugerida
-                <textarea value={correction} onChange={(e) => setCorrection(e.target.value)} rows={4} placeholder="Escribí la respuesta correcta tal como debería darla el bot…" className="mt-1 w-full rounded-xl border border-zinc-200 p-2.5 text-[13px] font-normal" />
+                <textarea value={correction} onChange={(e) => setCorrection(e.target.value)} rows={12} placeholder="Escribí la respuesta correcta tal como debería darla el bot…" className="mt-1 min-h-[16rem] w-full resize-y rounded-xl border border-zinc-200 p-2.5 text-[13px] font-normal" />
                 <span className="mt-1 block text-[11px] font-normal text-zinc-500">Si marcás Incorrecta o Parcial y escribís una corrección, el bot la usa: ante esta misma pregunta sobre {selected.social_work_name} responde con este texto, y en preguntas parecidas la toma como fuente prioritaria.</span>
               </label>
               {verdict !== "CORRECT" && correction.trim() && (
@@ -441,7 +442,7 @@ export default function AdminBranchValidation() {
                 </div>
               )}
               <label className="block text-xs font-bold text-zinc-600">Observaciones
-                <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} className="mt-1 w-full rounded-xl border border-zinc-200 p-2.5 text-[13px] font-normal" />
+                <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={4} className="mt-1 min-h-[6rem] w-full resize-y rounded-xl border border-zinc-200 p-2.5 text-[13px] font-normal" />
                 <span className="mt-1 block text-[11px] font-normal text-zinc-500">Si la respuesta es Correcta, la observación se agrega debajo de la respuesta del bot cuando consulten lo mismo sobre {selected.social_work_name}. La respuesta no se modifica.</span>
               </label>
               <button type="button" disabled={!verdict || busy} onClick={save} className="w-full rounded-xl bg-[#8f2a85] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40">{busy ? "Guardando…" : "Guardar y pasar a la siguiente"}</button>

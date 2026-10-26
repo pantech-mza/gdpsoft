@@ -111,3 +111,17 @@ test('una repregunta puede ir al motor aunque el bot haya respondido con una cor
   assert.equal(shouldGoLive(c, { ...base, followUp: true }), true);
   assert.equal(shouldGoLive(c, { ...base, followUp: true, route: 'CREDENTIALS_PROTECTED' }), false);
 });
+
+test('stripMarkdown quita ###, ** y restos sin tocar listas ni texto normal', async () => {
+  const { stripMarkdown } = await import('../../lib/assistant/plain-text.mjs');
+  const src = '### Requisitos para aceptar una receta de OMINT\n#### Recetario Convencional:\n1. **Tipo de Recetario:**\n   - Planes Abiertos: Recetario Convencional.\nValor 5 * 3 = 15';
+  const out = stripMarkdown(src);
+  assert.ok(!/#|\*\*/.test(out.replace('5 * 3', '')));
+  assert.match(out, /1\. Tipo de Recetario:/); assert.match(out, /- Planes Abiertos/); assert.match(out, /5 \* 3 = 15/);
+});
+test('las respuestas del motor salen sin símbolos de formato', async () => {
+  const { verifyEngineOutput } = await import('../../lib/assistant/context-engine/core.mjs');
+  const doc = 'Tipo de receta: electrónica y vigencia de treinta días.';
+  const r = verifyEngineOutput(JSON.stringify({ respuesta: '**Receta:** electrónica\n### Vigencia\n30 días', fuentes: [{ seccion: 'Ficha', fecha: null, cita: 'Tipo de receta: electrónica y vigencia' }] }), doc);
+  assert.equal(r.answer, 'Receta: electrónica\nVigencia\n30 días');
+});
