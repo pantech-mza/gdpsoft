@@ -125,3 +125,8 @@ test('las respuestas del motor salen sin símbolos de formato', async () => {
   const r = verifyEngineOutput(JSON.stringify({ respuesta: '**Receta:** electrónica\n### Vigencia\n30 días', fuentes: [{ seccion: 'Ficha', fecha: null, cita: 'Tipo de receta: electrónica y vigencia' }] }), doc);
   assert.equal(r.answer, 'Receta: electrónica\nVigencia\n30 días');
 });
+
+test('el prompt limita el "Sí/No" inicial a preguntas que se contestan por sí o por no', async () => {
+  const { ENGINE_SYSTEM_PROMPT } = await import('../../lib/assistant/context-engine/core.mjs');
+  assert.match(ENGINE_SYSTEM_PROMPT, /Solo usá "Sí" o "No" al comienzo si la pregunta se contesta por sí o por no/);
+});
