@@ -5461,7 +5461,7 @@ export async function POST(request) {
         const liveCircuit = Number.isInteger(brId) && brId > 0 ? await resolveBranchGroup(supabaseAdmin, brId) : null;
         const liveConv = /^[0-9a-f-]{36}$/i.test(String(wrapperConversationId || "")) ? wrapperConversationId : null;
         const live = await runLive({ supabase: supabaseAdmin, cfg: liveCfg, question: rawQuestion, socialWorkId: swId, branchId: brId, circuit: liveCircuit,
-          conversationId: liveConv, currentAnswer: lj.answer_plain || lj.answer, currentRoute: lj.route || lj.source });
+          conversationId: liveConv, currentAnswer: lj.answer_plain || lj.answer, currentRoute: lj.route || lj.source, state: conversationState });
         if (live.used) {
           const eng = live.result;
           const liveJson = { ...lj, found: eng.status === "OK", answer: eng.answer, answer_plain: eng.answer, source: "CONTEXT_ENGINE", route: "CONTEXT_ENGINE",

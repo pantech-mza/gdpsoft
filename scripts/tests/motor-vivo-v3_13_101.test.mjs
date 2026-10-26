@@ -85,3 +85,12 @@ test('temperatura 0 solo en modelos gpt-4.x', () => {
   const s = fs.readFileSync(new URL('../../lib/assistant/context-engine/openai.mjs', import.meta.url), 'utf8');
   assert.match(s, /\^gpt-4\/i\.test\(model\) \? \{ temperature: 0 \}/);
 });
+
+test('el seguimiento usa el estado de la conversación como respaldo del historial, solo de la misma obra social', async () => {
+  const { historyFromState } = await import('../../lib/assistant/context-engine/live.mjs');
+  const st = { social_work_id: 55, topic_question: 'Tengo una receta de Pasteleros digital autorizada, ¿cómo debo proceder?', last_question: 'Tengo una receta de Pasteleros digital autorizada, ¿cómo debo proceder?', last_answer: 'Validá por mis validaciones…' };
+  const h = historyFromState(st, 55, 'y si es fisica?');
+  assert.equal(h.length, 1); assert.match(h[0].question, /Pasteleros digital/); assert.match(h[0].answer, /Validá/);
+  assert.deepEqual(historyFromState(st, 99, 'y si es fisica?'), []);
+  assert.deepEqual(historyFromState(null, 55, 'x'), []);
+});
