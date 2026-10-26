@@ -94,3 +94,20 @@ test('el seguimiento usa el estado de la conversación como respaldo del histori
   assert.deepEqual(historyFromState(st, 99, 'y si es fisica?'), []);
   assert.deepEqual(historyFromState(null, 55, 'x'), []);
 });
+
+test('las correcciones que solo piden más detalle no cuentan como correcciones', async () => {
+  const { isClarificationText, pickCorrections } = await import('../../lib/assistant/admin-corrections.mjs');
+  assert.equal(isClarificationText('¿Podés contarme con más detalle qué necesitás consultar?  así puedo ayudarte mejor. 😊'), true);
+  assert.equal(isClarificationText('¿Podés contarme con más detalle qué necesitás consultar? Si se trata de una obra social, indicame cuál y qué situación'), true);
+  assert.equal(isClarificationText('Para OSECAC en DP1 se valida por San Francisco.'), false);
+  const rows = [{ verdict: 'INCORRECT', suggested_answer: '¿Podés contarme con más detalle qué necesitás consultar?', assistant_query_log: { question: 'Y si es física?' } },
+    { verdict: 'INCORRECT', suggested_answer: 'Validá por TYS.', assistant_query_log: { question: 'por donde valida' } }];
+  assert.equal(pickCorrections(rows).length, 1);
+});
+test('una repregunta puede ir al motor aunque el bot haya respondido con una corrección exacta', () => {
+  const c = liveConfig({ CONTEXT_ENGINE_MODE: 'live', OPENAI_API_KEY: 'k' });
+  const base = { socialWorkId: 5, branchId: 1, route: 'ADMIN_CORRECTION', ok: true, rand: 0 };
+  assert.equal(shouldGoLive(c, base), false);
+  assert.equal(shouldGoLive(c, { ...base, followUp: true }), true);
+  assert.equal(shouldGoLive(c, { ...base, followUp: true, route: 'CREDENTIALS_PROTECTED' }), false);
+});

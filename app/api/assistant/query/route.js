@@ -5457,7 +5457,8 @@ export async function POST(request) {
     if (liveCfg.enabled) {
       const lj = await response.clone().json();
       const swId = Number(lj?.context?.social_work_id), brId = Number(lj?.context?.branch_id);
-      if (shouldGoLive(liveCfg, { socialWorkId: swId, branchId: brId, route: lj?.route || lj?.source, ok: lj?.ok === true })) {
+      if (shouldGoLive(liveCfg, { socialWorkId: swId, branchId: brId, route: lj?.route || lj?.source, ok: lj?.ok === true,
+        followUp: resolveFollowUp({ question: rawQuestion, state: conversationState, socialWorkId: swId }).isFollowUp })) {
         const liveCircuit = Number.isInteger(brId) && brId > 0 ? await resolveBranchGroup(supabaseAdmin, brId) : null;
         const liveConv = /^[0-9a-f-]{36}$/i.test(String(wrapperConversationId || "")) ? wrapperConversationId : null;
         const live = await runLive({ supabase: supabaseAdmin, cfg: liveCfg, question: rawQuestion, socialWorkId: swId, branchId: brId, circuit: liveCircuit,
