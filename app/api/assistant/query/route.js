@@ -5479,7 +5479,8 @@ export async function POST(request) {
   // v3.13.102c — OSEP-OYTE: enlace al vademécum actualizado en las respuestas sobre medicamentos.
   try {
     const vj = await response.clone().json();
-    const withLink = withVademecum({ ...vj, question: rawQuestion });
+    const planVariant = resolvePlanVariant({ question: rawQuestion, state: conversationState, socialWorkId: Number(vj?.context?.social_work_id) || null });
+    const withLink = withVademecum({ ...vj, question: rawQuestion }, { variant: planVariant });
     if (withLink) { const { question: _q, ...rest } = withLink; response = Response.json({ ...rest, ...(vj.question !== undefined ? { question: vj.question } : {}) }, { status: response.status }); }
   } catch {
     // el enlace es opcional: nunca debe romper la respuesta

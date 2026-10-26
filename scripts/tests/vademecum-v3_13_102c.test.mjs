@@ -19,3 +19,12 @@ test('no toca otras obras sociales, respuestas sin resultado ni respuestas que y
   assert.equal(withVademecum({ ok: true, found: true, social_work: { name: 'OSEP OYTE' }, answer: 'ver farmalive.com.ar medicamento', ...q }), null);
   assert.equal(vademecumLine({ socialWorkName: 'OSEP OYTE', question: 'hola', answer: 'buen día' }), null);
 });
+
+test('OYTE es un plan de OSEP: se detecta por la variante aunque el nombre registrado sea solo "OSEP"', () => {
+  assert.equal(isOsepOyte('OSEP', 'OYTE'), true);
+  assert.equal(isOsepOyte('OSEP', null), false);
+  assert.equal(isOsepOyte('OSDE', 'OYTE'), false);
+  const base = { ok: true, found: true, social_work: { name: 'OSEP' }, answer: 'Solo medicamentos del padrón.', answer_plain: 'Solo medicamentos del padrón.', question: 'osep oyte cubre ibuprofeno?' };
+  assert.match(withVademecum(base, { variant: 'OYTE' }).answer, /farmalive/);
+  assert.equal(withVademecum(base, { variant: null }), null);
+});
