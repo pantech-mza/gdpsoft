@@ -1338,7 +1338,7 @@ export default function FloatingAssistant() {
               <div className="flex flex-wrap gap-2 px-4 pb-3">
 
                 {activeSocialWork && (
-                  <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-[#8f2a85]/15 bg-[#8f2a85]/5 px-3 py-1.5">
+                  <div className="inline-flex max-w-full items-center gap-2 rounded-full border-2 border-[#8f2a85]/40 bg-[#8f2a85]/10 px-3 py-2 shadow-sm">
 
                     <span className="h-2 w-2 shrink-0 rounded-full bg-[#8f2a85]" />
 
@@ -1346,7 +1346,7 @@ export default function FloatingAssistant() {
                       Consultando sobre:
                     </span>
 
-                    <span className="truncate text-xs font-semibold text-[#8f2a85]">
+                    <span className="truncate text-sm font-extrabold uppercase tracking-wide text-[#6f1f67]">
                       {
                         activeSocialWork.name
                       }
