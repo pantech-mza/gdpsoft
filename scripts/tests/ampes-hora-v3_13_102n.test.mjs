@@ -54,3 +54,17 @@ test('el motor reescribe «el resto de las sucursales» para la sucursal que con
   const r = await runContextEngine({ supabase: { from: builder }, callModel, model: 'x', question: 'recibimos ampes asistir?', socialWorkId: 5, branchId: 1, circuit: 'CAMARA' });
   assert.equal(calls, 2); assert.match(prompts[1], /INSTRUCCIÓN INTERNA/); assert.match(r.answer, /DP1/);
 });
+
+test('el motor no le pide la sucursal a quien ya la tiene (reintento)', async () => {
+  const { runContextEngine } = await import('../../lib/assistant/context-engine/engine.mjs');
+  const OBS = 'Las sucursales habilitadas pueden validar antes de las 20hs y el resto solo después.';
+  const mk = (a) => ({ text: JSON.stringify({ estado: 'OK', respuesta: a, fuentes: [{ seccion: 'Observación', fecha: '2026-10-26', cita: OBS }] }), tin: 1, tout: 1 });
+  const tables = { social_works: [{ id: 77, name: 'AMPES ASISTIR' }], branches: [{ id: 1, name: 'DP1', branch_type: 'CAMARA' }],
+    social_work_notes: [{ id: 1, social_work_id: 77, status: 'APPROVED', approved: true, body: OBS, created_at: '2026-10-26' }] };
+  const builder = (name) => { const b = { select: () => b, eq: () => b, is: () => b, not: () => b, order: () => b, limit: () => b, in: () => b,
+    maybeSingle: () => Promise.resolve({ data: (tables[name] || [])[0] || null }), then: (res, rej) => Promise.resolve({ data: tables[name] || [] }).then(res, rej) }; return b; };
+  let calls = 0;
+  const callModel = async () => { calls += 1; return mk(calls === 1 ? 'Sí, pero no aclaraste la sucursal: necesito que me indiques cuál es.' : 'Sí, en DP1 solo después de las 20 hs.'); };
+  const r = await runContextEngine({ supabase: { from: builder }, callModel, model: 'x', question: 'recibimos ampes asistir?', socialWorkId: 77, branchId: 1, circuit: 'CAMARA' });
+  assert.equal(calls, 2); assert.match(r.answer, /DP1/);
+});
