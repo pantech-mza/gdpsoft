@@ -35,3 +35,22 @@ test('stripMarkdown deja una sola vez el nombre del enlace', async () => {
   const { stripMarkdown } = await import('../../lib/assistant/plain-text.mjs');
   assert.equal(stripMarkdown('por [Mis Validaciones](https://www.misvalidaciones.com.ar/) ([Mis Validaciones](https://www.misvalidaciones.com.ar/)), verificando'), 'por Mis Validaciones, verificando');
 });
+
+test('«ampes salud» sugiere primero AMPES ASISTIR (comparte la palabra AMPES)', async () => {
+  const { suggestSocialWorks } = await import('../../lib/assistant/social-work-suggestions.mjs');
+  assert.deepEqual(suggestSocialWorks('AMPES SALUD', ['ANDESALUD', 'AMFFA SALUD', 'AMPES ASISTIR', 'OSDE']), ['AMPES ASISTIR']);
+  assert.ok(suggestSocialWorks('berckley', ['BERKLEY ART', 'OSDE']).length >= 1);
+});
+test('el motor reescribe «el resto de las sucursales» para la sucursal que consulta', async () => {
+  const { runContextEngine } = await import('../../lib/assistant/context-engine/engine.mjs');
+  const OBS = 'El resto de las sucursales solo podrá recibir después de las 20hs.';
+  const mk = (a) => ({ text: JSON.stringify({ estado: 'OK', respuesta: a, fuentes: [{ seccion: 'Observación', fecha: '2026-10-26', cita: OBS }] }), tin: 1, tout: 1 });
+  const tables = { social_works: [{ id: 5, name: 'AMPES ASISTIR' }], branches: [{ id: 1, name: 'DP1', branch_type: 'CAMARA' }],
+    social_work_notes: [{ id: 1, social_work_id: 5, status: 'APPROVED', approved: true, body: OBS, created_at: '2026-10-26' }] };
+  const builder = (name) => { const b = { select: () => b, eq: () => b, is: () => b, not: () => b, order: () => b, limit: () => b, in: () => b,
+    maybeSingle: () => Promise.resolve({ data: (tables[name] || [])[0] || null }), then: (res, rej) => Promise.resolve({ data: tables[name] || [] }).then(res, rej) }; return b; };
+  let calls = 0; const prompts = [];
+  const callModel = async (msgs) => { calls += 1; prompts.push(JSON.stringify(msgs)); return mk(calls === 1 ? OBS : 'Sí, la recibimos en DP1 solo después de las 20hs.'); };
+  const r = await runContextEngine({ supabase: { from: builder }, callModel, model: 'x', question: 'recibimos ampes asistir?', socialWorkId: 5, branchId: 1, circuit: 'CAMARA' });
+  assert.equal(calls, 2); assert.match(prompts[1], /INSTRUCCIÓN INTERNA/); assert.match(r.answer, /DP1/);
+});
