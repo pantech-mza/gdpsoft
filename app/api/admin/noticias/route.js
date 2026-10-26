@@ -8,7 +8,7 @@ export async function GET(request) {
   if (!adminActor(actor)) return jsonError('No autorizado',403);
   const [n,b,t,a] = await Promise.all([
     supabaseAdmin.from('branch_notices').select('id,title,body,severity,all_branches,published,created_at,archived_at,created_by').order('created_at',{ascending:false}).limit(150),
-    supabaseAdmin.from('branches').select('id,name,code,active').eq('active',true).order('name'),
+    supabaseAdmin.from('branches').select('id,name,code,active,branch_type').eq('active',true).order('name'),
     supabaseAdmin.from('branch_notice_targets').select('notice_id,branch_id').limit(10000),
     supabaseAdmin.from('branch_notice_ack').select('notice_id,device_id,branch_id').limit(10000),
   ]);
