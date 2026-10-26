@@ -62,3 +62,14 @@ test('el prompt pide respuestas breves y sin citar las fuentes descartadas', asy
   const { ENGINE_SYSTEM_PROMPT } = await import('../../lib/assistant/context-engine/core.mjs');
   assert.match(ENGINE_SYSTEM_PROMPT, /BREVE/); assert.match(ENGINE_SYSTEM_PROMPT, /NO se menciona ni se cita/);
 });
+
+test('si la respuesta omite el dato del ganador del conflicto, se agrega la cita ganadora (caso OSECAC DP1)', async () => {
+  const { verifyEngineOutput } = await import('../../lib/assistant/context-engine/core.mjs');
+  const doc = 'Para OSECAC en DP1, el circuito indicado es directo por el validador de San Francisco.\nOSECAC se recibe de forma directa utilizando el validador de Econo Más. No utilizar el circuito Cámara-Colegio para OSECAC desde DP1.';
+  const mk = (respuesta) => JSON.stringify({ respuesta, fuentes: [{ seccion: 'CORRECCIONES', fecha: '2026-10-22', cita: 'Para OSECAC en DP1, el circuito indicado es directo por el validador de San Francisco.' }],
+    conflictos: [{ tema: 't', gana: { seccion: 'CORRECCIONES', fecha: '2026-10-22', cita: 'el circuito indicado es directo por el validador de San Francisco' }, pierde: { seccion: 'REGLAS', fecha: '2026-09-28', cita: 'se recibe de forma directa utilizando el validador de Econo Más' } }] });
+  const mala = verifyEngineOutput(mk('Sí, podés recibir OSECAC por circuito Cámara.'), doc);
+  assert.match(mala.answer, /San Francisco/); assert.equal(mala.status, 'OK');
+  const buena = verifyEngineOutput(mk('Sí. En DP1 se valida directo por San Francisco.'), doc);
+  assert.equal(buena.answer, 'Sí. En DP1 se valida directo por San Francisco.');
+});
