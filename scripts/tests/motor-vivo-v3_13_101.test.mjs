@@ -130,3 +130,12 @@ test('el prompt limita el "Sí/No" inicial a preguntas que se contestan por sí 
   const { ENGINE_SYSTEM_PROMPT } = await import('../../lib/assistant/context-engine/core.mjs');
   assert.match(ENGINE_SYSTEM_PROMPT, /Solo usá "Sí" o "No" al comienzo si la pregunta se contesta por sí o por no/);
 });
+
+test('una cita de varias líneas de la Ficha se verifica aunque el documento use guiones de lista (caso Recetario Solidario)', async () => {
+  const { verifyEngineOutput } = await import('../../lib/assistant/context-engine/core.mjs');
+  const doc = '## [FICHA]\n- validator_name: MIS VALIDACIONES\n- validator_type: TYS\n- status: Activa';
+  const r = verifyEngineOutput(JSON.stringify({ respuesta: 'Se valida por TYS con MIS VALIDACIONES.', fuentes: [{ seccion: 'FICHA', fecha: '2026-10-21', cita: 'validator_name: MIS VALIDACIONES\nvalidator_type: TYS' }] }), doc);
+  assert.equal(r.status, 'OK');
+  const inv = verifyEngineOutput(JSON.stringify({ respuesta: 'x', fuentes: [{ seccion: 'FICHA', fecha: null, cita: 'validator_name: OTRA COSA\nvalidator_type: TYS' }] }), doc);
+  assert.equal(inv.status, 'UNVERIFIED');
+});
