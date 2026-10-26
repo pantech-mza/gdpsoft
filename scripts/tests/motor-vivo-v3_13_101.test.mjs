@@ -73,3 +73,15 @@ test('si la respuesta omite el dato del ganador del conflicto, se agrega la cita
   const buena = verifyEngineOutput(mk('Sí. En DP1 se valida directo por San Francisco.'), doc);
   assert.equal(buena.answer, 'Sí. En DP1 se valida directo por San Francisco.');
 });
+
+test('si el cuerpo usa el dato de la pieza perdedora, se reemplaza por la cita ganadora (caso OSECAC Econo Más)', async () => {
+  const { verifyEngineOutput } = await import('../../lib/assistant/context-engine/core.mjs');
+  const doc = 'Para OSECAC en DP1, el circuito indicado es directo por el validador de San Francisco.\nOSECAC se recibe de forma directa utilizando el validador de Econo Más.';
+  const r = verifyEngineOutput(JSON.stringify({ respuesta: 'Sí, validá directo con el validador de Econo Más.', fuentes: [{ seccion: 'C', fecha: '2026-10-22', cita: 'el circuito indicado es directo por el validador de San Francisco' }],
+    conflictos: [{ tema: 't', gana: { seccion: 'CORRECCIONES', fecha: '2026-10-22', cita: 'el circuito indicado es directo por el validador de San Francisco' }, pierde: { seccion: 'REGLAS', fecha: '2026-09-28', cita: 'se recibe de forma directa utilizando el validador de Econo Más' } }] }), doc);
+  assert.match(r.answer, /San Francisco/); assert.doesNotMatch(r.answer, /Econo/);
+});
+test('temperatura 0 solo en modelos gpt-4.x', () => {
+  const s = fs.readFileSync(new URL('../../lib/assistant/context-engine/openai.mjs', import.meta.url), 'utf8');
+  assert.match(s, /\^gpt-4\/i\.test\(model\) \? \{ temperature: 0 \}/);
+});
