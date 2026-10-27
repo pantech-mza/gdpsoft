@@ -1,6 +1,6 @@
 import { requireAdminActor, jsonError } from "../../../../../lib/server/gdp-actor";
 import { supabaseAdmin } from "../../../../../lib/supabase/admin";
-import { buildBranchUsage } from "../../../../../lib/server/openai-branch-usage.mjs";
+import { buildBranchUsage, buildUsageCells } from "../../../../../lib/server/openai-branch-usage.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export async function GET(request) {
   if (!access.actor) return jsonError(access.error, access.status);
   try {
     const url = new URL(request.url);
-    const days = Math.min(90, Math.max(1, Number(url.searchParams.get("days") || 30)));
+    const days = Math.min(366, Math.max(1, Number(url.searchParams.get("days") || 30)));
     const day = String(url.searchParams.get("day") || "");
     if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) return jsonError("Fecha inválida", 400);
     const since = new Date(Date.now() - days * 86400000).toISOString();
@@ -44,8 +44,9 @@ export async function GET(request) {
     const logRows = logs.data.map((l) => ({ ...l, device_name: l.device_id ? deviceNames.get(String(l.device_id)) || "" : "" }));
     const branchNames = new Map((branches.data || []).map((b) => [String(b.id), b.name]));
     const usage = buildBranchUsage({ logs: logRows, shadow: shadowRows, branchNames, day: day || null });
+    const cells = buildUsageCells({ logs: logRows, shadow: shadowRows, branchNames });
     const branchesTotal = (branches.data || []).filter((b) => b.active !== false).length;
-    return Response.json({ ok: true, period_days: days, day: day || null, engine_included: !shadow.error, branches_total: branchesTotal, ...usage }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ ok: true, period_days: days, day: day || null, engine_included: !shadow.error, branches_total: branchesTotal, ...usage, usage_cells: cells.cells, usage_branches: cells.branches, usage_devices: cells.devices }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("openai-usage branches", error);
     return jsonError("No se pudo calcular el gasto por sucursal", 500);
