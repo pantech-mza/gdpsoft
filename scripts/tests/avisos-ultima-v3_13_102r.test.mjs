@@ -10,3 +10,8 @@ test('chips Activa/Inactiva en verde y rojo fuertes', () => {
     assert.match(s, /bg-red-600/, f); assert.match(s, /bg-emerald-600/, f);
   }
 });
+
+test('el chat flotante ocupa casi todo el alto, es más ancho y con letra más grande', () => {
+  const s = readFileSync(new URL('../../components/FloatingAssistant.jsx', import.meta.url), 'utf8');
+  assert.match(s, /sm:top-3 sm:bottom-3/); assert.match(s, /sm:w-\[560px\]/); assert.match(s, /text-\[17px\] leading-7/);
+});

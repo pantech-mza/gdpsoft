@@ -35,7 +35,7 @@ function RequirementsTabs({ view }) {
   const [active, setActive] = useState(0);
   const section = view.sections[Math.min(active, view.sections.length - 1)];
   return (
-    <div className="min-w-0 text-[14px] leading-[1.5] text-zinc-700">
+    <div className="min-w-0 text-[16px] leading-[1.55] text-zinc-700">
       <div className="mb-2 px-1 text-[15px] font-extrabold text-[#20132d]">
         {view.title}{view.circuit ? ` · ${view.circuit}` : ""}
       </div>
@@ -44,13 +44,13 @@ function RequirementsTabs({ view }) {
           {view.sections.map((item, index) => (
             <button key={item.title} type="button" role="tab" aria-selected={index === active}
               onClick={() => setActive(index)}
-              className={`flex-1 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[12px] font-bold ${index === active ? "bg-white text-[#8f2a85] shadow-sm" : "text-zinc-500"}`}>
+              className={`flex-1 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[13.5px] font-bold ${index === active ? "bg-white text-[#8f2a85] shadow-sm" : "text-zinc-500"}`}>
               {item.title}
             </button>
           ))}
         </div>
       )}
-      {active === 0 && view.intro && <p className="mb-3 px-1 text-[13px] text-zinc-500">{view.intro}</p>}
+      {active === 0 && view.intro && <p className="mb-3 px-1 text-[14.5px] text-zinc-500">{view.intro}</p>}
       {active === 0 && view.ficha.length > 0 && (
         <div className="mb-3 grid grid-cols-2 gap-2">
           {view.ficha.map((cell) => (
@@ -97,7 +97,7 @@ export default function AssistantRichMessage({ text }) {
   }
 
   return (
-    <div className="min-w-0 space-y-2.5 text-[14.5px] leading-[1.55] text-zinc-700">
+    <div className="min-w-0 space-y-2.5 text-[16.5px] leading-[1.6] text-zinc-700">
       {stepsCount > 0 && (
         <div className="mb-2 flex items-center gap-2 px-1.5 text-[11px] font-semibold tracking-[0.02em] text-[#8f2a85]">
           <Icon icon="fluent:clipboard-task-list-20-regular" width={16} aria-hidden="true" />
@@ -136,7 +136,7 @@ export default function AssistantRichMessage({ text }) {
             <div key={index} role="note" className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-amber-950">
               <Icon icon="fluent:warning-20-regular" className="mt-0.5 shrink-0 text-amber-700" width={19} aria-hidden="true" />
               <div className="min-w-0 whitespace-pre-line break-words">
-                <strong className="block text-[12px]">{block.title}</strong>
+                <strong className="block text-[13.5px]">{block.title}</strong>
                 <InlineEmphasis text={block.text}/>
               </div>
             </div>

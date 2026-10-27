@@ -1264,7 +1264,7 @@ export default function FloatingAssistant() {
   return (
     <>
       {open && (
-        <div className="fixed inset-x-2 bottom-20 z-[700] flex h-[min(88dvh,820px)] min-h-0 w-auto flex-col overflow-hidden rounded-2xl sm:inset-x-auto sm:bottom-24 sm:right-5 sm:h-[min(88dvh,820px)] sm:w-[460px] sm:max-w-[calc(100vw-32px)] border border-zinc-200 bg-white shadow-2xl">
+        <div className="fixed inset-x-2 top-3 bottom-3 z-[700] flex min-h-0 w-auto flex-col overflow-hidden rounded-2xl sm:inset-x-auto sm:top-3 sm:bottom-3 sm:right-5 sm:h-auto sm:w-[560px] sm:max-w-[calc(100vw-32px)] border border-zinc-200 bg-white shadow-2xl">
 
           <div className="border-b border-zinc-100 bg-white">
 
@@ -1382,7 +1382,7 @@ export default function FloatingAssistant() {
 
             {messages.length ===
               0 && (
-              <div className="max-w-[88%] rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-[15px] leading-6 text-zinc-700 shadow-sm">
+              <div className="max-w-[88%] rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-[17px] leading-7 text-zinc-700 shadow-sm">
                 Hola, estoy disponible para ayudarte.
               </div>
             )}
@@ -1414,15 +1414,15 @@ export default function FloatingAssistant() {
                     "user"
                   ) {
                     bubbleClass =
-                      "ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-[#8f2a85] px-4 py-3 text-[15px] leading-6 text-white shadow-sm";
+                      "ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-[#8f2a85] px-4 py-3 text-[17px] leading-7 text-white shadow-sm";
                   } else if (
                     message.error
                   ) {
                     bubbleClass =
-                      "max-w-[88%] rounded-2xl rounded-tl-sm border border-red-100 bg-red-50 px-4 py-3 text-[15px] leading-6 text-red-700";
+                      "max-w-[88%] rounded-2xl rounded-tl-sm border border-red-100 bg-red-50 px-4 py-3 text-[17px] leading-7 text-red-700";
                   } else {
                     bubbleClass =
-                      "max-w-[98%] rounded-2xl rounded-tl-sm border border-zinc-100 bg-white px-2.5 py-3 text-[15px] leading-6 text-zinc-700 shadow-sm";
+                      "max-w-[98%] rounded-2xl rounded-tl-sm border border-zinc-100 bg-white px-2.5 py-3 text-[17px] leading-7 text-zinc-700 shadow-sm";
                   }
 
                   return (
@@ -1689,7 +1689,7 @@ export default function FloatingAssistant() {
                     ? "¿Qué querés verificar de la imagen?"
                     : "Escribí tu consulta..."
                 }
-                className="min-w-0 flex-1 rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-[#8f2a85] focus:ring-2 focus:ring-[#8f2a85]/10"
+                className="min-w-0 flex-1 rounded-xl border border-zinc-200 px-3.5 py-3 text-base outline-none transition focus:border-[#8f2a85] focus:ring-2 focus:ring-[#8f2a85]/10"
               />
 
               <button
