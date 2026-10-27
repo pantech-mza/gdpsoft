@@ -139,3 +139,36 @@ test('una cita de varias líneas de la Ficha se verifica aunque el documento use
   const inv = verifyEngineOutput(JSON.stringify({ respuesta: 'x', fuentes: [{ seccion: 'FICHA', fecha: null, cita: 'validator_name: OTRA COSA\nvalidator_type: TYS' }] }), doc);
   assert.equal(inv.status, 'UNVERIFIED');
 });
+
+test('una corrección elegida solo por significado la revisa el motor; una coincidencia de texto se respeta', () => {
+  const c = liveConfig({ CONTEXT_ENGINE_MODE: 'live', OPENAI_API_KEY: 'k' });
+  const base = { socialWorkId: 5, branchId: 1, route: 'ADMIN_CORRECTION', ok: true, rand: 0 };
+  assert.equal(shouldGoLive(c, base), false);
+  assert.equal(shouldGoLive(c, { ...base, semanticCorrection: true }), true);
+  assert.equal(shouldGoLive(c, { ...base, semanticCorrection: true, route: 'CREDENTIALS_PROTECTED' }), false);
+});
+test('la respuesta de corrección informa cómo coincidió (texto o significado)', () => {
+  const s = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(s, /correctionMatchKind = "SEMANTIC"/); assert.match(s, /correction_match: correctionMatchKind/); assert.match(s, /semanticCorrection: lj\?\.correction_match === "SEMANTIC"/);
+});
+
+test('la cita se verifica aunque el PDF tenga letras separadas, cortes de línea o guiones; un dato inventado sigue fallando', async () => {
+  const { verifyEngineOutput } = await import('../../lib/assistant/context-engine/core.mjs');
+  const doc = '## [NORMATIVAS]\nS e a c e p t a r á c u a l q u i e r f o r m a t o d e p r e s c r i p c i ó n m é d i c a\nEl porcentaje de cober-\ntura es del 50 % en general y 70 % con autoriza-\nción previa.';
+  const mk = (cita) => JSON.stringify({ respuesta: 'ok', fuentes: [{ seccion: 'Normativa', fecha: null, cita }] });
+  assert.equal(verifyEngineOutput(mk('Se aceptará cualquier formato de prescripción médica'), doc).status, 'OK');
+  assert.equal(verifyEngineOutput(mk('El porcentaje de cobertura es del 50 % en general y 70 % con autorización previa.'), doc).status, 'OK');
+  assert.equal(verifyEngineOutput(mk('El porcentaje de cobertura es del 80 % en general'), doc).status, 'UNVERIFIED');
+  assert.equal(verifyEngineOutput(mk('corto'), doc).status, 'UNVERIFIED');
+});
+
+test('cita de varias líneas no contiguas (Ficha) y cita de la conversación previa', async () => {
+  const { verifyEngineOutput } = await import('../../lib/assistant/context-engine/core.mjs');
+  const doc = '## [FICHA]\nstatus: Activa\nrecipe_type: Común\nletterhead: No\nvalidator_name: COMPAÑIA\nsubstitution: Sí\nvalidator_type: TYS\n';
+  const mk = (cita) => JSON.stringify({ respuesta: 'ok', fuentes: [{ seccion: 'Ficha', fecha: null, cita }] });
+  assert.equal(verifyEngineOutput(mk('status: Activa\nvalidator_name: COMPAÑIA\nvalidator_type: TYS'), doc).status, 'OK');
+  assert.equal(verifyEngineOutput(mk('status: Activa\nvalidator_name: COMPAÑIA\nvalidator_type: IMED'), doc).status, 'UNVERIFIED');
+  const prev = 'A partir del 1ro de septiembre, los anticonceptivos tienen un tope anual de 5 cajas por afiliado.';
+  assert.equal(verifyEngineOutput(mk(prev), doc).status, 'UNVERIFIED');
+  assert.equal(verifyEngineOutput(mk(prev), doc, { extraText: prev }).status, 'OK');
+});
