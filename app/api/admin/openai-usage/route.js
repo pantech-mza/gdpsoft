@@ -170,7 +170,7 @@ const cache = new Map();
 export async function GET(request) {
   try {
     const url = new URL(request.url);
-    const days = Math.min(366, Math.max(1, Number(url.searchParams.get("days") || 7)));
+    const days = Math.min(350, Math.max(1, Number(url.searchParams.get("days") || 7)));
 
     const access = await requireAdminActor(request);
     if (!access.actor) return jsonError(access.error, access.status);

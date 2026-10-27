@@ -23,7 +23,7 @@ export async function GET(request) {
   if (!access.actor) return jsonError(access.error, access.status);
   try {
     const url = new URL(request.url);
-    const days = Math.min(366, Math.max(1, Number(url.searchParams.get("days") || 30)));
+    const days = Math.min(350, Math.max(1, Number(url.searchParams.get("days") || 30)));
     const day = String(url.searchParams.get("day") || "");
     if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) return jsonError("Fecha inválida", 400);
     const since = new Date(Date.now() - days * 86400000).toISOString();
