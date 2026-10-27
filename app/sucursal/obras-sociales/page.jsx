@@ -261,12 +261,12 @@ export default function SucursalObrasSocialesPage() {
                       </h2>
                       <span
                         className={item.active === true
-                          ? "inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700"
-                          : "inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700"}
+                          ? "inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm"
+                          : "inline-flex shrink-0 items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm"}
                       >
                         <span className={item.active === true
-                          ? "h-1.5 w-1.5 rounded-full bg-emerald-500"
-                          : "h-1.5 w-1.5 rounded-full bg-rose-500"} />
+                          ? "h-2 w-2 rounded-full bg-white"
+                          : "h-2 w-2 rounded-full bg-white"} />
                         {item.active === true ? "Activa" : "Inactiva"}
                       </span>
                     </div>

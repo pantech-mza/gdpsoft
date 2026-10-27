@@ -17,6 +17,17 @@ function getNoticeContext() {
   } catch { return null; }
 }
 
+// v3.13.102r — Solo la noticia más reciente aparece como tarjeta; el resto queda pendiente en la campanita.
+const popupKey = (c) => `gdpsoft_notice_popup_ts_v1:${c.branchId}:${c.uuid}`;
+const ts = (n) => { const v = Date.parse(n?.created_at); return Number.isNaN(v) ? 0 : v; };
+function readPopupTs(context) { try { return Number(localStorage.getItem(popupKey(context)) || 0); } catch { return 0; } }
+function writePopupTs(context, value) { try { localStorage.setItem(popupKey(context), String(value)); } catch { /* sin almacenamiento: no se recuerda */ } }
+export function pickPopupNotice(rows, lastSeenTs = 0) {
+  const sorted = [...(rows || [])].sort((a, b) => ts(b) - ts(a));
+  const newest = sorted[0];
+  return newest && ts(newest) > lastSeenTs ? newest : null;
+}
+
 export default function BranchNotices() {
   const [notices, setNotices] = useState([]);
   const [error, setError] = useState('');
@@ -95,6 +106,8 @@ export default function BranchNotices() {
       return;
     }
     setClosing(id);
+    // Al cerrar la tarjeta, lo que ya estaba pendiente deja de salir como emergente (sigue en la campanita).
+    writePopupTs(context, Math.max(readPopupTs(context), ...notices.map(ts)));
     // Guardar ANTES del POST. Si falla Supabase o se actualiza la pantalla,
     // este mismo aviso no vuelve a mostrarse en esta PC.
     const saved = closeNoticeLocally(localStorage, context.branchId, context.uuid, id);
@@ -109,17 +122,21 @@ export default function BranchNotices() {
     setClosing(null);
   }
 
-  if (!notices.length && !error) return null;
+  const popupContext = getNoticeContext();
+  const popup = popupContext ? pickPopupNotice(notices, readPopupTs(popupContext)) : (notices[0] || null);
+  const others = Math.max(0, notices.length - (popup ? 1 : 0));
+  if (!popup && !error) return null;
   return <aside role="region" aria-label="Avisos de Farmacias del Plata" className="pointer-events-none fixed right-3 top-20 z-[95] w-[min(410px,calc(100vw-24px))] space-y-3 sm:right-6">
     {error && <div role="alert" className="pointer-events-auto rounded-xl border border-red-300 bg-white p-3 text-sm text-red-700 shadow-lg">{error}</div>}
     <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
-      {notices.map(n => <div key={n.id} className={`pointer-events-auto rounded-2xl border-2 p-4 shadow-xl ${severityClass[n.severity] || severityClass.INFO}`}>
+      {popup && [popup].map(n => <div key={n.id} className={`pointer-events-auto rounded-2xl border-2 p-4 shadow-xl ${severityClass[n.severity] || severityClass.INFO}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0"><div className="text-[10px] font-black uppercase tracking-[.12em]">📣 {n.severity === 'URGENT' ? 'URGENTE' : n.severity === 'IMPORTANT' ? 'IMPORTANTE' : 'NOTICIA'}</div><h3 className="mt-1 text-[15px] font-bold">{n.title}</h3></div>
           <button type="button" disabled={closing === n.id} title="Marcar como leído en esta PC" aria-label={`Cerrar aviso ${n.title} en este dispositivo`} onClick={() => acknowledge(n.id)} className="shrink-0 rounded-lg border border-current/25 bg-white/75 px-2.5 py-1 text-lg font-bold hover:bg-white disabled:opacity-40">×</button>
         </div>
         <div className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed">{n.body}</div>
         <p className="mt-3 text-[11px] opacity-70">Visible hasta que se cierre en esta PC · {new Date(n.created_at).toLocaleString('es-AR')}</p>
+        {others > 0 && <p className="mt-1 text-[11px] font-semibold">🔔 Hay {others} aviso{others === 1 ? '' : 's'} más en la campanita.</p>}
       </div>)}
     </div>
   </aside>;
