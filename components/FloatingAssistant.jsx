@@ -1382,7 +1382,7 @@ export default function FloatingAssistant() {
 
             {messages.length ===
               0 && (
-              <div className="max-w-[88%] rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-[17px] leading-7 text-zinc-700 shadow-sm">
+              <div className="max-w-[88%] rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-[17px] font-medium leading-7 text-zinc-900 shadow-sm">
                 Hola, estoy disponible para ayudarte.
               </div>
             )}
@@ -1414,15 +1414,15 @@ export default function FloatingAssistant() {
                     "user"
                   ) {
                     bubbleClass =
-                      "ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-[#8f2a85] px-4 py-3 text-[17px] leading-7 text-white shadow-sm";
+                      "ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-[#8f2a85] px-4 py-3 text-[17px] font-medium leading-7 text-white shadow-sm";
                   } else if (
                     message.error
                   ) {
                     bubbleClass =
-                      "max-w-[88%] rounded-2xl rounded-tl-sm border border-red-100 bg-red-50 px-4 py-3 text-[17px] leading-7 text-red-700";
+                      "max-w-[88%] rounded-2xl rounded-tl-sm border border-red-100 bg-red-50 px-4 py-3 text-[17px] font-medium leading-7 text-red-700";
                   } else {
                     bubbleClass =
-                      "max-w-[98%] rounded-2xl rounded-tl-sm border border-zinc-100 bg-white px-2.5 py-3 text-[17px] leading-7 text-zinc-700 shadow-sm";
+                      "max-w-[98%] rounded-2xl rounded-tl-sm border border-zinc-100 bg-white px-2.5 py-3 text-[17px] font-medium leading-7 text-zinc-900 shadow-sm";
                   }
 
                   return (
@@ -1689,7 +1689,7 @@ export default function FloatingAssistant() {
                     ? "¿Qué querés verificar de la imagen?"
                     : "Escribí tu consulta..."
                 }
-                className="min-w-0 flex-1 rounded-xl border border-zinc-200 px-3.5 py-3 text-base outline-none transition focus:border-[#8f2a85] focus:ring-2 focus:ring-[#8f2a85]/10"
+                className="min-w-0 flex-1 rounded-xl border border-zinc-200 px-3.5 py-3 text-base font-medium outline-none transition focus:border-[#8f2a85] focus:ring-2 focus:ring-[#8f2a85]/10"
               />
 
               <button

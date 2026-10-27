@@ -13,5 +13,11 @@ test('chips Activa/Inactiva en verde y rojo fuertes', () => {
 
 test('el chat flotante ocupa casi todo el alto, es más ancho y con letra más grande', () => {
   const s = readFileSync(new URL('../../components/FloatingAssistant.jsx', import.meta.url), 'utf8');
-  assert.match(s, /sm:top-3 sm:bottom-3/); assert.match(s, /sm:w-\[560px\]/); assert.match(s, /text-\[17px\] leading-7/);
+  assert.match(s, /sm:top-3 sm:bottom-3/); assert.match(s, /sm:w-\[560px\]/); assert.match(s, /text-\[17px\] font-medium leading-7/);
+});
+
+test('la letra del chat va en negrita media (font-medium) y más oscura', () => {
+  const s = readFileSync(new URL('../../components/FloatingAssistant.jsx', import.meta.url), 'utf8');
+  const r = readFileSync(new URL('../../components/assistant/AssistantRichMessage.jsx', import.meta.url), 'utf8');
+  assert.match(s, /text-\[17px\] font-medium leading-7 text-zinc-900/); assert.match(r, /font-medium leading-\[1\.6\] text-zinc-900/);
 });
