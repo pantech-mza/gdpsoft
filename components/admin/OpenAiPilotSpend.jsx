@@ -30,7 +30,7 @@ function Kpi({ title, value, sub, accent = '#8f2a85' }) {
 }
 
 export default function OpenAiPilotSpend({ data, usage, error }) {
-  const [branches, setBranches] = useState([]), [devices, setDevices] = useState([]), [dayFilter, setDayFilter] = useState([]);
+  const [branches, setBranches] = useState([]), [devices, setDevices] = useState([]), [from, setFrom] = useState(''), [to, setTo] = useState('');
   const [expected, setExpected] = useState(''), [init, setInit] = useState(false);
 
   const start = useMemo(() => startDate({ daily: data?.daily || [], cells: usage?.usage_cells || [] }), [data, usage]);
@@ -40,7 +40,7 @@ export default function OpenAiPilotSpend({ data, usage, error }) {
 
   const branchOpts = useMemo(() => (usage?.usage_branches || []).map((b) => ({ id: String(b.id), name: b.name })), [usage]);
   const devOpts = useMemo(() => (usage?.usage_devices || []).map((d) => ({ id: d.key, name: d.label, tag: d.internal ? 'interno' : '' })), [usage]);
-  const dayOpts = useMemo(() => daily.map((d) => ({ id: d.date, name: fmtDay(d.date) })).reverse(), [daily]);
+  const today = new Date().toISOString().slice(0, 10);
   const branchNames = useMemo(() => new Map(branchOpts.map((b) => [b.id, b.name])), [branchOpts]);
 
   // Por defecto se dejan afuera los dispositivos internos (Nico, Mica, Admin); se pueden volver a tildar.
@@ -48,7 +48,7 @@ export default function OpenAiPilotSpend({ data, usage, error }) {
 
   const totalCost = daily.reduce((n, d) => n + Number(d.cost_usd || 0), 0);
   const totalQueries = cells.reduce((n, c) => n + c.queries, 0);
-  const rows = useMemo(() => applyFilters(priced, { branches, devices, days: dayFilter }), [priced, branches, devices, dayFilter]);
+  const rows = useMemo(() => applyFilters(priced, { branches, devices, from, to }), [priced, branches, devices, from, to]);
   const s = summarize(rows, { totalCost, daysInMonth: 30, expectedQueries: expected === '' ? null : expected });
   const bb = byBranch(rows, branchNames);
   const maxB = Math.max(0.0001, ...bb.map((b) => b.cost_usd)), maxD = Math.max(0.0001, ...s.days.map((d) => d.cost_usd));
@@ -56,10 +56,10 @@ export default function OpenAiPilotSpend({ data, usage, error }) {
   const noInternal = () => setDevices((usage?.usage_devices || []).filter((d) => !d.internal).map((d) => d.key));
 
   if (error) return <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">No se pudo cargar el gasto desde el inicio: {error}</p>;
-  if (!data || !usage) return <p className="rounded-xl bg-white p-4 text-sm text-slate-400">Calculando el gasto desde el inicio del piloto…</p>;
+  if (!data || !usage) return <p className="rounded-xl bg-white p-4 text-sm text-slate-400">Calculando el gasto desde el primer consumo…</p>;
 
   return <section className="space-y-4 rounded-2xl border border-purple-100 bg-white p-5 shadow-sm">
-    <div><h2 className="text-lg font-black text-[#311b39]">Gasto desde el inicio del piloto</h2><p className="mt-1 text-xs text-slate-500">Del {start ? fmtDay(start) : '—'} a hoy. El total de OpenAI es real; el reparto por sucursal, dispositivo y día es una estimación según los tokens que registra la app.</p></div>
+    <div><h2 className="text-lg font-black text-[#311b39]">Gasto desde que se conectó OpenAI</h2><p className="mt-1 text-xs text-slate-500">Desde el primer consumo en OpenAI ({start ? fmtDay(start) : '—'}) hasta hoy. El piloto arrancó el 19/10; antes hubo desarrollo y pruebas. El total de OpenAI es real; el reparto por sucursal, dispositivo y día es una estimación según los tokens que registra la app.</p></div>
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <Kpi title="Gasto total en OpenAI" value={money(totalCost)} sub="Desde el inicio hasta hoy · todo lo facturado" />
       <Kpi title="Consultas registradas" value={num(totalQueries)} sub="Todas las sucursales y dispositivos" accent="#93c01f" />
@@ -69,7 +69,7 @@ export default function OpenAiPilotSpend({ data, usage, error }) {
     <div className="grid gap-3 rounded-xl bg-[#faf7fb] p-3 md:grid-cols-3">
       <Check label="Sucursal" options={branchOpts} value={branches} onChange={setBranches} allLabel="Todas las sucursales" />
       <Check label="Dispositivo" options={devOpts} value={devices} onChange={setDevices} allLabel="Todos los dispositivos" extra={internalOpts.length ? <button type="button" onClick={noInternal} className="text-xs font-semibold text-[#8f2a85]">Sin internos</button> : null} />
-      <Check label="Día" options={dayOpts} value={dayFilter} onChange={setDayFilter} allLabel="Todos los días" />
+      <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-slate-500"><label>Desde<input type="date" value={from} min={start || undefined} max={to || today} onChange={(e) => setFrom(e.target.value)} className="mt-1 w-full rounded-xl border border-purple-100 bg-white p-2.5 text-sm font-normal text-slate-800" /></label><label>Hasta<input type="date" value={to} min={from || start || undefined} max={today} onChange={(e) => setTo(e.target.value)} className="mt-1 w-full rounded-xl border border-purple-100 bg-white p-2.5 text-sm font-normal text-slate-800" /></label>{(from || to) && <button type="button" onClick={() => { setFrom(''); setTo(''); }} className="col-span-2 text-left text-xs font-semibold text-[#8f2a85]">Quitar fechas</button>}</div>
     </div>
     <p className="text-[11px] text-slate-500">Al abrir, los dispositivos internos (Nico, Mica, Admin) quedan sin tildar. Tildalos o quitá los que quieras desde la lista.</p>
     <h3 className="text-sm font-bold text-[#311b39]">Resultado de la selección</h3>

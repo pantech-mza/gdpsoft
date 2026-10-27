@@ -163,6 +163,10 @@ function buildDaily(costBuckets, usageBuckets) {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+// OpenAI limita a 30 pedidos por minuto: se guarda la respuesta 2 minutos para no repetirlos al recargar.
+const CACHE_MS = 120000;
+const cache = new Map();
+
 export async function GET(request) {
   try {
     const url = new URL(request.url);
@@ -185,6 +189,13 @@ export async function GET(request) {
     const endTime = unixSeconds(end);
     const projectId = String(process.env.OPENAI_PROJECT_ID || "").trim() || null;
 
+    // Historial largo: el gasto se pide por todo el período, los tokens solo por los últimos usage_days (ahorra pedidos a OpenAI).
+    const usageDays = Math.min(days, Math.max(1, Number(url.searchParams.get("usage_days") || days)));
+    const usageStart = unixSeconds(new Date(end.getTime() - usageDays * 86400000));
+    const cacheKey = `${days}|${usageDays}|${projectId || ""}`;
+    const hit = cache.get(cacheKey);
+    if (hit && Date.now() - hit.t < (days > 120 ? 600000 : CACHE_MS) && url.searchParams.get("fresh") !== "1") return Response.json(hit.payload);
+
     const projectParams = projectId
       ? { "project_ids[]": [projectId] }
       : {};
@@ -199,7 +210,7 @@ export async function GET(request) {
         ...projectParams,
       }),
       getAllPages("/v1/organization/usage/completions", {
-        start_time: startTime,
+        start_time: usageStart,
         end_time: endTime,
         bucket_width: "1d",
         limit: MAX_DAILY_BUCKETS,
@@ -235,7 +246,7 @@ export async function GET(request) {
     const byLineItem = groupCostsByLineItem(costRows);
     const daily = buildDaily(costBuckets, usageBuckets);
 
-    return Response.json({
+    const payload = {
       ok: true,
       configured: true,
       period_days: days,
@@ -256,14 +267,16 @@ export async function GET(request) {
       by_model: byModel,
       by_line_item: byLineItem,
       daily,
-    });
+    };
+    cache.set(cacheKey, { t: Date.now(), payload });
+    return Response.json(payload);
   } catch (error) {
     console.error("openai-usage error:", error);
 
     return Response.json(
       {
         ok: false,
-        error: error?.message || "No se pudo obtener el uso de OpenAI",
+        error: Number(error?.status) === 429 ? "OpenAI pidió esperar un minuto (límite de pedidos). Esperá 1 minuto y tocá Actualizar." : (error?.message || "No se pudo obtener el uso de OpenAI"),
       },
       { status: Number(error?.status) || 500 }
     );

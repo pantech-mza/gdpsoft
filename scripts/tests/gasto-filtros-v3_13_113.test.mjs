@@ -20,7 +20,8 @@ test('filtra por sucursal, dispositivo y día; vacío = todo', () => {
   assert.equal(applyFilters(p, {}).length, 3);
   assert.equal(applyFilters(p, { branches: ['1'] }).length, 2);
   assert.equal(applyFilters(p, { devices: ['2:20'] }).length, 1);
-  assert.equal(applyFilters(p, { days: ['2026-10-21'] }).length, 2);
+  assert.equal(applyFilters(p, { from: '2026-10-21' }).length, 2);
+  assert.equal(applyFilters(p, { from: '2026-10-20', to: '2026-10-20' }).length, 1);
 });
 test('resumen: participación, costo por consulta y próximo mes', () => {
   const p = applyFilters(priceCells({ cells, daily }), { branches: ['1'] });
