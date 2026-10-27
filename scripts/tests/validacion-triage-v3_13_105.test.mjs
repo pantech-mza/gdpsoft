@@ -45,3 +45,44 @@ test('tramos: las buenas no cuentan como pendientes y los tramos sin nada que re
   assert.equal(filterSegments(segs, { status: 'ALL', onlyReviewable: false }).length, 2);
   assert.equal(summarize(segs).pending, 1);
 });
+
+test('v3.13.106: consulta incompleta del usuario («Higea Salud») no es un fallo: sin alerta y sin revisión', () => {
+  const r = row(1, { question: 'Higea Salud', found: false, route: 'CLARIFICATION_NEEDED', answer: '¿Qué necesitás saber sobre HIGEA SALUD? Por ejemplo: requisitos de receta, validación, autorizaciones o facturación.' });
+  const t = markReviewNoise([r], { spotEvery: 0 })[0];
+  assert.equal(t.needs_review, false);
+  const seg = groupIntoSegments([t])[0];
+  assert.equal(seg.alerts, 0); assert.equal(seg.answerCount, 0);
+  assert.equal(filterSegments([seg], { status: 'PENDING', onlyReviewable: true }).length, 0);
+  // aunque la ruta no esté registrada, se reconoce por el texto
+  assert.equal(triageRow({ ...r, route: null }, { spotEvery: 0 }).needs_review, false);
+});
+test('v3.13.106: respuesta determinista de recepción/circuito (aunque no sea del motor) se da por buena', () => {
+  const a = 'Sí, la sucursal está habilitada para recibir esta obra social.\nCircuito operativo registrado: directo por el validador de Econo Más.';
+  assert.equal(triageRow(row(1, { route: 'OPERATION_RECEPTION', answer: a }), { spotEvery: 0 }).needs_review, false);
+  assert.equal(triageRow(row(1, { route: 'STRUCTURED_SOCIAL_WORK_STATUS', answer: 'x' }), { spotEvery: 0 }).needs_review, false);
+  // pero una respuesta que cayó a un respaldo sí se revisa
+  assert.equal(triageRow(row(1, { route: 'APPROVED_NOTES_FALLBACK', answer: 'Según las notas...' }), { spotEvery: 0 }).needs_review, true);
+  // «no encontré información» sigue yendo a revisión (puede ser un hueco real de carga)
+  assert.equal(triageRow(row(1, { found: false, route: 'CONTEXT_ENGINE', answer: 'no encontré información certera' }), { spotEvery: 0 }).needs_review, true);
+});
+
+test('v3.13.107: consultas anteriores al motor se ocultan (corte = primera respuesta del motor)', async () => {
+  const { applyNoiseFilter, isInternalTest, engineCutoffs } = await import('../../lib/review/review-noise.mjs');
+  const rows = markReviewNoise([
+    row(1, { route: 'APPROVED_NOTES_FALLBACK', created_at: T(-5000) }),
+    row(2, { route: 'CONTEXT_ENGINE', created_at: T(-100) }),
+    row(3, { route: 'APPROVED_NOTES_FALLBACK', created_at: T(-50), question: 'otra' }), // legacy DESPUÉS del corte: sigue (es fallback real)
+    row(4, { route: 'CONTEXT_ENGINE', created_at: T(10), question: 'otra 2' }),
+  ]);
+  assert.equal(rows.find((r) => r.id === 1).pre_engine, true);
+  assert.equal(rows.find((r) => r.id === 3).pre_engine, false);
+  const kept = applyNoiseFilter(rows, { hidePreEngine: true }).map((r) => r.id);
+  assert.ok(!kept.includes(1) && kept.includes(3));
+  assert.equal(noiseCounts(rows).preEngine, 1);
+  assert.ok(engineCutoffs(rows).global != null);
+  // una consulta ya revisada nunca se esconde
+  assert.ok(applyNoiseFilter(markReviewNoise([row(1, { route: 'X', created_at: T(-5000), review: { verdict: 'CORRECT' } }), row(2, { created_at: T(0) })]), { hidePreEngine: true }).some((r) => r.id === 1));
+  // equipo interno: «NicolásB Dev», «Melanie»
+  assert.equal(isInternalTest(row(1, { device_name: 'NicolásB Dev' })), true);
+  assert.equal(isInternalTest(row(1, { device_name: 'Melanie' })), false); // Melanie es usuaria real del piloto
+});

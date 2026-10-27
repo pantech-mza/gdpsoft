@@ -69,6 +69,7 @@ export default function AdminBranchValidation() {
   const [hideRepeats, setHideRepeats] = useState(true);
   // v3.13.105 — por defecto solo se muestra lo que necesita revisión humana; lo que el motor dio por bueno queda oculto.
   const [hideAuto, setHideAuto] = useState(true);
+  const [hidePreEngine, setHidePreEngine] = useState(true);
   const [segmentId, setSegmentId] = useState(null);
   const [itemId, setItemId] = useState(null);
   const [verdict, setVerdict] = useState("");
@@ -92,7 +93,7 @@ export default function AdminBranchValidation() {
 
   const markedRows = useMemo(() => markReviewNoise(rows), [rows]);
   const noise = useMemo(() => noiseCounts(markedRows), [markedRows]);
-  const viewRows = useMemo(() => applyNoiseFilter(markedRows, { hideInternal, hideRepeats }), [markedRows, hideInternal, hideRepeats]);
+  const viewRows = useMemo(() => applyNoiseFilter(markedRows, { hideInternal, hideRepeats, hidePreEngine }), [markedRows, hideInternal, hideRepeats, hidePreEngine]);
   const allSegments = useMemo(() => groupIntoSegments(viewRows), [viewRows]);
   const visible = useMemo(
     () => filterSegments(allSegments, { ...filters, onlyReviewable: hideAuto, from: periodStart(filters.period) }),
@@ -327,6 +328,10 @@ export default function AdminBranchValidation() {
           <input type="checkbox" checked={hideRepeats} onChange={(e) => setHideRepeats(e.target.checked)} />
           Solo la última si se repite{noise.repeats ? ` (${noise.repeats} ocultas)` : ""}
         </label>
+        <label className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-700" title="Consultas respondidas antes de que el motor estuviera activo: ya no representan al sistema actual">
+          <input type="checkbox" checked={hidePreEngine} onChange={(e) => setHidePreEngine(e.target.checked)} />
+          Ocultar anteriores al motor{noise.preEngine ? ` (${noise.preEngine})` : ""}
+        </label>
         <label className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-700" title="Respuestas del motor que pasaron la verificación automática: no hace falta revisarlas">
           <input type="checkbox" checked={hideAuto} onChange={(e) => setHideAuto(e.target.checked)} />
           Solo lo que necesita revisión{noise.auto ? ` (${noise.auto} dadas por buenas)` : ""}
@@ -412,8 +417,10 @@ export default function AdminBranchValidation() {
                           {item.followUp && <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-zinc-500">Seguimiento · no hace falta validar</span>}
                           {item.alerts.map((alert) => <span key={alert} className="rounded-md bg-red-100 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-red-700">⚠ {alert}</span>)}
                           {item.review && <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-emerald-700">Revisada</span>}
-                          {!item.followUp && !item.review && item.needsReview && (item.review_reasons || []).map((why) => <span key={why} className={`rounded-md px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase ${why === "Muestreo de control" ? "bg-sky-100 text-sky-700" : "bg-amber-100 text-amber-800"}`}>{why}</span>)}
-                          {!item.followUp && !item.review && !item.needsReview && <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-emerald-700">✓ Dada por buena por el motor · no hace falta revisar</span>}
+                          {!item.followUp && !item.review && item.needsReview && (item.review_reasons || []).filter((why) => !item.alerts.includes(why)).map((why) => <span key={why} className={`rounded-md px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase ${why === "Muestreo de control" ? "bg-sky-100 text-sky-700" : "bg-amber-100 text-amber-800"}`}>{why}</span>)}
+                          {!item.followUp && !item.review && !item.needsReview && (item.userSide
+                            ? <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-zinc-600">Consulta incompleta del usuario · no hay nada que corregir</span>
+                            : <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-emerald-700">✓ Dada por buena · no hace falta revisar</span>)}
                         </div>
                         {answerBox(item)}
                         {traceBox(item)}
