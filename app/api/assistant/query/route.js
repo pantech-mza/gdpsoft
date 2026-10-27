@@ -47,6 +47,7 @@ import {
   resolveChannelIdForGroup, resolveFollowUp, saveConversationState,
 } from "../../../../lib/assistant/conversation-context.mjs";
 import { buildSuggestionAnswer, suggestSocialWorks } from "../../../../lib/assistant/social-work-suggestions.mjs";
+import { findInactiveMatch, buildInactiveAnswer, suggestWithInactive, buildSuggestionAnswerWithInactive, detectInactiveSocialWork } from "../../../../lib/assistant/inactive-social-work.mjs";
 import {
   buildCredentialAnswer, buildNotesInstructions, extractEmails, formatNotesAnswer, isCredentialQuestion,
   loadApprovedNotes, parseNotesAnswer, findMatchingNotes, distinctiveTokens, dropProductSpecificNotes,
@@ -5265,6 +5266,17 @@ async function detectSocialWorkFromQuestion(
     });
   const unresolvedName = unresolvedExplicitSocialWork({question:cleanQuestion,dictionary,matches});
 
+  // v3.13.109 — obra social INACTIVA nombrada por su nombre o por un alias (p. ej. «fuerza aérea» → IOSFA).
+  // Solo si las activas no resolvieron la consulta (ninguna coincidencia, o solo por una palabra suelta).
+  let inactive = null;
+  const activeAmbiguousOnly = matches.length > 1 && matches.every((item) => item.source === "AMBIGUOUS_TOKEN");
+  if (matches.length === 0 || activeAmbiguousOnly) {
+    try {
+      const { data: inactiveWorks } = await supabaseAdmin.from("social_works").select("id,name,active").eq("active", false);
+      inactive = detectInactiveSocialWork({ question: cleanQuestion, inactiveWorks: inactiveWorks || [], aliases: aliases || [], strict: activeAmbiguousOnly });
+    } catch { inactive = null; }
+  }
+
   // =====================================================
   // SIN OOSS DETECTADA
   // =====================================================
@@ -5285,6 +5297,7 @@ async function detectSocialWorkFromQuestion(
       matches:
         [],
       unresolvedName,
+      inactive,
     };
   }
 
@@ -5306,6 +5319,7 @@ async function detectSocialWorkFromQuestion(
         null,
 
       matches,
+      inactive,
     };
   }
 
@@ -5996,22 +6010,39 @@ if (conversationId) {
       question
     );
 
+  // v3.13.109 — nombró una obra social INACTIVA (por nombre o alias): se identifica y se avisa que no está activa.
+  if (detectedSocialWork.inactive && !isSocialWorkStatusQuestion(question)) {
+    const answer = buildInactiveAnswer(detectedSocialWork.inactive.name);
+    const elapsedMs = Date.now()-startedAt;
+    await logCurrentQuery({branchId,socialWorkId,question,answer,source:"SOCIAL_WORK_IDENTITY",route:"INACTIVE_SOCIAL_WORK",found:false,elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+    return Response.json({ok:true,question,answer,source:"SOCIAL_WORK_IDENTITY",route:"INACTIVE_SOCIAL_WORK",found:false,
+      inactive_social_work:{id:detectedSocialWork.inactive.id,name:detectedSocialWork.inactive.name},
+      context:{conversation_id:conversationId,branch_id:branchId,device_id:deviceId,social_work_id:socialWorkId},
+      elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+  }
   // Si hay sigla explícita desconocida, bloquear el fallback a la OOSS previa.
   if (detectedSocialWork.unresolvedName && !isSocialWorkStatusQuestion(question)) {
     const name = detectedSocialWork.unresolvedName;
     // v3.13.30 — «¿Quisiste decir…?»: se ofrece la obra social más parecida.
     let suggestions = [];
+    let suggestionData = { names: [], inactive: new Set() };
+    let inactiveHit = null;
     try {
-      const { data: activeWorks } = await supabaseAdmin.from("social_works").select("name").eq("active", true);
-      suggestions = suggestSocialWorks(name, (activeWorks || []).map((w) => w.name));
+      // v3.13.109 — también se consideran las obras sociales INACTIVAS (p. ej. IOSFA): se reconocen y se ofrecen como alternativa.
+      const { data: allWorks } = await supabaseAdmin.from("social_works").select("id,name,active");
+      const inactiveWorks = (allWorks || []).filter((w) => w.active === false);
+      inactiveHit = findInactiveMatch(name, inactiveWorks);
+      suggestionData = suggestWithInactive(name, (allWorks || []).filter((w) => w.active !== false).map((w) => w.name), inactiveWorks.map((w) => w.name));
+      suggestions = suggestionData.names;
     } catch {
       suggestions = [];
     }
-    const answer = buildSuggestionAnswer(name, suggestions) ||
-      `No pude identificar ${name} en las obras sociales activas de GDPSoft. Confirmá cómo figura en el listado; no voy a utilizar la Ficha de otra obra social.`;
+    const answer = inactiveHit ? buildInactiveAnswer(inactiveHit.name) : (buildSuggestionAnswerWithInactive(name, suggestionData) ||
+      `No pude identificar ${name} en las obras sociales activas de GDPSoft. Confirmá cómo figura en el listado; no voy a utilizar la Ficha de otra obra social.`);
     const elapsedMs = Date.now()-startedAt;
-    await logCurrentQuery({branchId,socialWorkId,question,answer,source:"SOCIAL_WORK_IDENTITY",route:"UNKNOWN_EXPLICIT_SOCIAL_WORK",found:false,elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
-    return Response.json({ok:true,question,answer,source:"SOCIAL_WORK_IDENTITY",route:"UNKNOWN_EXPLICIT_SOCIAL_WORK",found:false,
+    const unknownRoute = inactiveHit ? "INACTIVE_SOCIAL_WORK" : "UNKNOWN_EXPLICIT_SOCIAL_WORK";
+    await logCurrentQuery({branchId,socialWorkId,question,answer,source:"SOCIAL_WORK_IDENTITY",route:unknownRoute,found:false,elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+    return Response.json({ok:true,question,answer,source:"SOCIAL_WORK_IDENTITY",route:unknownRoute,found:false,
       ...(suggestions.length ? { suggestion: { unresolved: name, name: suggestions[0], options: suggestions } } : {}),
       elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
   }
@@ -6394,13 +6425,19 @@ if (conversationId) {
       const statusUnresolved = unresolvedExplicitSocialWork({question, dictionary, matches});
       if (statusUnresolved) {
         let statusSuggestions = [];
-        try { statusSuggestions = suggestSocialWorks(statusUnresolved, (statusWorks || []).filter((w) => w.active).map((w) => w.name)); } catch { statusSuggestions = []; }
-        const unresolvedAnswer = buildSuggestionAnswer(statusUnresolved, statusSuggestions) ||
-          `No pude identificar ${statusUnresolved} en las obras sociales activas de GDPSoft. Confirmá cómo figura en el listado; no voy a utilizar la Ficha de otra obra social.`;
+        let statusSuggestionData = { names: [], inactive: new Set() }, statusInactiveHit = null;
+        try {
+          const statusInactive = (statusWorks || []).filter((w) => w.active === false);
+          statusInactiveHit = findInactiveMatch(statusUnresolved, statusInactive);
+          statusSuggestionData = suggestWithInactive(statusUnresolved, (statusWorks || []).filter((w) => w.active).map((w) => w.name), statusInactive.map((w) => w.name));
+          statusSuggestions = statusSuggestionData.names;
+        } catch { statusSuggestions = []; }
+        const unresolvedAnswer = statusInactiveHit ? buildInactiveAnswer(statusInactiveHit.name) : (buildSuggestionAnswerWithInactive(statusUnresolved, statusSuggestionData) ||
+          `No pude identificar ${statusUnresolved} en las obras sociales activas de GDPSoft. Confirmá cómo figura en el listado; no voy a utilizar la Ficha de otra obra social.`);
         const unresolvedMs = Date.now() - startedAt;
         await logCurrentQuery({branchId, socialWorkId, question, answer: unresolvedAnswer, source:"SOCIAL_WORK_IDENTITY",
-          route:"UNKNOWN_EXPLICIT_SOCIAL_WORK", found:false, elapsedMs: unresolvedMs, usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
-        return Response.json({ok:true,question,answer:unresolvedAnswer,source:"SOCIAL_WORK_IDENTITY",route:"UNKNOWN_EXPLICIT_SOCIAL_WORK",found:false,
+          route:statusInactiveHit ? "INACTIVE_SOCIAL_WORK" : "UNKNOWN_EXPLICIT_SOCIAL_WORK", found:false, elapsedMs: unresolvedMs, usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+        return Response.json({ok:true,question,answer:unresolvedAnswer,source:"SOCIAL_WORK_IDENTITY",route:statusInactiveHit ? "INACTIVE_SOCIAL_WORK" : "UNKNOWN_EXPLICIT_SOCIAL_WORK",found:false,
           ...(statusSuggestions.length ? { suggestion: { unresolved: statusUnresolved, name: statusSuggestions[0], options: statusSuggestions } } : {}),
           elapsed_ms:unresolvedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
       }
