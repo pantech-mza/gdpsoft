@@ -34,3 +34,8 @@ test('los menús de la barra superior quedan por encima del chat y el aviso no q
   const n = readFileSync(new URL('../../components/sucursal/BranchNotices.jsx', import.meta.url), 'utf8');
   assert.match(n, /lg:top-\[130px\]/); assert.ok(typeof top === 'string');
 });
+
+test('el chip «Consultando sobre» es verde fuerte con letras blancas', () => {
+  const s = readFileSync(new URL('../../components/FloatingAssistant.jsx', import.meta.url), 'utf8');
+  assert.match(s, /bg-emerald-600 px-3\.5 py-2/); assert.match(s, /font-extrabold uppercase tracking-wide text-white/);
+});

@@ -1343,15 +1343,15 @@ export default function FloatingAssistant() {
               <div className="flex flex-wrap gap-2 px-4 pb-3">
 
                 {activeSocialWork && (
-                  <div className="inline-flex max-w-full items-center gap-2 rounded-full border-2 border-[#8f2a85]/40 bg-[#8f2a85]/10 px-3 py-2 shadow-sm">
+                  <div className="inline-flex max-w-full items-center gap-2 rounded-full border-2 border-emerald-700 bg-emerald-600 px-3.5 py-2 shadow-md">
 
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-[#8f2a85]" />
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-white" />
 
-                    <span className="text-xs text-zinc-500">
+                    <span className="text-xs font-semibold text-emerald-50">
                       Consultando sobre:
                     </span>
 
-                    <span className="truncate text-sm font-extrabold uppercase tracking-wide text-[#6f1f67]">
+                    <span className="truncate text-sm font-extrabold uppercase tracking-wide text-white">
                       {
                         activeSocialWork.name
                       }
