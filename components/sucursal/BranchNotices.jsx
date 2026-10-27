@@ -32,6 +32,7 @@ export default function BranchNotices() {
   const [notices, setNotices] = useState([]);
   const [error, setError] = useState('');
   const [closing, setClosing] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
   const pendingSync = useRef(new Set());
 
   const request = useCallback(async (url, opts = {}) => {
@@ -85,6 +86,13 @@ export default function BranchNotices() {
     }
   }, [request, acknowledgeOnServer]);
 
+  // Con el chat abierto, el aviso se corre a la izquierda para no quedar detrás de él.
+  useEffect(() => {
+    const onState = (e) => setChatOpen(!!e?.detail?.open);
+    window.addEventListener('gdpsoft:assistant-state', onState);
+    return () => window.removeEventListener('gdpsoft:assistant-state', onState);
+  }, []);
+
   useEffect(() => {
     reload();
     const timer = setInterval(() => { if (!document.hidden) reload(); }, 20000);
@@ -126,7 +134,7 @@ export default function BranchNotices() {
   const popup = popupContext ? pickPopupNotice(notices, readPopupTs(popupContext)) : (notices[0] || null);
   const others = Math.max(0, notices.length - (popup ? 1 : 0));
   if (!popup && !error) return null;
-  return <aside role="region" aria-label="Avisos de Farmacias del Plata" className="pointer-events-none fixed right-3 top-20 z-[95] w-[min(410px,calc(100vw-24px))] space-y-3 sm:right-6">
+  return <aside role="region" aria-label="Avisos de Farmacias del Plata" className={`pointer-events-none fixed right-3 top-20 lg:top-[130px] z-[95] w-[min(410px,calc(100vw-24px))] space-y-3 sm:right-6 ${chatOpen ? "md:right-[620px]" : ""}`}>
     {error && <div role="alert" className="pointer-events-auto rounded-xl border border-red-300 bg-white p-3 text-sm text-red-700 shadow-lg">{error}</div>}
     <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
       {popup && [popup].map(n => <div key={n.id} className={`pointer-events-auto rounded-2xl border-2 p-4 shadow-xl ${severityClass[n.severity] || severityClass.INFO}`}>

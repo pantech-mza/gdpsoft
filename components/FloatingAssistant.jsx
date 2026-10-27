@@ -204,6 +204,11 @@ export default function FloatingAssistant() {
       window.removeEventListener("gdpsoft:ask-assistant", onAsk);
   }, []);
 
+  // Avisa a otras piezas (p. ej. las noticias emergentes) si el chat está abierto, para que no queden tapadas.
+  useEffect(() => {
+    try { window.dispatchEvent(new CustomEvent("gdpsoft:assistant-state", { detail: { open: !!open } })); } catch {}
+  }, [open]);
+
   // =========================================================
   // FOCO AUTOMÁTICO
   // =========================================================
@@ -1264,7 +1269,7 @@ export default function FloatingAssistant() {
   return (
     <>
       {open && (
-        <div className="fixed inset-x-2 top-3 bottom-3 z-[700] flex min-h-0 w-auto flex-col overflow-hidden rounded-2xl sm:inset-x-auto sm:top-3 sm:bottom-3 sm:right-5 sm:h-auto sm:w-[560px] sm:max-w-[calc(100vw-32px)] border border-zinc-200 bg-white shadow-2xl">
+        <div className="fixed inset-x-2 top-[84px] bottom-3 z-[700] flex min-h-0 w-auto flex-col overflow-hidden rounded-2xl sm:inset-x-auto sm:top-[84px] sm:bottom-3 sm:right-5 lg:top-[124px] sm:h-auto sm:w-[560px] sm:max-w-[calc(100vw-32px)] border border-zinc-200 bg-white shadow-2xl">
 
           <div className="border-b border-zinc-100 bg-white">
 
