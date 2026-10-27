@@ -29,7 +29,7 @@ test('las pruebas internas se ocultan aunque no se repitan, y el conteo las sepa
   const rows = markReviewNoise([row(1, { device_name: 'Nico' }), row(2, { device_name: 'Nico' }), row(3), row(4, { question: 'distinta' }), row(5, { question: 'distinta' })]);
   const kept = applyNoiseFilter(rows).map((r) => r.id).sort((a, b) => a - b);
   assert.deepEqual(kept, [3, 5]);
-  assert.deepEqual(noiseCounts(rows), { internal: 2, repeats: 1 });
+  assert.deepEqual(noiseCounts(rows), { internal: 2, repeats: 1, auto: 0 });
 });
 test('el escenario real: 6 intentos de Nico y 1 consulta de una sucursal → la revisora solo ve la de la sucursal', () => {
   const mine = [1, 2, 3, 4, 5, 6].map((i) => row(i, { device_name: 'Nico', answer: `intento ${i}` }));

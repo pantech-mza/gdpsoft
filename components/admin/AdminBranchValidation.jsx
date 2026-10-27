@@ -67,6 +67,8 @@ export default function AdminBranchValidation() {
   // v3.13.104 — por defecto no se muestran las pruebas internas (Nico/Admin) ni los intentos repetidos de una misma pregunta.
   const [hideInternal, setHideInternal] = useState(true);
   const [hideRepeats, setHideRepeats] = useState(true);
+  // v3.13.105 — por defecto solo se muestra lo que necesita revisión humana; lo que el motor dio por bueno queda oculto.
+  const [hideAuto, setHideAuto] = useState(true);
   const [segmentId, setSegmentId] = useState(null);
   const [itemId, setItemId] = useState(null);
   const [verdict, setVerdict] = useState("");
@@ -93,8 +95,8 @@ export default function AdminBranchValidation() {
   const viewRows = useMemo(() => applyNoiseFilter(markedRows, { hideInternal, hideRepeats }), [markedRows, hideInternal, hideRepeats]);
   const allSegments = useMemo(() => groupIntoSegments(viewRows), [viewRows]);
   const visible = useMemo(
-    () => filterSegments(allSegments, { ...filters, from: periodStart(filters.period) }),
-    [allSegments, filters],
+    () => filterSegments(allSegments, { ...filters, onlyReviewable: hideAuto, from: periodStart(filters.period) }),
+    [allSegments, filters, hideAuto],
   );
   const stats = useMemo(() => summarize(allSegments), [allSegments]);
   const selected = useMemo(() => allSegments.find((seg) => seg.id === segmentId) || null, [allSegments, segmentId]);
@@ -156,12 +158,12 @@ export default function AdminBranchValidation() {
   }
 
   function nextTarget(fromSeg, fromItem) {
-    const afterInSeg = fromSeg.items.find((i) => !i.followUp && !i.review && i.id !== fromItem?.id);
+    const afterInSeg = fromSeg.items.find((i) => !i.followUp && i.needsReview && !i.review && i.id !== fromItem?.id);
     if (afterInSeg) return { seg: fromSeg, item: afterInSeg };
-    const list = visible.filter((s) => s.id !== fromSeg.id && s.items.some((i) => !i.followUp && !i.review));
+    const list = visible.filter((s) => s.id !== fromSeg.id && s.items.some((i) => !i.followUp && i.needsReview && !i.review));
     const withAlerts = list.find((s) => s.alerts > 0) || list[0];
     if (!withAlerts) return null;
-    return { seg: withAlerts, item: withAlerts.items.find((i) => !i.followUp && !i.review && i.alerts.length) || withAlerts.items.find((i) => !i.followUp && !i.review) };
+    return { seg: withAlerts, item: withAlerts.items.find((i) => !i.followUp && i.needsReview && !i.review && i.alerts.length) || withAlerts.items.find((i) => !i.followUp && i.needsReview && !i.review) };
   }
 
   async function save() {
@@ -179,7 +181,7 @@ export default function AdminBranchValidation() {
 
   async function markAllCorrect() {
     if (!selected) return;
-    const targets = selected.items.filter((i) => !i.followUp && !i.review && !i.alerts.length);
+    const targets = selected.items.filter((i) => !i.followUp && i.needsReview && !i.review && !i.alerts.length);
     if (!targets.length) { setNotice("No quedan respuestas sin alertas para marcar."); return; }
     setBusy(true);
     try {
@@ -276,14 +278,15 @@ export default function AdminBranchValidation() {
       <header>
         <p className="text-xs font-bold uppercase tracking-widest text-[#8f2a85]">Control de calidad · Administración</p>
         <h1 className="mt-1 text-3xl font-black text-[#2e1935]">Validación de respuestas</h1>
-        <p className="mt-1 max-w-3xl text-sm text-zinc-500">Revisá las respuestas del bot conversación por conversación: misma sucursal y obra social, en orden de horario.</p>
+        <p className="mt-1 max-w-3xl text-sm text-zinc-500">Acá solo aparece lo que necesita tu ojo: respuestas sin información, errores, preguntas que repitieron, las que no resolvió el motor y un muestreo de control. Lo que el motor respondió y verificó se da por bueno.</p>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {[
           ["Conversaciones pendientes", stats.pending, "text-[#2e1935]"],
           ["Con alertas", stats.alerts, "text-red-600"],
           ["Respuestas revisadas", stats.reviewed, "text-[#2e1935]"],
+          ["Dadas por buenas (motor)", noise.auto, "text-emerald-600"],
           ["Correctas", stats.correctPct == null ? "—" : `${stats.correctPct}%`, "text-emerald-600"],
         ].map(([label, value, cls]) => (
           <div key={label} className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
@@ -324,6 +327,10 @@ export default function AdminBranchValidation() {
           <input type="checkbox" checked={hideRepeats} onChange={(e) => setHideRepeats(e.target.checked)} />
           Solo la última si se repite{noise.repeats ? ` (${noise.repeats} ocultas)` : ""}
         </label>
+        <label className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-700" title="Respuestas del motor que pasaron la verificación automática: no hace falta revisarlas">
+          <input type="checkbox" checked={hideAuto} onChange={(e) => setHideAuto(e.target.checked)} />
+          Solo lo que necesita revisión{noise.auto ? ` (${noise.auto} dadas por buenas)` : ""}
+        </label>
         <button type="button" onClick={reload} className="rounded-lg bg-[#8f2a85] px-3 py-1.5 text-xs font-bold text-white">Actualizar</button>
       </div>
 
@@ -345,7 +352,7 @@ export default function AdminBranchValidation() {
                 {group.items.map((seg) => {
                   const first = seg.items.find((i) => !i.followUp) || seg.items[0];
                   return (
-                    <button key={seg.id} type="button" onClick={() => openItem(seg, seg.items.find((i) => !i.followUp && !i.review) || seg.items[0])}
+                    <button key={seg.id} type="button" onClick={() => openItem(seg, seg.items.find((i) => !i.followUp && i.needsReview && !i.review) || seg.items[0])}
                       className={`block w-full border-b border-zinc-100 px-4 py-3 text-left hover:bg-zinc-50 ${seg.id === segmentId ? "border-l-4 border-l-[#8f2a85] bg-[#f8eef7]" : ""}`}>
                       <div className="flex items-start justify-between gap-2">
                         <span className="text-[13px] font-extrabold text-[#2e1935]">{seg.branch_name} · {seg.social_work_name}</span>
@@ -358,6 +365,7 @@ export default function AdminBranchValidation() {
                         <span>{seg.reviewed}/{seg.answerCount} revisadas</span>
                       </div>
                       <p className="mt-1 truncate text-[12px] text-zinc-600">“{first.question}”</p>
+                      {(() => { const why = [...new Set(seg.items.filter((i) => i.needsReview && !i.review).flatMap((i) => i.review_reasons || []))].slice(0, 2); return why.length ? <p className="mt-1 truncate text-[10.5px] font-bold text-amber-700">{why.join(" · ")}</p> : null; })()}
                     </button>
                   );
                 })}
@@ -378,6 +386,7 @@ export default function AdminBranchValidation() {
                   {new Date(selected.start).toLocaleDateString("es-AR")} {time(selected.start)} → {time(selected.end)}
                   {selected.device_name ? ` · ${selected.device_name}` : ""} · {selected.answerCount} respuesta{selected.answerCount === 1 ? "" : "s"} del bot
                   {selected.followUpCount ? ` · ${selected.followUpCount} mensaje${selected.followUpCount === 1 ? "" : "s"} de seguimiento` : ""}
+                  {selected.autoCount ? ` · ${selected.autoCount} dada${selected.autoCount === 1 ? "" : "s"} por buena${selected.autoCount === 1 ? "" : "s"} por el motor` : ""}
                 </p>
               </div>
               <div className="max-h-[70vh] space-y-2 overflow-y-auto bg-[#faf9fc] p-4">
@@ -403,6 +412,8 @@ export default function AdminBranchValidation() {
                           {item.followUp && <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-zinc-500">Seguimiento · no hace falta validar</span>}
                           {item.alerts.map((alert) => <span key={alert} className="rounded-md bg-red-100 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-red-700">⚠ {alert}</span>)}
                           {item.review && <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-emerald-700">Revisada</span>}
+                          {!item.followUp && !item.review && item.needsReview && (item.review_reasons || []).map((why) => <span key={why} className={`rounded-md px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase ${why === "Muestreo de control" ? "bg-sky-100 text-sky-700" : "bg-amber-100 text-amber-800"}`}>{why}</span>)}
+                          {!item.followUp && !item.review && !item.needsReview && <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-emerald-700">✓ Dada por buena por el motor · no hace falta revisar</span>}
                         </div>
                         {answerBox(item)}
                         {traceBox(item)}
