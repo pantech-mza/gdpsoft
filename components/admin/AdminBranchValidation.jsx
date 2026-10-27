@@ -2,7 +2,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { refreshStoredSession } from "../../lib/client/session";
 import { filterSegments, groupIntoSegments, summarize } from "../../lib/review/conversation-groups.mjs";
+import { applyNoiseFilter, markReviewNoise, noiseCounts } from "../../lib/review/review-noise.mjs";
 import { stripMarkdown } from "../../lib/assistant/plain-text.mjs";
+import LinkifiedText from "../assistant/LinkifiedText";
 
 // GDPSoft v3.13.70 — Validación de respuestas por conversación (tramo = sucursal + dispositivo + obra social + horario).
 
@@ -63,6 +65,9 @@ export default function AdminBranchValidation() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [filters, setFilters] = useState({ status: "PENDING", period: "TODAY", branchId: "", deviceId: "", socialWorkId: "", text: "" });
+  // v3.13.104 — por defecto no se muestran las pruebas internas (Nico/Admin) ni los intentos repetidos de una misma pregunta.
+  const [hideInternal, setHideInternal] = useState(true);
+  const [hideRepeats, setHideRepeats] = useState(true);
   const [segmentId, setSegmentId] = useState(null);
   const [itemId, setItemId] = useState(null);
   const [verdict, setVerdict] = useState("");
@@ -84,7 +89,10 @@ export default function AdminBranchValidation() {
   }, []);
   useEffect(() => { reload(); }, [reload]);
 
-  const allSegments = useMemo(() => groupIntoSegments(rows), [rows]);
+  const markedRows = useMemo(() => markReviewNoise(rows), [rows]);
+  const noise = useMemo(() => noiseCounts(markedRows), [markedRows]);
+  const viewRows = useMemo(() => applyNoiseFilter(markedRows, { hideInternal, hideRepeats }), [markedRows, hideInternal, hideRepeats]);
+  const allSegments = useMemo(() => groupIntoSegments(viewRows), [viewRows]);
   const visible = useMemo(
     () => filterSegments(allSegments, { ...filters, from: periodStart(filters.period) }),
     [allSegments, filters],
@@ -254,7 +262,7 @@ export default function AdminBranchValidation() {
     const long = text.length > 420 && !expanded[item.id];
     return (
       <>
-        <p className="whitespace-pre-wrap break-words text-[13px] leading-5 text-zinc-700">{long ? `${text.slice(0, 420)}…` : text}</p>
+        <p className="whitespace-pre-wrap break-words text-[13px] leading-5 text-zinc-700"><LinkifiedText text={long ? `${text.slice(0, 420)}…` : text} /></p>
         {text.length > 420 && (
           <button type="button" className="mt-1 text-[11px] font-semibold text-[#8f2a85]" onClick={() => setExpanded((p) => ({ ...p, [item.id]: !p[item.id] }))}>
             {expanded[item.id] ? "Ver menos" : "Ver completa"}
@@ -309,6 +317,14 @@ export default function AdminBranchValidation() {
           {options.works.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
         </select>
         <input aria-label="Buscar texto" placeholder="Buscar texto…" value={filters.text} onChange={(e) => setFilter("text", e.target.value)} className="min-w-[160px] flex-1 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs" />
+        <label className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-700" title="Dispositivos del equipo (Nico, Mica, Admin) y tráfico de administración">
+          <input type="checkbox" checked={hideInternal} onChange={(e) => setHideInternal(e.target.checked)} />
+          Ocultar pruebas internas{noise.internal ? ` (${noise.internal})` : ""}
+        </label>
+        <label className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-700" title="Si la misma pregunta se repite desde el mismo dispositivo en 24 h, solo queda la última">
+          <input type="checkbox" checked={hideRepeats} onChange={(e) => setHideRepeats(e.target.checked)} />
+          Solo la última si se repite{noise.repeats ? ` (${noise.repeats} ocultas)` : ""}
+        </label>
         <button type="button" onClick={reload} className="rounded-lg bg-[#8f2a85] px-3 py-1.5 text-xs font-bold text-white">Actualizar</button>
       </div>
 
