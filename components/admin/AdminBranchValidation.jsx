@@ -4,7 +4,6 @@ import { refreshStoredSession } from "../../lib/client/session";
 import { filterSegments, groupIntoSegments, summarize } from "../../lib/review/conversation-groups.mjs";
 import { applyNoiseFilter, markReviewNoise, noiseCounts } from "../../lib/review/review-noise.mjs";
 import { stripMarkdown } from "../../lib/assistant/plain-text.mjs";
-import LinkifiedText from "../assistant/LinkifiedText";
 
 // GDPSoft v3.13.70 — Validación de respuestas por conversación (tramo = sucursal + dispositivo + obra social + horario).
 
@@ -262,7 +261,7 @@ export default function AdminBranchValidation() {
     const long = text.length > 420 && !expanded[item.id];
     return (
       <>
-        <p className="whitespace-pre-wrap break-words text-[13px] leading-5 text-zinc-700"><LinkifiedText text={long ? `${text.slice(0, 420)}…` : text} /></p>
+        <p className="whitespace-pre-wrap break-words text-[13px] leading-5 text-zinc-700">{long ? `${text.slice(0, 420)}…` : text}</p>
         {text.length > 420 && (
           <button type="button" className="mt-1 text-[11px] font-semibold text-[#8f2a85]" onClick={() => setExpanded((p) => ({ ...p, [item.id]: !p[item.id] }))}>
             {expanded[item.id] ? "Ver menos" : "Ver completa"}
