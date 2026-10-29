@@ -62,7 +62,7 @@ import { isOperationalCircuitQuestion } from "../../../../lib/assistant/operatio
 import { isSocialWorkStatusQuestion, hasExplicitStatusSubject, formatSocialWorkStatus } from "../../../../lib/assistant/social-work-status.mjs";
 import { recordTotalElapsed } from "../../../../lib/assistant/context-engine/live.mjs";
 import { cachedLoad } from "../../../../lib/server/ttl-cache.mjs";
-import { isAffiliateListQuestionWithoutDni, buildAffiliateListPrompt } from "../../../../lib/assistant/affiliate-list-prompt.mjs";
+import { isAffiliateListQuestionWithoutDni, buildAffiliateListPrompt, dniReplyToQuestion } from "../../../../lib/assistant/affiliate-list-prompt.mjs";
 import { unresolvedExplicitSocialWork, planWithinSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
 
 import { resolveCommonAuthorizationAmount } from "../../../../lib/assistant/common-authorization-rules.mjs";
@@ -5919,6 +5919,11 @@ async function handleAssistantQuery(request, { conversationState = null } = {}) 
       // se continúa la consulta original con la obra social corregida.
       if (isSuggestionConfirmation(question, conversationState)) {
         question = applySuggestion(conversationState.pending);
+      }
+      // v3.13.129 — el usuario contesta solo con el DNI tras «indicame su DNI»: se arma la consulta completa para que el motor la entienda.
+      if (isFreshState(conversationState)) {
+        const dniQuestion = dniReplyToQuestion(question, conversationState?.last_answer, await getSocialWorkName(socialWorkId).catch(() => ""));
+        if (dniQuestion) question = dniQuestion;
       }
       // v3.13.60 — elección entre varias obras sociales con el mismo nombre parcial.
       const chosenSocialWork = pickPendingSocialWork(question, conversationState);

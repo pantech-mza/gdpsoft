@@ -10,3 +10,12 @@ test('con DNI o sin relación no actúa', () => {
   for (const q of ['me indicarías si el afiliado con el dni 53667440 se encuentra en el listado de ospegap', 'afiliado 53.667.440 está en la lista', 'cómo se valida', 'qué vigencia tiene la receta'])
     assert.equal(isAffiliateListQuestionWithoutDni(q), false, q);
 });
+import { dniReplyToQuestion } from '../../lib/assistant/affiliate-list-prompt.mjs';
+test('DNI solo tras nuestra pregunta se convierte en consulta completa (con o sin puntos)', () => {
+  const last = buildAffiliateListPrompt('OSPEGAP');
+  assert.match(dniReplyToQuestion('53667440', last, 'OSPEGAP'), /dni 53667440 se encuentra en el listado de OSPEGAP/);
+  assert.match(dniReplyToQuestion('53.667.440', last, 'OSPEGAP'), /dni 53667440/);
+  assert.match(dniReplyToQuestion('DNI 53667440', last, 'OSPEGAP'), /dni 53667440/);
+  assert.equal(dniReplyToQuestion('53667440', 'otra respuesta', 'OSPEGAP'), null);
+  assert.equal(dniReplyToQuestion('hola', last, 'OSPEGAP'), null);
+});
