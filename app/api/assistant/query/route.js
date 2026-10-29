@@ -61,10 +61,11 @@ import {
 import { isOperationalCircuitQuestion } from "../../../../lib/assistant/operational-circuit-intent.mjs";
 import { isSocialWorkStatusQuestion, hasExplicitStatusSubject, formatSocialWorkStatus } from "../../../../lib/assistant/social-work-status.mjs";
 import { recordTotalElapsed } from "../../../../lib/assistant/context-engine/live.mjs";
-import { cachedLoad } from "../../../../lib/server/ttl-cache.mjs";
+import { cachedLoad, clientKey } from "../../../../lib/server/ttl-cache.mjs";
 import { isAffiliateListQuestionWithoutDni, buildAffiliateListPrompt, dniReplyToQuestion } from "../../../../lib/assistant/affiliate-list-prompt.mjs";
 import { makeNormativeTextExtractor } from "../../../../lib/audit/normative-text.mjs";
 import { isSpreadsheetFile } from "../../../../lib/normatives/spreadsheet-text.mjs";
+import { colegioRestrictionFromNotes, withColegioRestriction } from "../../../../lib/assistant/branch-restriction.mjs";
 import { isAffiliateDniQuestion, extractDni, lookupDni, buildDniAnswer } from "../../../../lib/assistant/affiliate-lookup.mjs";
 import { unresolvedExplicitSocialWork, planWithinSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
 
@@ -5515,6 +5516,25 @@ export async function POST(request) {
     if (withLink) { const { question: _q, ...rest } = withLink; response = Response.json({ ...rest, ...(vj.question !== undefined ? { question: vj.question } : {}) }, { status: response.status }); }
   } catch {
     // el enlace es opcional: nunca debe romper la respuesta
+  }
+  // v3.13.133 — «NO COLEGIO» / «Solo sucursales de Cámara»: si la sucursal es de Colegio, la respuesta lo avisa siempre.
+  try {
+    const rj = await response.clone().json();
+    const rSw = Number(rj?.context?.social_work_id), rBr = Number(rj?.context?.branch_id);
+    if (rj?.ok === true && typeof rj.answer === "string" && Number.isInteger(rSw) && rSw > 0 && Number.isInteger(rBr) && rBr > 0) {
+      const { data: rNotes } = await cachedLoad(`sw_notes_ok_${clientKey(supabaseAdmin)}_${rSw}`, 60000, () => supabaseAdmin
+        .from("social_work_notes").select("body").eq("social_work_id", rSw).eq("review_status", "APPROVED").eq("kind", "GENERAL"));
+      if (colegioRestrictionFromNotes(rNotes || [])) {
+        const rCircuit = await resolveBranchGroup(supabaseAdmin, rBr);
+        const warned = withColegioRestriction({ answer: rj.answer, route: rj.route || rj.source, circuit: rCircuit,
+          workName: rj.social_work?.name || "", hasRestriction: true });
+        if (warned) {
+          response = Response.json({ ...rj, answer: warned, ...(typeof rj.answer_plain === "string" ? { answer_plain: withColegioRestriction({ answer: rj.answer_plain, route: rj.route || rj.source, circuit: rCircuit, workName: rj.social_work?.name || "", hasRestriction: true }) || rj.answer_plain } : {}) }, { status: response.status });
+        }
+      }
+    }
+  } catch {
+    // el aviso es adicional: nunca debe romper la respuesta
   }
   // v3.13.100 — motor de contexto completo en MODO SOMBRA: responde en paralelo y guarda el resultado;
   // nunca cambia lo que ve la sucursal (apagado por defecto: CONTEXT_ENGINE_MODE=shadow para activarlo).
