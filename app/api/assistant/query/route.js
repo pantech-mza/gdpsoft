@@ -63,6 +63,7 @@ import { isSocialWorkStatusQuestion, hasExplicitStatusSubject, formatSocialWorkS
 import { recordTotalElapsed } from "../../../../lib/assistant/context-engine/live.mjs";
 import { cachedLoad } from "../../../../lib/server/ttl-cache.mjs";
 import { isAffiliateListQuestionWithoutDni, buildAffiliateListPrompt, dniReplyToQuestion } from "../../../../lib/assistant/affiliate-list-prompt.mjs";
+import { isAffiliateDniQuestion, extractDni, lookupDni, buildDniAnswer } from "../../../../lib/assistant/affiliate-lookup.mjs";
 import { unresolvedExplicitSocialWork, planWithinSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
 
 import { resolveCommonAuthorizationAmount } from "../../../../lib/assistant/common-authorization-rules.mjs";
@@ -6320,6 +6321,35 @@ if (conversationId) {
       return Response.json({ ok: true, question, answer, source: "GDP_CONVERSATION",
         route: "CLARIFICATION_NEEDED", found: false, context: responseContext,
         elapsed_ms: elapsedMs, usage });
+    }
+    // v3.13.130 — DNI de afiliado: búsqueda exacta en los listados cargados de la obra social (sin modelo de lenguaje).
+    if (Number.isInteger(socialWorkId) && socialWorkId > 0 && isAffiliateDniQuestion(question)) {
+      try {
+        const dni = extractDni(question);
+        const { data: dniLinks } = await supabaseAdmin.from("normative_social_works").select("normative_id").eq("social_work_id", socialWorkId);
+        const dniIds = [...new Set((dniLinks || []).map((l) => l.normative_id))];
+        if (dniIds.length) {
+          const [{ data: dniNorms }, { data: dniTexts }] = await Promise.all([
+            supabaseAdmin.from("normatives").select("id,title,is_current").in("id", dniIds),
+            supabaseAdmin.from("assistant_normative_text").select("normative_id,text").in("normative_id", dniIds),
+          ]);
+          const titleOf = new Map((dniNorms || []).filter((n) => n.is_current !== false).map((n) => [Number(n.id), n.title]));
+          const lookup = lookupDni(dni, (dniTexts || []).filter((t) => titleOf.has(Number(t.normative_id))).map((t) => ({ title: titleOf.get(Number(t.normative_id)), text: t.text })));
+          const dniWorkName = await getSocialWorkName(socialWorkId);
+          const answer = buildDniAnswer(lookup, { dni, workName: dniWorkName });
+          if (answer) {
+            const elapsedMs = Date.now() - startedAt;
+            const usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+            await logCurrentQuery({ branchId, socialWorkId, question, answer,
+              source: "SOCIAL_WORK_NORMATIVE", route: "AFFILIATE_LIST_LOOKUP", found: lookup.status === "FOUND", elapsedMs, usage });
+            return Response.json({ ok: true, question, answer, source: "SOCIAL_WORK_NORMATIVE",
+              route: "AFFILIATE_LIST_LOOKUP", found: lookup.status === "FOUND", context: responseContext,
+              elapsed_ms: elapsedMs, usage });
+          }
+        }
+      } catch (dniError) {
+        console.warn("búsqueda de DNI falló:", dniError?.message);
+      }
     }
     // v3.13.20 — mensaje que solo nombra la obra social: preguntar qué necesita
     // en lugar de buscar el nombre en las normativas.
