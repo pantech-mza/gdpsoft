@@ -62,6 +62,7 @@ import { isOperationalCircuitQuestion } from "../../../../lib/assistant/operatio
 import { isSocialWorkStatusQuestion, hasExplicitStatusSubject, formatSocialWorkStatus } from "../../../../lib/assistant/social-work-status.mjs";
 import { recordTotalElapsed } from "../../../../lib/assistant/context-engine/live.mjs";
 import { cachedLoad } from "../../../../lib/server/ttl-cache.mjs";
+import { isAffiliateListQuestionWithoutDni, buildAffiliateListPrompt } from "../../../../lib/assistant/affiliate-list-prompt.mjs";
 import { unresolvedExplicitSocialWork, planWithinSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
 
 import { resolveCommonAuthorizationAmount } from "../../../../lib/assistant/common-authorization-rules.mjs";
@@ -6303,6 +6304,18 @@ if (conversationId) {
       }
     }
 
+    // v3.13.128 — «lista de afiliado» sin DNI: se pregunta qué afiliado (y se pide el DNI) en vez de «sin información».
+    if (Number.isInteger(socialWorkId) && socialWorkId > 0 && isAffiliateListQuestionWithoutDni(question)) {
+      const listWorkName = await getSocialWorkName(socialWorkId);
+      const answer = buildAffiliateListPrompt(listWorkName);
+      const elapsedMs = Date.now() - startedAt;
+      const usage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+      await logCurrentQuery({ branchId, socialWorkId, question, answer,
+        source: "GDP_CONVERSATION", route: "CLARIFICATION_NEEDED", found: false, elapsedMs, usage });
+      return Response.json({ ok: true, question, answer, source: "GDP_CONVERSATION",
+        route: "CLARIFICATION_NEEDED", found: false, context: responseContext,
+        elapsed_ms: elapsedMs, usage });
+    }
     // v3.13.20 — mensaje que solo nombra la obra social: preguntar qué necesita
     // en lugar de buscar el nombre en las normativas.
     if (conversationId && Number.isInteger(socialWorkId) && socialWorkId > 0 &&
