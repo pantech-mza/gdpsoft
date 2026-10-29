@@ -60,7 +60,7 @@ import {
 } from "../../../../lib/assistant/admin-corrections.mjs";
 import { isOperationalCircuitQuestion } from "../../../../lib/assistant/operational-circuit-intent.mjs";
 import { isSocialWorkStatusQuestion, hasExplicitStatusSubject, formatSocialWorkStatus } from "../../../../lib/assistant/social-work-status.mjs";
-import { recordTotalElapsed } from "../../../../lib/assistant/context-engine/live.mjs";
+import { recordTotalElapsed, engineTriedKey, markEngineTried, consumeEngineTried } from "../../../../lib/assistant/context-engine/live.mjs";
 import { cachedLoad, clientKey } from "../../../../lib/server/ttl-cache.mjs";
 import { isAffiliateListQuestionWithoutDni, buildAffiliateListPrompt, dniReplyToQuestion } from "../../../../lib/assistant/affiliate-list-prompt.mjs";
 import { makeNormativeTextExtractor } from "../../../../lib/audit/normative-text.mjs";
@@ -5432,6 +5432,8 @@ export async function POST(request) {
   // de validador para esa obra social, se aclara aunque la respuesta venga de la normativa.
   try {
     const original = await response.clone().json();
+    // v3.13.135 — la respuesta del motor ya integra notas, observaciones y excepciones de sucursal: no se le agrega nada.
+    if (original?.route === "CONTEXT_ENGINE") throw new Error("engine-complete");
     const noted = await appendBranchValidatorNote(original, rawQuestion);
     if (noted) response = Response.json(noted, { status: response.status });
     // v3.13.28 — observación del administrador sobre una respuesta Correcta:
@@ -5485,7 +5487,8 @@ export async function POST(request) {
   // social junta y responde; ante cualquier falla se conserva la respuesta del bot actual.
   try {
     const liveCfg = liveConfig();
-    if (liveCfg.enabled) {
+    const engineAlreadyTried = consumeEngineTried(engineTriedKey(wrapperConversationId, rawQuestion));
+    if (liveCfg.enabled && !engineAlreadyTried) {
       const lj = await response.clone().json();
       const swId = Number(lj?.context?.social_work_id), brId = Number(lj?.context?.branch_id);
       if (shouldGoLive(liveCfg, { socialWorkId: swId, branchId: brId, route: lj?.route || lj?.source, ok: lj?.ok === true,
@@ -5641,6 +5644,7 @@ async function handleAssistantQuery(request, { conversationState = null } = {}) 
 
 
     let question = String(body.question || "").trim();
+    const engineFirstKey = engineTriedKey(body.conversationId ? String(body.conversationId).trim() : null, question);
 
 
 
@@ -8436,6 +8440,28 @@ if (!normativeScope.ok) {
   return Response.json({ok:true,question,answer,source:"GDP_NORMATIVE_SCOPE",
     route:"NORMATIVE_SCOPE_UNVERIFIED",found:false,context:responseContext,
     elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+}
+// v3.13.135 — MOTOR PRIMERO: antes de la búsqueda lenta en normativas (~6 s) se intenta el motor de contexto completo.
+// Si responde, esa es la respuesta; si no puede (sin base / sin verificar / error / demora), sigue la búsqueda clásica como siempre.
+{
+  const engineCfg = liveConfig();
+  if (engineCfg.enabled && shouldGoLive(engineCfg, { socialWorkId, branchId, route: "SEMANTIC", ok: true, followUp: followUp.isFollowUp })) {
+    markEngineTried(engineFirstKey);
+    const engineCircuit = (await getBranchCircuit()).group || null;
+    const engineConv = /^[0-9a-f-]{36}$/i.test(String(conversationId || "")) ? conversationId : null;
+    const engineRun = await runLive({ supabase: supabaseAdmin, cfg: { ...engineCfg, timeoutMs: Math.min(engineCfg.timeoutMs, 12000) }, question, socialWorkId, branchId, circuit: engineCircuit,
+      variant: generalPlanVariant, conversationId: engineConv, currentAnswer: "", currentRoute: "ENGINE_FIRST", state: conversationState });
+    if (engineRun.used) {
+      const eng = engineRun.result;
+      const engineElapsedMs = Date.now() - startedAt;
+      const engineUsage = { input_tokens: eng.tokens_in || 0, output_tokens: eng.tokens_out || 0, total_tokens: (eng.tokens_in || 0) + (eng.tokens_out || 0) };
+      await logCurrentQuery({ branchId, socialWorkId, question, answer: eng.answer, source: "CONTEXT_ENGINE", route: "CONTEXT_ENGINE",
+        found: eng.status === "OK", elapsedMs: engineElapsedMs, usage: engineUsage });
+      return Response.json({ ok: true, question, answer: eng.answer, answer_plain: eng.answer, source: "CONTEXT_ENGINE", route: "CONTEXT_ENGINE",
+        found: eng.status === "OK", context: responseContext, elapsed_ms: engineElapsedMs, usage: engineUsage,
+        engine: { status: eng.status, model: engineCfg.model, first: true, sources: (eng.sources || []).slice(0, 4).map((x) => ({ seccion: x.seccion, fecha: x.fecha })) } });
+    }
+  }
 }
 const specialNormativeTopic = isSpecificNormativeTopic(fileSearchQuestion);
 let result = await queryFileSearch({
