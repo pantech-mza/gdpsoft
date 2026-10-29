@@ -43,7 +43,7 @@ test('confirmación: «sí» o el nombre continúan la consulta original con la 
 
 test('route.js ofrece la sugerencia y continúa al confirmar', () => {
   const src = fs.readFileSync(new URL('../../app/api/assistant/query/route.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(src, /suggestSocialWorks\(name,/);
+  assert.match(src, /suggestWithInactive\(name,/);
   assert.match(src, /question = applySuggestion\(conversationState\.pending\)/);
   assert.match(src, /suggestion: \{ unresolved: name, name: suggestions\[0\]/);
 });
@@ -278,7 +278,7 @@ import { formatMoneyUsdPrecise } from '../../lib/assistant/format-money-usd.mjs'
 test('promedio por solicitud de OpenAI se muestra con 4 decimales', () => {
   assert.equal(formatMoneyUsdPrecise(13.78 / 3641), 'US$0.0038');
   assert.equal(formatMoneyUsdPrecise(0), 'US$0.0000');
-  assert.match(fs.readFileSync(new URL('../../app/admin/openai/page.jsx', import.meta.url), 'utf8'), /formatMoneyUsdPrecise\(summary\.average_cost_per_request\)/);
+  assert.match(fs.readFileSync(new URL('../../components/admin/OpenAiPilotSpend.jsx', import.meta.url), 'utf8'), /formatMoneyUsdPrecise\(s\.costPerQuery\)/);
 });
 
 // v3.13.51 — alta de obra social
@@ -333,8 +333,8 @@ test('v3.13.52 preguntas de aceptación cortas se resuelven como estado', () => 
 // v3.13.54 — filtro por dispositivo en Actividad del bot
 test('v3.13.54 actividad: filtro de dispositivo y listado en API', () => {
   const page = fs.readFileSync('app/admin/actividad/page.jsx', 'utf8');
-  assert.match(page, /Dispositivo<select value=\{device\}/);
-  assert.match(page, /String\(x\.branch_id\)===String\(branch\)/);
+  assert.match(page, /MultiSelect label="Dispositivo"/);
+  assert.match(page, /branch\.includes\(String\(x\.branch_id\)\)/);
   const api = fs.readFileSync('app/api/admin/actividad/route.js', 'utf8');
   assert.match(api, /from\('branch_devices'\)/);
   assert.match(api, /devices:\(devices\.data/);

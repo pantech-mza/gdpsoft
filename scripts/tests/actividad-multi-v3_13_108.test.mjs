@@ -74,7 +74,7 @@ test('gasto por sucursal: el motor hereda dispositivo interno por la conversaci�
   assert.equal(u.rows[0].requests, 2);
 });
 test('Gastos OpenAI muestra el gasto por sucursal', () => {
-  const src = fs.readFileSync(new URL('../../app/admin/openai/page.jsx', import.meta.url), 'utf8');
+  const src = (fs.readFileSync(new URL('../../app/admin/openai/page.jsx', import.meta.url), 'utf8')+fs.readFileSync(new URL('../../components/admin/OpenAiPilotSpend.jsx', import.meta.url), 'utf8'));
   assert.match(src, /Gasto por/); assert.match(src, /openai-usage\/branches/);
 });
 
@@ -99,6 +99,13 @@ test('v3.13.110: gasto por dispositivo — DP1 real separado de las pruebas de N
   assert.equal(u.rows.find((r) => r.key === '1').requests, 2);
 });
 test('Gastos OpenAI: pestañas por sucursal y por dispositivo', () => {
-  const src = fs.readFileSync(new URL('../../app/admin/openai/page.jsx', import.meta.url), 'utf8');
-  assert.match(src, /Por dispositivo/); assert.match(src, /device_rows/);
+  const src = (fs.readFileSync(new URL('../../app/admin/openai/page.jsx', import.meta.url), 'utf8')+fs.readFileSync(new URL('../../components/admin/OpenAiPilotSpend.jsx', import.meta.url), 'utf8'));
+  assert.match(src, /Gasto por dispositivo/); assert.match(src, /usage_devices/);
+});
+
+test('Gastos OpenAI: estimación mensual con exportación a PDF', () => {
+  const src = (fs.readFileSync(new URL('../../app/admin/openai/page.jsx', import.meta.url), 'utf8')+fs.readFileSync(new URL('../../components/admin/OpenAiPilotSpend.jsx', import.meta.url), 'utf8'));
+  assert.match(src, /Estimado del próximo mes por sucursal/); assert.match(src, /window\.print\(\)/); assert.match(src, /Estimado próximo mes/);
+  const route = fs.readFileSync(new URL('../../app/api/admin/openai-usage/branches/route.js', import.meta.url), 'utf8');
+  assert.match(route, /branches_total/);
 });

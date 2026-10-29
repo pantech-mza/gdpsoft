@@ -66,7 +66,7 @@ test('Gasto OpenAI presenta exactamente 2 decimales y redondea 5 hacia arriba',(
   assert.equal(formatMoneyUsd(13.124),'US$13.12');
   assert.equal(formatMoneyUsd(13.125),'US$13.13');
   assert.equal(formatMoneyUsd(0),'US$0.00');
-  assert.match(cost,/const money=formatMoneyUsd/);
+  assert.match(read('components/admin/OpenAiPilotSpend.jsx'),/const money\s*=\s*formatMoneyUsd/);
 });
 
 test('Pantalla OpenAI mantiene directiva use client antes de imports',()=>{

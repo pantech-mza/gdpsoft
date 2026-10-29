@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatMoneyUsd, formatMoneyUsdPrecise } from '../../lib/assistant/format-money-usd.mjs';
-import { priceCells, startDate, applyFilters, summarize, byBranch } from '../../lib/openai/spend-filter.mjs';
+import { priceCells, startDate, applyFilters, summarize, byBranch, cellDeviceKey } from '../../lib/openai/spend-filter.mjs';
 
 const money = formatMoneyUsd;
 const num = (v) => Number(v || 0).toLocaleString('es-AR');
@@ -26,11 +26,31 @@ function Check({ label, options = [], value = [], onChange, allLabel = 'Todas', 
 }
 
 function Kpi({ title, value, sub, accent = '#8f2a85' }) {
-  return <div className="rounded-2xl border border-purple-100 bg-white p-5 shadow-sm"><p className="text-xs font-semibold text-slate-500">{title}</p><strong className="mt-2 block text-2xl font-black" style={{ color: accent }}>{value}</strong>{sub && <p className="mt-2 text-xs text-slate-400">{sub}</p>}</div>;
+  return <div className="rounded-2xl border border-purple-100 bg-white p-4 shadow-sm"><p className="text-xs font-semibold text-slate-500">{title}</p><strong className="mt-1.5 block text-xl font-black" style={{ color: accent }}>{value}</strong>{sub && <p className="mt-2 text-xs text-slate-400">{sub}</p>}</div>;
 }
 
-export default function OpenAiPilotSpend({ data, usage, error }) {
-  const [branches, setBranches] = useState([]), [devices, setDevices] = useState([]), [from, setFrom] = useState(''), [to, setTo] = useState('');
+const printCss = `@media print{body *{visibility:hidden !important}.gdp-print,.gdp-print *{visibility:visible !important}.gdp-print{position:absolute;left:0;top:0;width:100%}.gdp-no-print,.gdp-no-print *{display:none !important}@page{size:A4 portrait;margin:10mm}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+const palette = ['#8f2a85', '#93c01f', '#5f76d0', '#e7a53b', '#189e91'];
+
+function Card({ title, sub, children, className = '' }) {
+  return <section className={`rounded-2xl border border-purple-100 bg-white p-4 shadow-sm ${className}`}><h3 className="text-sm font-bold text-[#311b39]">{title}</h3>{sub && <p className="mb-3 mt-0.5 text-[11px] text-slate-500">{sub}</p>}{!sub && <div className="mb-3" />}{children}</section>;
+}
+
+function HBars({ items, total, color = '#8f2a85', unit = 'cons.' }) {
+  const max = Math.max(0.0001, ...items.map((b) => b.cost_usd));
+  if (!items.length) return <p className="text-sm text-slate-400">Sin datos con estos filtros.</p>;
+  return <div className="max-h-[260px] space-y-2 overflow-y-auto pr-1">{items.map((b, i) => <div key={b.id}><div className="flex items-center justify-between gap-2 text-xs"><span className="truncate font-semibold text-[#311b39]">{b.name}</span><strong style={{ color: i === 0 ? color : '#475569' }}>{money(b.cost_usd)}</strong></div><div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${100 * b.cost_usd / max}%`, background: color }} /></div><p className="mt-0.5 text-[10px] text-slate-400">{num(b.queries)} {unit} · {pct(total > 0 ? b.cost_usd / total : 0)} del total{b.queries ? ` · ${formatMoneyUsdPrecise(b.cost_usd / b.queries)} c/u` : ''}</p></div>)}</div>;
+}
+
+function Bars({ days, field, color, fmt }) {
+  const max = Math.max(0.0001, ...days.map((d) => d[field]));
+  if (!days.length) return <p className="text-sm text-slate-400">Sin datos con estos filtros.</p>;
+  return <div className="overflow-x-auto"><div className="flex min-w-[300px] items-end gap-[3px]" style={{ height: 120 }}>{days.map((d) => <div key={d.date} title={`${fmtDay(d.date)}: ${fmt(d[field])}`} className="flex min-w-[6px] flex-1 flex-col justify-end"><div className="w-full rounded-t" style={{ height: Math.max(2, Math.round(116 * d[field] / max)), background: color }} /></div>)}</div><div className="mt-1 flex justify-between text-[10px] text-slate-400"><span>{fmtDay(days[0].date)}</span><span>{fmtDay(days[days.length - 1].date)}</span></div></div>;
+}
+
+export default function OpenAiPilotSpend({ data, usage, error, onRefresh, loading }) {
+  const [branches, setBranches] = useState([]), [devices, setDevices] = useState([]);
+  const [from, setFrom] = useState(''), [to, setTo] = useState('');
   const [expected, setExpected] = useState(''), [init, setInit] = useState(false);
 
   const start = useMemo(() => startDate({ daily: data?.daily || [], cells: usage?.usage_cells || [] }), [data, usage]);
@@ -40,50 +60,70 @@ export default function OpenAiPilotSpend({ data, usage, error }) {
 
   const branchOpts = useMemo(() => (usage?.usage_branches || []).map((b) => ({ id: String(b.id), name: b.name })), [usage]);
   const devOpts = useMemo(() => (usage?.usage_devices || []).map((d) => ({ id: d.key, name: d.label, tag: d.internal ? 'interno' : '' })), [usage]);
-  const today = new Date().toISOString().slice(0, 10);
   const branchNames = useMemo(() => new Map(branchOpts.map((b) => [b.id, b.name])), [branchOpts]);
+  const today = new Date().toISOString().slice(0, 10);
 
-  // Por defecto se dejan afuera los dispositivos internos (Nico, Mica, Admin); se pueden volver a tildar.
+  // Al abrir, los dispositivos internos (Nico, Mica, Admin) quedan sin tildar.
   useEffect(() => { if (init || !usage) return; setDevices((usage.usage_devices || []).filter((d) => !d.internal).map((d) => d.key)); setInit(true); }, [usage, init]);
-
-  const totalCost = daily.reduce((n, d) => n + Number(d.cost_usd || 0), 0);
-  const totalQueries = cells.reduce((n, c) => n + c.queries, 0);
-  const rows = useMemo(() => applyFilters(priced, { branches, devices, from, to }), [priced, branches, devices, from, to]);
-  const s = summarize(rows, { totalCost, daysInMonth: 30, expectedQueries: expected === '' ? null : expected });
-  const bb = byBranch(rows, branchNames);
-  const maxB = Math.max(0.0001, ...bb.map((b) => b.cost_usd)), maxD = Math.max(0.0001, ...s.days.map((d) => d.cost_usd));
-  const internalOpts = (usage?.usage_devices || []).filter((d) => d.internal).map((d) => d.key);
   const noInternal = () => setDevices((usage?.usage_devices || []).filter((d) => !d.internal).map((d) => d.key));
 
-  if (error) return <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">No se pudo cargar el gasto desde el inicio: {error}</p>;
+  const inRange = (d) => (!from || d >= from) && (!to || d <= to);
+  const rangeDaily = daily.filter((d) => inRange(d.date));
+  const rangeTotal = rangeDaily.reduce((n, d) => n + Number(d.cost_usd || 0), 0);
+  const histTotal = daily.reduce((n, d) => n + Number(d.cost_usd || 0), 0);
+  const histQueries = cells.reduce((n, c) => n + c.queries, 0);
+  const rows = useMemo(() => applyFilters(priced, { branches, devices, from, to }), [priced, branches, devices, from, to]);
+  const s = summarize(rows, { totalCost: rangeTotal, daysInMonth: 30, expectedQueries: expected === '' ? null : expected });
+  const bb = byBranch(rows, branchNames);
+
+  const devNames = useMemo(() => new Map((usage?.usage_devices || []).map((d) => [d.key, d.label])), [usage]);
+  const byDevice = useMemo(() => { const m = new Map(); for (const r of rows) { const k = cellDeviceKey(r); const x = m.get(k) || { id: k, name: devNames.get(k) || k, cost_usd: 0, queries: 0 }; x.cost_usd += r.cost_usd; x.queries += r.queries; m.set(k, x); } return [...m.values()].sort((a, b) => b.cost_usd - a.cost_usd); }, [rows, devNames]);
+
+  // Composición del gasto del período elegido (sin filtrar por sucursal/dispositivo).
+  const rangePriced = priced.filter((c) => inRange(c.date));
+  const internalCost = rangePriced.filter((c) => c.internal).reduce((n, c) => n + c.cost_usd, 0);
+  const appCost = rangePriced.reduce((n, c) => n + c.cost_usd, 0);
+  const realCost = appCost - internalCost, otherCost = Math.max(0, rangeTotal - appCost);
+
+  // Estimado del próximo mes por sucursal: costo por consulta × consultas por día de uso × 30.
+  const scale = expected !== '' && s.avgQueriesDay > 0 ? s.expectedQueries / (s.avgQueriesDay * 30) : 1;
+  const nextByBranch = useMemo(() => { const m = new Map(); for (const r of rows) { const k = String(r.branch_id); const x = m.get(k) || { id: k, name: branchNames.get(k) || (r.branch_id == null ? 'Administración / sin sucursal' : `Sucursal ${r.branch_id}`), cost_usd: 0, queries: 0, days: new Set() }; x.cost_usd += r.cost_usd; x.queries += r.queries; if (r.queries > 0) x.days.add(r.date); m.set(k, x); } return [...m.values()].map((x) => ({ ...x, cost_usd: x.days.size ? x.cost_usd / x.days.size * 30 * scale : 0 })).sort((a, b) => b.cost_usd - a.cost_usd); }, [rows, branchNames, scale]);
+
+  if (error) return <p role="alert" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">No se pudo cargar el gasto: {error}</p>;
   if (!data || !usage) return <p className="rounded-xl bg-white p-4 text-sm text-slate-400">Calculando el gasto desde el primer consumo…</p>;
 
-  return <section className="space-y-4 rounded-2xl border border-purple-100 bg-white p-5 shadow-sm">
-    <div><h2 className="text-lg font-black text-[#311b39]">Gasto desde que se conectó OpenAI</h2><p className="mt-1 text-xs text-slate-500">Desde el primer consumo en OpenAI ({start ? fmtDay(start) : '—'}) hasta hoy. El piloto arrancó el 19/10; antes hubo desarrollo y pruebas. El total de OpenAI es real; el reparto por sucursal, dispositivo y día es una estimación según los tokens que registra la app.</p></div>
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <Kpi title="Gasto total en OpenAI" value={money(totalCost)} sub="Desde el inicio hasta hoy · todo lo facturado" />
-      <Kpi title="Consultas registradas" value={num(totalQueries)} sub="Todas las sucursales y dispositivos" accent="#93c01f" />
-      <Kpi title="Costo promedio por consulta" value={totalQueries ? formatMoneyUsdPrecise(totalCost / totalQueries) : '—'} sub="Gasto total ÷ consultas" accent="#5f76d0" />
-      <Kpi title="Días con gasto" value={num(daily.filter((d) => Number(d.cost_usd) > 0).length)} sub={`Promedio ${money(totalCost / Math.max(1, daily.filter((d) => Number(d.cost_usd) > 0).length))} por día`} accent="#e7a53b" />
-    </div>
-    <div className="grid gap-3 rounded-xl bg-[#faf7fb] p-3 md:grid-cols-3">
+  return <div className="gdp-print space-y-4"><style>{printCss}</style>
+    <div className="flex flex-wrap items-end justify-between gap-2"><p className="text-xs text-slate-500">Desde el primer consumo en OpenAI ({start ? fmtDay(start) : '—'}) hasta hoy. El total de OpenAI es real; el reparto por sucursal, dispositivo y día es una estimación según los tokens que registra la app.</p><div className="gdp-no-print flex gap-2"><button type="button" onClick={() => window.print()} className="rounded-xl border border-[#8f2a85] px-3 py-2 text-sm font-semibold text-[#8f2a85]">Guardar en PDF</button><button type="button" disabled={loading} onClick={onRefresh} className="rounded-xl bg-[#8f2a85] px-4 py-2 text-sm font-semibold text-white">Actualizar</button></div></div>
+
+    <div className="gdp-no-print grid gap-3 rounded-2xl border border-purple-100 bg-[#faf7fb] p-3 sm:grid-cols-2 lg:grid-cols-4">
       <Check label="Sucursal" options={branchOpts} value={branches} onChange={setBranches} allLabel="Todas las sucursales" />
-      <Check label="Dispositivo" options={devOpts} value={devices} onChange={setDevices} allLabel="Todos los dispositivos" extra={internalOpts.length ? <button type="button" onClick={noInternal} className="text-xs font-semibold text-[#8f2a85]">Sin internos</button> : null} />
-      <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-slate-500"><label>Desde<input type="date" value={from} min={start || undefined} max={to || today} onChange={(e) => setFrom(e.target.value)} className="mt-1 w-full rounded-xl border border-purple-100 bg-white p-2.5 text-sm font-normal text-slate-800" /></label><label>Hasta<input type="date" value={to} min={from || start || undefined} max={today} onChange={(e) => setTo(e.target.value)} className="mt-1 w-full rounded-xl border border-purple-100 bg-white p-2.5 text-sm font-normal text-slate-800" /></label>{(from || to) && <button type="button" onClick={() => { setFrom(''); setTo(''); }} className="col-span-2 text-left text-xs font-semibold text-[#8f2a85]">Quitar fechas</button>}</div>
+      <Check label="Dispositivo" options={devOpts} value={devices} onChange={setDevices} allLabel="Todos los dispositivos" extra={<button type="button" onClick={noInternal} className="text-xs font-semibold text-[#8f2a85]">Sin internos</button>} />
+      <label className="text-xs font-semibold text-slate-500">Desde<input type="date" value={from} min={start || undefined} max={to || today} onChange={(e) => setFrom(e.target.value)} className="mt-1 w-full rounded-xl border border-purple-100 bg-white p-2.5 text-sm font-normal text-slate-800" /></label>
+      <label className="text-xs font-semibold text-slate-500">Hasta<input type="date" value={to} min={from || start || undefined} max={today} onChange={(e) => setTo(e.target.value)} className="mt-1 w-full rounded-xl border border-purple-100 bg-white p-2.5 text-sm font-normal text-slate-800" /></label>
+      <p className="text-[11px] text-slate-500 sm:col-span-2 lg:col-span-4">Dispositivos internos (Nico, Mica, Admin) quedan sin tildar al abrir; tildalos o sacá los que quieras. {(from || to) && <button type="button" onClick={() => { setFrom(''); setTo(''); }} className="font-semibold text-[#8f2a85]">Quitar fechas</button>}</p>
     </div>
-    <p className="text-[11px] text-slate-500">Al abrir, los dispositivos internos (Nico, Mica, Admin) quedan sin tildar. Tildalos o quitá los que quieras desde la lista.</p>
-    <h3 className="text-sm font-bold text-[#311b39]">Resultado de la selección</h3>
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <Kpi title="Gasto de la selección" value={money(s.cost)} sub={`${pct(s.share)} del gasto total`} />
-      <Kpi title="Consultas de la selección" value={num(s.queries)} sub={totalQueries ? `${pct(s.queries / totalQueries)} de todas las consultas` : ''} accent="#93c01f" />
-      <Kpi title="Costo por consulta" value={s.queries ? formatMoneyUsdPrecise(s.costPerQuery) : '—'} sub={`Promedio ${money(s.avgCostDay)} por día de uso`} accent="#5f76d0" />
-      <Kpi title="Estimado próximo mes" value={money(s.nextMonth)} sub={`${num(Math.round(s.expectedQueries))} consultas × costo por consulta`} accent="#e7a53b" />
+
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+      <Kpi title="Gasto total OpenAI" value={money(histTotal)} sub={`Histórico · ${num(histQueries)} consultas`} />
+      <Kpi title="Gasto de la selección" value={money(s.cost)} sub={`${pct(s.share)} del gasto del período`} accent="#5f76d0" />
+      <Kpi title="Consultas" value={num(s.queries)} sub={`${s.activeDays} días de uso`} accent="#93c01f" />
+      <Kpi title="Costo por consulta" value={s.queries ? formatMoneyUsdPrecise(s.costPerQuery) : '—'} sub="Gasto ÷ consultas" accent="#189e91" />
+      <Kpi title="Promedio por día" value={money(s.avgCostDay)} sub={`${num(Math.round(s.avgQueriesDay))} consultas por día`} accent="#e7a53b" />
+      <Kpi title="Estimado próximo mes" value={money(s.nextMonth)} sub={`${num(Math.round(s.expectedQueries))} consultas × costo`} accent="#8f2a85" />
     </div>
-    <label className="flex flex-wrap items-center gap-2 text-xs text-slate-600">Consultas esperadas en el mes:<input type="number" min="0" value={expected} placeholder={String(Math.round(s.avgQueriesDay * 30))} onChange={(e) => setExpected(e.target.value)} className="w-28 rounded-lg border border-purple-100 px-2 py-1.5 text-sm" />{expected !== '' && <button type="button" onClick={() => setExpected('')} className="rounded-full bg-purple-100 px-2.5 py-1 text-[11px] font-semibold text-[#8f2a85]">Usar promedio actual</button>}<span className="text-[11px] text-slate-400">Si no lo cambiás, usa el promedio diario × 30. Con más o menos consultas el estimado se ajusta.</span></label>
+    <label className="gdp-no-print flex flex-wrap items-center gap-2 text-xs text-slate-600">Consultas esperadas en el mes:<input type="number" min="0" value={expected} placeholder={String(Math.round(s.avgQueriesDay * 30))} onChange={(e) => setExpected(e.target.value)} className="w-28 rounded-lg border border-purple-100 px-2 py-1.5 text-sm" />{expected !== '' && <button type="button" onClick={() => setExpected('')} className="rounded-full bg-purple-100 px-2.5 py-1 text-[11px] font-semibold text-[#8f2a85]">Usar promedio actual</button>}<span className="text-[11px] text-slate-400">Por defecto: promedio diario × 30. Si hacen más o menos consultas, el estimado se ajusta.</span></label>
+
     <div className="grid gap-4 lg:grid-cols-2">
-      <div><h3 className="mb-2 text-sm font-bold text-[#311b39]">Gasto total por sucursal</h3><div className="space-y-2">{bb.length ? bb.map((b) => <div key={b.id} className="rounded-xl border border-purple-100 p-3"><div className="flex items-center justify-between gap-3 text-sm"><span className="font-semibold text-[#311b39]">{b.name}</span><strong className="text-[#8f2a85]">{money(b.cost_usd)}</strong></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#8f2a85]" style={{ width: `${100 * b.cost_usd / maxB}%` }} /></div><p className="mt-1 text-[11px] text-slate-500">{num(b.queries)} consultas · {pct(totalCost > 0 ? b.cost_usd / totalCost : 0)} del total{b.queries ? ` · ${formatMoneyUsdPrecise(b.cost_usd / b.queries)} por consulta` : ''}</p></div>) : <p className="text-sm text-slate-400">Sin datos con estos filtros.</p>}</div></div>
-      <div><h3 className="mb-2 text-sm font-bold text-[#311b39]">Gasto por día</h3><div className="max-h-[420px] space-y-1.5 overflow-y-auto pr-1">{s.days.length ? [...s.days].reverse().map((d) => <div key={d.date} className="grid grid-cols-[84px_1fr_auto] items-center gap-2 text-xs"><span className="text-slate-500">{fmtDay(d.date)}</span><div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#93c01f]" style={{ width: `${100 * d.cost_usd / maxD}%` }} /></div><span className="whitespace-nowrap font-semibold text-slate-700">{money(d.cost_usd)} <span className="font-normal text-slate-400">· {num(d.queries)} cons.</span></span></div>) : <p className="text-sm text-slate-400">Sin datos con estos filtros.</p>}</div></div>
+      <Card title="Gasto por día" sub="Estimado de la selección"><Bars days={s.days} field="cost_usd" color="#8f2a85" fmt={money} /></Card>
+      <Card title="Consultas por día" sub="Cantidad de consultas de la selección"><Bars days={s.days} field="queries" color="#93c01f" fmt={num} /></Card>
+      <Card title="Gasto total por sucursal" sub="Estimado según tokens registrados"><HBars items={bb} total={rangeTotal} /></Card>
+      <Card title="Gasto por dispositivo" sub="Estimado según tokens registrados"><HBars items={byDevice} total={rangeTotal} color="#5f76d0" /></Card>
+      <Card title="Estimado del próximo mes por sucursal" sub="Costo por consulta × consultas por día de uso × 30"><div className="max-h-[260px] space-y-2 overflow-y-auto pr-1">{nextByBranch.length ? nextByBranch.map((b) => <div key={b.id} className="flex items-center justify-between rounded-xl border border-purple-100 px-3 py-2 text-sm"><span className="truncate font-semibold text-[#311b39]">{b.name}</span><strong className="text-[#e7a53b]">{money(b.cost_usd)}</strong></div>) : <p className="text-sm text-slate-400">Sin datos con estos filtros.</p>}</div></Card>
+      <Card title="¿De qué se compone el gasto del período?" sub="Sin aplicar filtros de sucursal ni dispositivo"><div className="space-y-2 text-sm">{[['Gasto total en OpenAI', rangeTotal, '#8f2a85'], ['Consultas de sucursales', realCost, '#93c01f'], ['Pruebas internas (Nico, Mica, Admin)', internalCost, '#71717a'], ['Desarrollo, auditorías y otros', otherCost, '#e7a53b']].map(([n, v, c]) => <div key={n} className="flex items-center justify-between rounded-xl border border-purple-100 px-3 py-2"><span className="text-slate-600">{n}</span><strong style={{ color: c }}>{money(v)}</strong></div>)}</div></Card>
     </div>
-    <p className="text-xs leading-5 text-slate-500"><strong>Cómo se calcula.</strong> OpenAI informa el gasto por día de toda la cuenta. De cada día se toma la parte que corresponde a cada sucursal y dispositivo según sus tokens registrados (consultas del bot y del motor). El resto (desarrollo, auditorías) no se asigna a ninguna sucursal, por eso la suma de las sucursales es menor que el total. «Estimado próximo mes» = costo por consulta de la selección × consultas esperadas.</p>
-  </section>;
+
+    <Card title="Resumen diario" sub="Gasto y consultas de la selección, día por día"><div className="max-h-[420px] overflow-auto"><table className="w-full text-left text-sm"><thead className="sticky top-0 bg-white text-xs text-slate-500"><tr><th className="py-2 pr-3">Día</th><th className="py-2 pr-3 text-right">Consultas</th><th className="py-2 pr-3 text-right">Gasto</th><th className="py-2 pr-3 text-right">Costo por consulta</th><th className="py-2 text-right">% del gasto del día</th></tr></thead><tbody>{[...s.days].reverse().map((d) => { const day = rangeDaily.find((x) => x.date === d.date); return <tr key={d.date} className="border-t border-purple-50"><td className="py-1.5 pr-3">{fmtDay(d.date)}</td><td className="py-1.5 pr-3 text-right">{num(d.queries)}</td><td className="py-1.5 pr-3 text-right font-semibold text-[#8f2a85]">{money(d.cost_usd)}</td><td className="py-1.5 pr-3 text-right">{d.queries ? formatMoneyUsdPrecise(d.cost_usd / d.queries) : '—'}</td><td className="py-1.5 text-right">{day && Number(day.cost_usd) > 0 ? pct(d.cost_usd / Number(day.cost_usd)) : '—'}</td></tr>; })}{!s.days.length && <tr><td colSpan={5} className="py-3 text-slate-400">Sin datos con estos filtros.</td></tr>}</tbody></table></div></Card>
+
+    <p className="text-xs leading-5 text-slate-500"><strong>Cómo se calcula.</strong> OpenAI informa el gasto por día de toda la cuenta. De cada día se toma la parte que corresponde a cada sucursal y dispositivo según sus tokens registrados (consultas del bot y del motor). El resto (desarrollo, auditorías) no se asigna a ninguna sucursal, por eso las sucursales suman menos que el total. «Estimado próximo mes» = costo por consulta × consultas esperadas.</p>
+  </div>;
 }

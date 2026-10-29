@@ -59,3 +59,9 @@ test('la ruta busca inactivas por nombre/alias antes de pedir aclaración y resp
   assert.match(src, /if \(detectedSocialWork\.inactive && !isSocialWorkStatusQuestion\(question\)\)/);
   assert.match(src, /inactive_social_work/);
 });
+
+test('«OSFA» ofrece IOSFA primero aunque haya otra a una letra de distancia (OSFE)', () => {
+  const s = suggestWithInactive('OSFA', ['ROSFAR - DISPENSA', 'OSDE'], ['OSFE', 'IOSFA']);
+  assert.equal(s.names[0], 'IOSFA');
+  assert.ok(!s.names.includes('OSFE')); // la que contiene el texto gana a la que solo difiere en una letra
+});

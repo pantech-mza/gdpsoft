@@ -8,6 +8,7 @@ import DecisionTreesPanel from "../../../../components/social-works/DecisionTree
 
 
 import Link from "next/link";
+import { camaraColegioBadge } from "../../../../lib/operations/circuit-badge.mjs";
 
 import {
 
@@ -530,6 +531,7 @@ export default function SucursalSocialWorkDetailPage() {
                     ? "h-2 w-2 rounded-full bg-white"
                     : "h-2 w-2 rounded-full bg-white"} />
                   {socialWork.active === true ? "Activa" : "Inactiva"}
+                  {socialWork.active === true && camaraColegioBadge(socialWork.name) ? " - Circuito Cámara-Colegio" : ""}
                 </span>
 
 
@@ -543,6 +545,12 @@ export default function SucursalSocialWorkDetailPage() {
                 Información operativa de solo lectura
 
               </p>
+
+              {socialWork.active === true && camaraColegioBadge(socialWork.name) && (
+                <p className="mt-1 text-[12px] leading-5 text-emerald-800 sm:text-[13px]">
+                  <strong>Circuito Cámara-Colegio:</strong> {camaraColegioBadge(socialWork.name).detail}
+                </p>
+              )}
 
               {socialWork.active !== true && (
                 <p role="status" className="mt-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-[12px] text-rose-800">
@@ -580,17 +588,6 @@ export default function SucursalSocialWorkDetailPage() {
 
 
 
-                {branch?.branch_type && (
-
-                  <Tag>
-
-                    Circuito de la sucursal:{" "}
-
-                    {branch.branch_type}
-
-                  </Tag>
-
-                )}
 
 
 

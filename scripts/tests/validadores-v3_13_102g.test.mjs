@@ -41,3 +41,16 @@ test('una dirección completa de un validador se muestra con su nombre corto y c
   assert.equal(links('https://www.plataformacsf.com/login.xhtml')[0].label, 'Compañia');
   assert.equal(links('https://www.farmalive.com.ar/index.asp')[0].label, 'Abrir vademécum de Farmalive');
 });
+
+import fs from 'node:fs';
+test('las pantallas del panel y las FAQs de sucursal muestran las respuestas con enlaces', () => {
+  const read = (p) => fs.readFileSync(new URL('../../' + p, import.meta.url), 'utf8');
+  for (const p of ['app/sucursal/faqs/page.jsx', 'app/admin/validacion/page.jsx']) {
+    assert.match(read(p), /LinkifiedText/, p);
+  }
+  assert.match(read('components/assistant/LinkifiedText.jsx'), /rel="noopener noreferrer"/);
+});
+test('el ejemplo del historial: "validarla online por IMED (TYS)" enlaza IMED', () => {
+  const l = links('igual debés validarla online por IMED (TYS). Solo se dispensa en forma manual')[0];
+  assert.equal(l.label, 'IMED'); assert.match(l.href, /imed\.com\.ar/);
+});

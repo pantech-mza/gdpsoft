@@ -36,10 +36,10 @@ test('solo Admin/Superadmin pueden quitar dispositivos',()=>{
 test('actividad permite filtrado cruzado de indicadores y no expone técnico a Admin',()=>{
  const ui=read('app/admin/actividad/page.jsx');
  assert.match(ui,/isSuper&&/);assert.match(ui,/onClick=\{\(\)=>r\.id&&onPick\(r\)\}/);
- for (const x of ['p_branch_id','p_social_work_id','p_device_id','p_question'])assert.match(read('app/api/admin/actividad/dashboard/route.js'),new RegExp(x));
+ for (const x of ['p_branch_id','p_social_work_id','p_device_id'])assert.match(read('lib/server/activity-filters.mjs'),new RegExp(x));assert.match(read('app/api/admin/actividad/dashboard/route.js'),/p_question/);
 });
 test('OpenAI no muestra mezclas de costo ni modelos al cliente',()=>{
- const ui=read('app/admin/openai/page.jsx');
+ const ui=read('app/admin/openai/page.jsx')+read('components/admin/OpenAiPilotSpend.jsx');
  assert.doesNotMatch(ui,/Distribución de costos|Consumo por modelo/);
- assert.match(ui,/setSelected/);assert.match(ui,/Evolución del gasto/);
+ assert.match(ui,/setBranches/);assert.match(ui,/Gasto por día/);
 });

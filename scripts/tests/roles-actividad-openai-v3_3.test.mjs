@@ -44,10 +44,10 @@ test("OpenAI comprueba token JWT real y Admin/Superadmin",()=>{
 });
 test("Actividad pagina y cruza filtros en servidor",()=>{
  const list=read("app/api/admin/actividad/route.js");
- assert.match(list,/pageSize/);assert.match(list,/gdp_assistant_activity_page_v3/);
+ assert.match(list,/pageSize/);assert.match(list,/callActivityRpc\(supabaseAdmin,.page./);assert.match(read("lib/server/activity-filters.mjs"),/gdp_assistant_activity_\$\{kind\}_v3/);
  const api=read("app/api/admin/actividad/dashboard/route.js");
- assert.match(api,/gdp_assistant_activity_dashboard_v3/);
- assert.match(api,/p_device_id:deviceId/);
+ assert.match(api,/callActivityRpc\(supabaseAdmin,.dashboard./);
+ assert.match(read("lib/server/activity-filters.mjs"),/p_device_id: f\.deviceIds/);
  const sql=read("supabase/migrations/20261014_pilot_activity_baseline_and_devices.sql");
  assert.match(sql,/p_question text DEFAULT NULL/);
  assert.match(sql,/GRANT EXECUTE.*service_role/);
