@@ -17,3 +17,8 @@ test('encuentra, no encuentra y sin listado', () => {
   assert.equal(lookupDni('70649709', [{ title: 'x', text: 'texto sin listado' }]).status, 'NO_LIST');
   assert.equal(buildDniAnswer({ status: 'NO_LIST' }, { dni: '1', workName: 'X' }), null);
 });
+import { buildTableAnswer } from '../../lib/assistant/affiliate-lookup.mjs';
+test('padrón en tabla: encuentra y no encuentra', () => {
+  assert.match(buildTableAnswer({ dni: '53667440', workName: 'OSPEGAP', hit: { full_name: 'SEVILLA PALACIO TICIANO DAMIAN', relationship: 'HIJO/A', holder: 'SEVILLA JOSE ALEJANDRO' } }), /^Sí, el DNI 53667440 figura en el listado de OSPEGAP: SEVILLA PALACIO/);
+  assert.match(buildTableAnswer({ dni: '70649709', workName: 'OSPEGAP', hit: null }), /^No encontré el DNI 70649709/);
+});

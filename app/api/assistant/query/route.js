@@ -63,6 +63,8 @@ import { isSocialWorkStatusQuestion, hasExplicitStatusSubject, formatSocialWorkS
 import { recordTotalElapsed } from "../../../../lib/assistant/context-engine/live.mjs";
 import { cachedLoad } from "../../../../lib/server/ttl-cache.mjs";
 import { isAffiliateListQuestionWithoutDni, buildAffiliateListPrompt, dniReplyToQuestion } from "../../../../lib/assistant/affiliate-list-prompt.mjs";
+import { makeNormativeTextExtractor } from "../../../../lib/audit/normative-text.mjs";
+import { isSpreadsheetFile } from "../../../../lib/normatives/spreadsheet-text.mjs";
 import { isAffiliateDniQuestion, extractDni, lookupDni, buildDniAnswer } from "../../../../lib/assistant/affiliate-lookup.mjs";
 import { unresolvedExplicitSocialWork, planWithinSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
 
@@ -6330,11 +6332,29 @@ if (conversationId) {
         const dniIds = [...new Set((dniLinks || []).map((l) => l.normative_id))];
         if (dniIds.length) {
           const [{ data: dniNorms }, { data: dniTexts }] = await Promise.all([
-            supabaseAdmin.from("normatives").select("id,title,is_current").in("id", dniIds),
+            supabaseAdmin.from("normatives").select("*").in("id", dniIds),
             supabaseAdmin.from("assistant_normative_text").select("normative_id,text").in("normative_id", dniIds),
           ]);
-          const titleOf = new Map((dniNorms || []).filter((n) => n.is_current !== false).map((n) => [Number(n.id), n.title]));
-          const lookup = lookupDni(dni, (dniTexts || []).filter((t) => titleOf.has(Number(t.normative_id))).map((t) => ({ title: titleOf.get(Number(t.normative_id)), text: t.text })));
+          const currentNorms = (dniNorms || []).filter((n) => n.is_current !== false);
+          const textById = new Map((dniTexts || []).map((t) => [Number(t.normative_id), t.text]));
+          // v3.13.131 — los padrones (planillas Excel) NO se guardan en assistant_normative_text por privacidad y cambian cuando el admin
+          // sube una nueva: se leen directo del archivo vigente (con caché corta, por versión del archivo).
+          const extractor = makeNormativeTextExtractor(supabaseAdmin);
+          const sources = [];
+          for (const n of currentNorms) {
+            let text = textById.get(Number(n.id)) || "";
+            if (!text && isSpreadsheetFile(n.original_filename || "")) {
+              try {
+                const { data: extracted } = await cachedLoad(`sheet_text_${n.id}_${n.updated_at || ""}`, 600000, async () => {
+                  const r = await extractor(n);
+                  return { data: r?.text || "", error: null };
+                });
+                text = extracted || "";
+              } catch (sheetError) { console.warn("planilla no leída:", n.id, sheetError?.message); }
+            }
+            if (text) sources.push({ title: n.title, text });
+          }
+          const lookup = lookupDni(dni, sources);
           const dniWorkName = await getSocialWorkName(socialWorkId);
           const answer = buildDniAnswer(lookup, { dni, workName: dniWorkName });
           if (answer) {
