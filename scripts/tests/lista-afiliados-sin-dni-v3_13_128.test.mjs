@@ -19,3 +19,8 @@ test('DNI solo tras nuestra pregunta se convierte en consulta completa (con o si
   assert.equal(dniReplyToQuestion('53667440', 'otra respuesta', 'OSPEGAP'), null);
   assert.equal(dniReplyToQuestion('hola', last, 'OSPEGAP'), null);
 });
+test('DNI siguiente tras una respuesta de búsqueda también se completa', () => {
+  assert.match(dniReplyToQuestion('70649709', 'Sí, el DNI 53667440 figura en el listado de OSPEGAP (x): SEVILLA', 'OSPEGAP'), /dni 70649709 se encuentra en el listado de OSPEGAP/);
+  assert.match(dniReplyToQuestion('70649709', 'No encontré el DNI 11111111 en el listado de OSPEGAP cargado', 'OSPEGAP'), /dni 70649709/);
+  assert.equal(dniReplyToQuestion('70649709', 'La receta vence a los 30 días', 'OSPEGAP'), null);
+});
