@@ -10,7 +10,7 @@ test('detecta NO COLEGIO y Solo sucursales de Cámara', () => {
 });
 test('solo avisa en sucursales de Colegio y no duplica', () => {
   const base = { answer: 'Sí, se carga por dispensa.', route: 'SEMANTIC', workName: 'OSPIHMP', hasRestriction: true };
-  assert.match(withColegioRestriction({ ...base, circuit: 'COLEGIO' }), /^⚠️ Atención[\s\S]*NO se recibe en sucursales de Colegio[\s\S]*Sí, se carga por dispensa\.$/);
+  assert.match(withColegioRestriction({ ...base, circuit: 'COLEGIO' }), /^ATENCIÓN\. Según[\s\S]*NO se recibe en sucursales de Colegio[\s\S]*Sí, se carga por dispensa\.$/);
   assert.equal(withColegioRestriction({ ...base, circuit: 'CAMARA' }), null);
   assert.equal(withColegioRestriction({ ...base, circuit: 'COLEGIO', route: 'COURTESY' }), null);
   assert.equal(withColegioRestriction({ ...base, circuit: 'COLEGIO', hasRestriction: false }), null);
