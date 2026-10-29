@@ -9,8 +9,9 @@ test('detecta NO COLEGIO y Solo sucursales de Cámara', () => {
   assert.equal(colegioRestrictionFromNotes([{ body: 'MEDICUS - NO FUERZA DE SEGURIDAD' }]), false);
 });
 test('solo avisa en sucursales de Colegio y no duplica', () => {
+  assert.doesNotMatch(withColegioRestriction({ answer: 'Sí, se carga por dispensa.', route: 'SEMANTIC', workName: 'OSPIHMP', hasRestriction: true, circuit: 'COLEGIO' }), /dispensa\./);
   const base = { answer: 'Sí, se carga por dispensa.', route: 'SEMANTIC', workName: 'OSPIHMP', hasRestriction: true };
-  assert.match(withColegioRestriction({ ...base, circuit: 'COLEGIO' }), /^ATENCIÓN\. Según[\s\S]*NO se recibe en sucursales de Colegio[\s\S]*Sí, se carga por dispensa\.$/);
+  assert.match(withColegioRestriction({ ...base, circuit: 'COLEGIO' }), /^ATENCIÓN\. Según[\s\S]*NO se recibe en sucursales de Colegio[\s\S]*Cámara\.$/);
   assert.equal(withColegioRestriction({ ...base, circuit: 'CAMARA' }), null);
   assert.equal(withColegioRestriction({ ...base, circuit: 'COLEGIO', route: 'COURTESY' }), null);
   assert.equal(withColegioRestriction({ ...base, circuit: 'COLEGIO', hasRestriction: false }), null);
