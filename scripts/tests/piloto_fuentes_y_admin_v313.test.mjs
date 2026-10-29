@@ -15,7 +15,7 @@ test('DP1 Cámara y casos particulares no se mezclan con validador',()=>{
   assert.equal(p('DP1','OSDE').mode,'DIRECT');
   assert.equal(p('DP1','OSSEG').mode,'CAMARA_COLEGIO');
   assert.equal(p('DP1','OSDEPYM').mode,'REGULAR_VALIDATOR');
-  assert.equal(p('DP1','PROVINCIA ART').mode,'REVIEW_REQUIRED');
+  assert.equal(p('DP1','PROVINCIA ART').mode,'DIRECT');
 });
 test('seis sucursales: las excepciones de OSSEG y Federación se conservan',()=>{
   for(const b of ['DP1','Libertad','Econo Más','DP4','DP5','San Francisco']){

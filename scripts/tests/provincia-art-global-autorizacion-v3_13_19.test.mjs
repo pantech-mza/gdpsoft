@@ -46,7 +46,7 @@ test('Circuito explícito no dispara regla de importe', () => {
 });
 test('Ni el circuito Provincia ART para Cámara ni para Colegio es alterado por el parche', () => {
   assert.match(policy,/if \(group === "COLEGIO"\) return output\("CAMARA_COLEGIO"/);
-  assert.match(policy,/return output\("REVIEW_REQUIRED"/);
+  assert.match(policy,/return output\("DIRECT"/);
 });
 test('El router responde reglas comunes antes de la intención operativa y búsqueda RAG', () => {
   const common=query.indexOf('v3.13.19: reglas documentales comunes');

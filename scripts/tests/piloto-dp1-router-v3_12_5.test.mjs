@@ -73,7 +73,7 @@ test('procedimiento del cliente DP1, sin inventar Provincia ART',()=>{
     ['OSDE','DIRECT'],
     ['OSSEG','CAMARA_COLEGIO'],
     ['FEDERACION PATRONAL ART','CAMARA_COLEGIO'],
-    ['PROVINCIA ART','REVIEW_REQUIRED'],
+    ['PROVINCIA ART','DIRECT'],
   ]) assert.equal(resolveDeclaredCircuitPolicy({branchCode:'DP1',socialWorkName:work}).mode, mode, work);
   assert.equal(resolveDeclaredCircuitPolicy({branchCode:'DP1',socialWorkName:'AMPES ASISTIR'}).until, '20:00');
 });

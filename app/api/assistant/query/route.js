@@ -47,7 +47,7 @@ import {
   resolveChannelIdForGroup, resolveFollowUp, saveConversationState,
 } from "../../../../lib/assistant/conversation-context.mjs";
 import { buildSuggestionAnswer, suggestSocialWorks } from "../../../../lib/assistant/social-work-suggestions.mjs";
-import { findInactiveMatch, buildInactiveAnswer, suggestWithInactive, buildSuggestionAnswerWithInactive, detectInactiveSocialWork } from "../../../../lib/assistant/inactive-social-work.mjs";
+import { findInactiveMatch, buildInactiveAnswer, suggestWithInactive, buildSuggestionAnswerWithInactive, detectInactiveSocialWork, inactiveOverridesActive } from "../../../../lib/assistant/inactive-social-work.mjs";
 import {
   buildCredentialAnswer, buildNotesInstructions, extractEmails, formatNotesAnswer, isCredentialQuestion,
   loadApprovedNotes, parseNotesAnswer, findMatchingNotes, distinctiveTokens, dropProductSpecificNotes,
@@ -60,7 +60,9 @@ import {
 } from "../../../../lib/assistant/admin-corrections.mjs";
 import { isOperationalCircuitQuestion } from "../../../../lib/assistant/operational-circuit-intent.mjs";
 import { isSocialWorkStatusQuestion, hasExplicitStatusSubject, formatSocialWorkStatus } from "../../../../lib/assistant/social-work-status.mjs";
-import { unresolvedExplicitSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
+import { recordTotalElapsed } from "../../../../lib/assistant/context-engine/live.mjs";
+import { cachedLoad } from "../../../../lib/server/ttl-cache.mjs";
+import { unresolvedExplicitSocialWork, planWithinSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
 
 import { resolveCommonAuthorizationAmount } from "../../../../lib/assistant/common-authorization-rules.mjs";
 const isAuthorizationAmountQuestionForCommonRule = (question) => /(?:autoriz|\btopes?\b|\blimites?\b|\bimportes?\b|\bprecios?\b|\bmontos?\b|\$\s*\d|\b20\s*000\b|\b80\s*000\b)/i.test(String(question || "").normalize("NFD").replace(/[\u0300-\u036f]/g,""));
@@ -5193,7 +5195,7 @@ async function detectSocialWorkFromQuestion(
     error:
       socialWorksError,
   } =
-    await supabaseAdmin
+    await cachedLoad("sw_active_list", 60000, () => supabaseAdmin
       .from(
         "social_works"
       )
@@ -5205,7 +5207,7 @@ async function detectSocialWorkFromQuestion(
       .eq(
         "active",
         true
-      );
+      ));
 
   if (
     socialWorksError
@@ -5227,11 +5229,11 @@ async function detectSocialWorkFromQuestion(
     error:
       aliasesError,
   } =
-    await supabaseAdmin
+    await cachedLoad("sw_aliases_all", 60000, () => supabaseAdmin
       .from(
         "social_work_aliases"
       )
-      .select("*");
+      .select("*"));
 
   if (
     aliasesError
@@ -5327,6 +5329,13 @@ async function detectSocialWorkFromQuestion(
   // UNA OOSS
   // =====================================================
 
+  // v3.13.122 — «galeno art»: la obra social ACTIVA «GALENO» no debe tapar a «GALENO ART», que está inactiva.
+  let inactiveOverride = null;
+  try {
+    const { data: inactiveAll } = await cachedLoad("sw_inactive_list", 60000, () => supabaseAdmin.from("social_works").select("id,name,active").eq("active", false));
+    inactiveOverride = inactiveOverridesActive({ question: cleanQuestion, matches, inactiveWorks: inactiveAll || [], aliases: aliases || [] });
+  } catch { inactiveOverride = null; }
+
   return {
     found:
       true,
@@ -5339,6 +5348,7 @@ async function detectSocialWorkFromQuestion(
 
     matches,
     unresolvedName,
+    ...(inactiveOverride ? { inactive: inactiveOverride } : {}),
   };
 }
 // =========================================================
@@ -5400,6 +5410,7 @@ async function appendMatchingNotes(json, rawQuestion) {
 }
 
 export async function POST(request) {
+  const postStartedAt = Date.now();
   let conversationState = null;
   let rawQuestion = "";
   let wrapperConversationId = null;
@@ -5518,6 +5529,15 @@ export async function POST(request) {
   } catch {
     // la sombra es opcional: nunca debe romper la respuesta
   }
+  // v3.13.118 — el tiempo registrado es el total que espera la sucursal (bot + motor + armado), no solo el del bot clásico.
+  try {
+    const tj = await response.clone().json();
+    const tSw = Number(tj?.context?.social_work_id), tBr = Number(tj?.context?.branch_id);
+    if (tj?.ok === true && Number.isInteger(tSw) && tSw > 0) {
+      const totalMs = Date.now() - postStartedAt;
+      after(() => recordTotalElapsed(supabaseAdmin, { branchId: tBr || null, socialWorkId: tSw, question: rawQuestion, elapsedMs: totalMs }));
+    }
+  } catch { /* medir es opcional */ }
   return response;
 }
 
@@ -6411,17 +6431,28 @@ if (conversationId) {
     // Resolver consultas de estado directamente desde Supabase y SIN OpenAI.
     // No modificar la OOSS activa del chat cuando se consulta otra por nombre.
     if (isSocialWorkStatusQuestion(question)) {
-      const {data: statusWorks, error: statusError} = await supabaseAdmin
-        .from("social_works").select("id,name,active");
+      const {data: statusWorks, error: statusError} = await cachedLoad("sw_all_status", 60000, () => supabaseAdmin
+        .from("social_works").select("id,name,active"));
       if (statusError) throw new Error(statusError.message);
-      const {data: statusAliases, error: statusAliasesError} = await supabaseAdmin
-        .from("social_work_aliases").select("*");
+      const {data: statusAliases, error: statusAliasesError} = await cachedLoad("sw_aliases_all", 60000, () => supabaseAdmin
+        .from("social_work_aliases").select("*"));
       if (statusAliasesError) console.error("social work status aliases:", statusAliasesError.message);
       const dictionary = buildSocialWorkDictionary({
         socialWorks: statusWorks || [], aliases: statusAliasesError ? [] : (statusAliases || []),
       });
       const matches = detectSocialWorks({text:question, dictionary});
       // v3.13.102o — «recibimos ampes salud»: si se nombró algo que no existe («AMPES SALUD»), no se asume la obra social parecida.
+      // v3.13.122 — «galeno art recibimos?»: gana la obra social INACTIVA de nombre completo sobre la activa más corta.
+      const statusInactiveOverride = inactiveOverridesActive({ question, matches, inactiveWorks: (statusWorks || []).filter((w) => w.active === false), aliases: statusAliasesError ? [] : (statusAliases || []) });
+      if (statusInactiveOverride) {
+        const overrideAnswer = buildInactiveAnswer(statusInactiveOverride.name);
+        const overrideMs = Date.now() - startedAt;
+        await logCurrentQuery({branchId, socialWorkId, question, answer: overrideAnswer, source:"SOCIAL_WORK_IDENTITY",
+          route:"INACTIVE_SOCIAL_WORK", found:false, elapsedMs: overrideMs, usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+        return Response.json({ok:true,question,answer:overrideAnswer,source:"SOCIAL_WORK_IDENTITY",route:"INACTIVE_SOCIAL_WORK",found:false,
+          inactive_social_work:{id:statusInactiveOverride.id,name:statusInactiveOverride.name},
+          elapsed_ms:overrideMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
+      }
       const statusUnresolved = unresolvedExplicitSocialWork({question, dictionary, matches});
       if (statusUnresolved) {
         let statusSuggestions = [];
@@ -6448,13 +6479,16 @@ if (conversationId) {
         ? (statusWorks || []).find(item => Number(item.id) === Number(socialWorkId))
         : null;
       const targetWork = namedWork || contextWork || null;
+      // v3.13.116 — «boreal recibimos el plan ospif?»: se responde por la obra social y se aclara que el plan no está cargado.
+      const statusPlan = namedWork ? planWithinSocialWork({question, dictionary, matches}) : null;
       const answer = matches.length > 1
         ? "Hay más de una obra social posible. Indicame su nombre completo para verificar el estado."
+        : targetWork && statusPlan ? `${formatSocialWorkStatus(targetWork)} Sobre el plan ${statusPlan} dentro de ${targetWork.name} no tengo información cargada en GDPSoft: consultalo con la coordinación o con la obra social antes de confirmarlo al afiliado.`
         : targetWork ? formatSocialWorkStatus(targetWork)
         : hasExplicitStatusSubject(question)
           ? "No encontré una obra social con ese nombre en GDPSoft. Confirmá cómo figura en el listado."
           : "Indicame de qué obra social querés consultar el estado.";
-      const found = Boolean(targetWork && typeof targetWork.active === "boolean");
+      const found = Boolean(targetWork && typeof targetWork.active === "boolean") && !statusPlan;
       const elapsedMs = Date.now() - startedAt;
       await logCurrentQuery({branchId, socialWorkId: targetWork?.id || socialWorkId, question, answer,
         source:"SOCIAL_WORK_PROFILE", route:"STRUCTURED_SOCIAL_WORK_STATUS",

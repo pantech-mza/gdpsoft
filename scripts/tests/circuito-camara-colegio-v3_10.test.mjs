@@ -77,7 +77,7 @@ test('AMPES: seis excepciones todo el día; resto hasta las 20',()=>{
   }
 });
 
-test('Provincia ART: Colegio confirmado por el cliente, Cámara pendiente',()=>{
+test('Provincia ART: Colegio por Cámara–Colegio; Cámara directa (activa en Cámara, inactiva en Colegio)',()=>{
   // Aclaración confirmada el 16/10/2026: SOLO para sucursales de Colegio.
   // No modifica las excepciones previas ni autoriza por sí sola una receta.
   for(const branch of COLEGIO_BRANCHES) {
@@ -90,9 +90,9 @@ test('Provincia ART: Colegio confirmado por el cliente, Cámara pendiente',()=>{
   for(const branch of CAMARA_BRANCHES) {
     const r=caseOf(branch,'PROVINCIA ART');
     assert.equal(r.group,'CAMARA',branch);
-    assert.equal(r.status,'AMBIGUOUS',branch);
-    assert.equal(r.mode,'REVIEW_REQUIRED',branch);
-    assert.equal(r.canReceive,null,branch);
+    assert.equal(r.status,'DEFINED',branch);
+    assert.equal(r.mode,'DIRECT',branch);
+    assert.equal(r.canReceive,true,branch);
   }
 });
 

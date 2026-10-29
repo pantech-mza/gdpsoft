@@ -14,10 +14,10 @@ test('Provincia ART: todas las sucursales Colegio deben usar Cámara–Colegio',
   }
 });
 
-test('Provincia ART: sucursales Cámara quedan sin regla confirmada', () => {
+test('Provincia ART: sucursales Cámara la reciben directo (activa en Cámara)', () => {
   for (const branch of CAMARA_BRANCHES) {
     const result = resolve(branch, 'PROVINCIA ART');
-    assert.equal(result?.mode, 'REVIEW_REQUIRED', branch);
+    assert.equal(result?.mode, 'DIRECT', branch);
     assert.equal(result?.group, 'CAMARA', branch);
   }
 });
@@ -53,9 +53,9 @@ test('AMPES: se mantienen horarios y OSDEPYM no se confunde con OSDE', () => {
 
 test('Provincia ART - modos según las seis sucursales piloto', () => {
   const expected = new Map([
-    ['DP1','REVIEW_REQUIRED'],['LIBERTAD','CAMARA_COLEGIO'],
-    ['ECONOMAS','REVIEW_REQUIRED'],['DP4','REVIEW_REQUIRED'],
-    ['DP5','REVIEW_REQUIRED'],['SAN FRANCISCO','CAMARA_COLEGIO']
+    ['DP1','DIRECT'],['LIBERTAD','CAMARA_COLEGIO'],
+    ['ECONOMAS','DIRECT'],['DP4','DIRECT'],
+    ['DP5','DIRECT'],['SAN FRANCISCO','CAMARA_COLEGIO']
   ]);
   for (const [branch,mode] of expected)
     assert.equal(resolve(branch,'Provincia ART')?.mode,mode,branch);

@@ -32,9 +32,9 @@ test("Importación usa ID legado para emparejar y PK propia para escribir",()=>{
   assert.equal(c.social_work_id,35);assert.equal(c.legacy_id,60);
   assert.equal(c.kind,"GENERAL");assert.equal(c.review_status,"PENDING");
 });
-test("Provincia ART queda pendiente; sucursales piloto respetan reglas",()=>{
+test("Provincia ART: Cámara directa; sucursales piloto respetan reglas",()=>{
   const p=resolveDeclaredCircuitPolicy({branchName:"DP1",socialWorkName:"PROVINCIA ART"});
-  assert.equal(p.mode,"REVIEW_REQUIRED");
+  assert.equal(p.mode,"DIRECT");
   assert.equal(resolveDeclaredCircuitPolicy({branchName:"DP1",socialWorkName:"OSTES"}).mode,"CAMARA_COLEGIO");
   assert.equal(resolveDeclaredCircuitPolicy({branchName:"Libertad",socialWorkName:"FEDERACION PATRONAL ART"}).mode,"DIRECT");
   assert.equal(resolveDeclaredCircuitPolicy({branchName:"San Francisco",socialWorkName:"OSSEG"}).mode,"DIRECT");
