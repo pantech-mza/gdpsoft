@@ -20,3 +20,12 @@ test('«recibimos ampes?»: el estado suma el horario de la sucursal', () => {
   assert.match(r, /está activa en GDPSoft\./);
   assert.match(r, /después de las 20 h/);
 });
+import { withPolicyLine } from '../../lib/assistant/branch-restriction.mjs';
+test('OSTES en Colegio: la línea oficial reemplaza lo que invente el motor', () => {
+  const line = 'En Libertad, OSTES se recibe directo y se valida por dentro, por TYS.';
+  const r = withPolicyLine({ answer: 'OSTES en Libertad (Colegio) se valida de forma directa, sin circuito Cámara-Colegio. Usá el validador correspondiente según el procedimiento habitual. Presentá receta con DNI.', route: 'CONTEXT_ENGINE', line, marker: 'por TYS' });
+  assert.match(r, /^En Libertad, OSTES se recibe directo y se valida por dentro, por TYS\./);
+  assert.doesNotMatch(r, /circuito|validador correspondiente/);
+  assert.match(r, /DNI/);
+  assert.equal(withPolicyLine({ answer: 'Se valida por TYS. Circuito directo.', route: 'CONTEXT_ENGINE', line, marker: 'por TYS' }), null);
+});

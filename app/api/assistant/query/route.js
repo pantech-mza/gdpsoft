@@ -66,7 +66,7 @@ import { cachedLoad, clientKey } from "../../../../lib/server/ttl-cache.mjs";
 import { isAffiliateListQuestionWithoutDni, buildAffiliateListPrompt, dniReplyToQuestion } from "../../../../lib/assistant/affiliate-list-prompt.mjs";
 import { makeNormativeTextExtractor } from "../../../../lib/audit/normative-text.mjs";
 import { isSpreadsheetFile } from "../../../../lib/normatives/spreadsheet-text.mjs";
-import { colegioRestrictionFromNotes, withColegioRestriction, withProvinciaArtColegio } from "../../../../lib/assistant/branch-restriction.mjs";
+import { colegioRestrictionFromNotes, withColegioRestriction, withProvinciaArtColegio, withPolicyLine } from "../../../../lib/assistant/branch-restriction.mjs";
 import { isAffiliateDniQuestion, extractDni, lookupDni, buildDniAnswer } from "../../../../lib/assistant/affiliate-lookup.mjs";
 import { unresolvedExplicitSocialWork, planWithinSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
 
@@ -5555,6 +5555,19 @@ export async function POST(request) {
         if (fixed) {
           const fixedPlain = typeof pj.answer_plain === "string" ? withProvinciaArtColegio({ answer: pj.answer_plain, route: pj.route || pj.source, circuit: pCircuit, workName: pWork.name, branchLabel: label }) : null;
           response = Response.json({ ...pj, answer: fixed, ...(fixedPlain ? { answer_plain: fixedPlain } : {}) }, { status: response.status });
+        }
+      }
+    }
+    // v3.13.145 — obras sociales «directas» con línea declarada (OSTES, OSPAV, LUIS PASTEUR, OSFYHC en Colegio)
+    if (pj?.ok === true && typeof pj.answer === "string" && Number.isInteger(pSw) && pSw > 0 && Number.isInteger(pBr) && pBr > 0 && /CONTEXT_ENGINE/.test(String(pj.route || pj.source))) {
+      const { data: dWork } = await cachedLoad(`sw_name_${clientKey(supabaseAdmin)}_${pSw}`, 300000, () => supabaseAdmin.from("social_works").select("name").eq("id", pSw).maybeSingle());
+      const { data: dBranch } = await cachedLoad(`br_name_${clientKey(supabaseAdmin)}_${pBr}`, 300000, () => supabaseAdmin.from("branches").select("name,code").eq("id", pBr).maybeSingle());
+      if (dWork?.name && dBranch) {
+        const dPolicy = resolveDeclaredCircuitPolicy({ branchName: dBranch.name, branchCode: dBranch.code, socialWorkName: dWork.name });
+        if (dPolicy?.matched && dPolicy.mode === "DIRECT" && dPolicy.directLine) {
+          const dLine = formatCircuitLine(dPolicy, { branchLabel: dBranch.name || dBranch.code, workName: dWork.name });
+          const dFixed = withPolicyLine({ answer: pj.answer, route: pj.route || pj.source, line: dLine, marker: dPolicy.directLine });
+          if (dFixed) response = Response.json({ ...pj, answer: dFixed, ...(typeof pj.answer_plain === "string" ? { answer_plain: dFixed } : {}) }, { status: response.status });
         }
       }
     }
