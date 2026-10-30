@@ -393,6 +393,12 @@ export default function FloatingAssistant() {
   function updateContextFromResponse(
     data
   ) {
+    // v3.13.146 — si la obra social consultada está INACTIVA, el chip no puede quedar con la anterior (ej. UOM).
+    if (data?.route === "INACTIVE_SOCIAL_WORK" || data?.inactive_social_work) {
+      setActiveSocialWork(null);
+      return;
+    }
+
     const socialWorkId =
       Number(
         data?.context
