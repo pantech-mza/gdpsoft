@@ -31,8 +31,12 @@ test('alias de sucursales, sin falsas coincidencias',()=>{
 test('OSTES/OSPAV/PASTEUR/OSFYHC requieren Cámara–Colegio solo en grupo Cámara',()=>{
   for(const work of ['OSTES','OSPAV','LUIS PASTEUR','OSFYHC']) {
     for(const branch of CAMARA_BRANCHES) assert.equal(caseOf(branch,work).mode,'CAMARA_COLEGIO',`${branch}/${work}`);
-    for(const branch of COLEGIO_BRANCHES) assert.equal(caseOf(branch,work).mode,'REGULAR_VALIDATOR',`${branch}/${work}`);
+    for(const branch of COLEGIO_BRANCHES) { const c=caseOf(branch,work); assert.equal(c.mode,'DIRECT',`${branch}/${work}`); assert.match(c.directLine,/TYS/); }
   }
+});
+
+test('Provincia ART en Cámara: se valida por Compañía con declaración de dispensa (planilla del cliente 30/10)',()=>{
+  for(const branch of CAMARA_BRANCHES) { const c=caseOf(branch,'PROVINCIA ART'); assert.equal(c.mode,'DIRECT'); assert.match(c.directLine,/Compañía, con declaración de dispensa/); }
 });
 
 test('OSECAC: DP1 externo por San Francisco, Econo Más y San Rafael directo, resto Cámara–Colegio',()=>{
@@ -66,14 +70,18 @@ test('OSSEG: San Francisco directo, todas las otras Cámara–Colegio',()=>{
     assert.equal(caseOf(branch,'OSSEG').mode,branch==='SAN_FRANCISCO'?'DIRECT':'CAMARA_COLEGIO');
 });
 
-test('AMPES: seis excepciones todo el día; resto hasta las 20',()=>{
-  const full=['DP4','ECONO_MAIPU','ECONO_MAS','LA_JIRAFA_1','ECONO_SAN_MARTIN','FARMA_UCO'];
+test('AMPES: Maipú, San Martín, Más y La Jirafa 1 hasta las 20; el resto después de las 20 (Administración 30/10)',()=>{
+  const until20=['ECONO_MAIPU','ECONO_SAN_MARTIN','ECONO_MAS','LA_JIRAFA_1'];
   for(const branch of [...CAMARA_BRANCHES,...COLEGIO_BRANCHES]) {
     const r=caseOf(branch,'AMPES ASISTIR');
     assert.equal(r.canReceive,true);
-    assert.equal(r.allDay,full.includes(branch));
-    assert.equal(r.until,full.includes(branch)?null:'20:00');
+    assert.equal(r.allDay,false);
+    assert.equal(r.until,until20.includes(branch)?'20:00':null);
+    assert.equal(r.after,until20.includes(branch)?null:'20:00');
     assert.equal(r.mode,'UNSPECIFIED');
+    assert.match(r.notes, until20.includes(branch)?/hasta las 20 h/:/después de las 20 h/);
+    assert.match(r.notes, /Sábados, domingos y feriados se recibe todo el día/);
+    assert.doesNotMatch(r.notes, /Cámara–Colegio/);
   }
 });
 

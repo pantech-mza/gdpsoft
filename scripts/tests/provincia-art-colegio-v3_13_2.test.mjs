@@ -45,9 +45,9 @@ test('Reglas particulares anteriores no se alteran en las 6 sucursales piloto', 
 });
 
 test('AMPES: se mantienen horarios y OSDEPYM no se confunde con OSDE', () => {
-  assert.equal(resolve('DP1','AMPES ASISTIR')?.until,'20:00');
-  assert.equal(resolve('DP4','AMPES ASISTIR')?.allDay,true);
-  assert.equal(resolve('ECONOMAS','AMPES ASISTIR')?.allDay,true);
+  assert.equal(resolve('DP1','AMPES ASISTIR')?.after,'20:00');
+  assert.equal(resolve('DP4','AMPES ASISTIR')?.after,'20:00');
+  assert.equal(resolve('ECONOMAS','AMPES ASISTIR')?.until,'20:00'); // cliente 30/10: Econo Más solo hasta las 20 h, después por circuito
   assert.equal(resolve('DP1','OSDEPYM')?.mode,'REGULAR_VALIDATOR');
 });
 

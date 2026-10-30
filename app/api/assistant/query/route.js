@@ -66,7 +66,7 @@ import { cachedLoad, clientKey } from "../../../../lib/server/ttl-cache.mjs";
 import { isAffiliateListQuestionWithoutDni, buildAffiliateListPrompt, dniReplyToQuestion } from "../../../../lib/assistant/affiliate-list-prompt.mjs";
 import { makeNormativeTextExtractor } from "../../../../lib/audit/normative-text.mjs";
 import { isSpreadsheetFile } from "../../../../lib/normatives/spreadsheet-text.mjs";
-import { colegioRestrictionFromNotes, withColegioRestriction } from "../../../../lib/assistant/branch-restriction.mjs";
+import { colegioRestrictionFromNotes, withColegioRestriction, withProvinciaArtColegio } from "../../../../lib/assistant/branch-restriction.mjs";
 import { isAffiliateDniQuestion, extractDni, lookupDni, buildDniAnswer } from "../../../../lib/assistant/affiliate-lookup.mjs";
 import { unresolvedExplicitSocialWork, planWithinSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
 
@@ -5541,6 +5541,26 @@ export async function POST(request) {
   } catch {
     // el aviso es adicional: nunca debe romper la respuesta
   }
+  // v3.13.144 — Provincia ART en sucursales de COLEGIO: solo el circuito (sin COFA/FACAF del motor).
+  try {
+    const pj = await response.clone().json();
+    const pSw = Number(pj?.context?.social_work_id), pBr = Number(pj?.context?.branch_id);
+    if (pj?.ok === true && typeof pj.answer === "string" && Number.isInteger(pSw) && pSw > 0 && Number.isInteger(pBr) && pBr > 0) {
+      const { data: pWork } = await cachedLoad(`sw_name_${clientKey(supabaseAdmin)}_${pSw}`, 300000, () => supabaseAdmin.from("social_works").select("name").eq("id", pSw).maybeSingle());
+      if (/provincia\s*art/i.test(String(pWork?.name || ""))) {
+        const pCircuit = await resolveBranchGroup(supabaseAdmin, pBr);
+        const { data: pBranch } = await cachedLoad(`br_name_${clientKey(supabaseAdmin)}_${pBr}`, 300000, () => supabaseAdmin.from("branches").select("name,code").eq("id", pBr).maybeSingle());
+        const label = pBranch?.name || pBranch?.code || "";
+        const fixed = withProvinciaArtColegio({ answer: pj.answer, route: pj.route || pj.source, circuit: pCircuit, workName: pWork.name, branchLabel: label });
+        if (fixed) {
+          const fixedPlain = typeof pj.answer_plain === "string" ? withProvinciaArtColegio({ answer: pj.answer_plain, route: pj.route || pj.source, circuit: pCircuit, workName: pWork.name, branchLabel: label }) : null;
+          response = Response.json({ ...pj, answer: fixed, ...(fixedPlain ? { answer_plain: fixedPlain } : {}) }, { status: response.status });
+        }
+      }
+    }
+  } catch {
+    // la corrección es adicional: nunca debe romper la respuesta
+  }
   // v3.13.100 — motor de contexto completo en MODO SOMBRA: responde en paralelo y guarda el resultado;
   // nunca cambia lo que ve la sucursal (apagado por defecto: CONTEXT_ENGINE_MODE=shadow para activarlo).
   try {
@@ -6583,11 +6603,25 @@ if (conversationId) {
           ? "No encontré una obra social con ese nombre en GDPSoft. Confirmá cómo figura en el listado."
           : "Indicame de qué obra social querés consultar el estado.";
       const found = Boolean(targetWork && typeof targetWork.active === "boolean") && !statusPlan;
+      // v3.13.144 — «recibimos ampes asistir?»: además de «está activa», dice el horario / circuito de ESTA sucursal.
+      let statusExtra = null;
+      try {
+        if (targetWork?.active === true && !statusPlan && matches.length <= 1) {
+          const baseB = supabaseAdmin.from("branches").select("name,code");
+          const { data: stBranch } = await (branchId ? baseB.eq("id", branchId) : baseB.eq("code", branchCode)).maybeSingle();
+          if (stBranch) {
+            const stPolicy = resolveDeclaredCircuitPolicy({ branchName: stBranch.name, branchCode: stBranch.code, socialWorkName: targetWork.name });
+            statusExtra = stPolicy?.work === "AMPES_ASISTIR" ? (stPolicy.notes || null)
+              : formatCircuitLine(stPolicy, { branchLabel: stBranch.name || stBranch.code, workName: targetWork.name });
+          }
+        }
+      } catch { statusExtra = null; }
+      const answerFinal = statusExtra ? formatSocialWorkStatus(targetWork, statusExtra) : answer;
       const elapsedMs = Date.now() - startedAt;
-      await logCurrentQuery({branchId, socialWorkId: targetWork?.id || socialWorkId, question, answer,
+      await logCurrentQuery({branchId, socialWorkId: targetWork?.id || socialWorkId, question, answer: answerFinal,
         source:"SOCIAL_WORK_PROFILE", route:"STRUCTURED_SOCIAL_WORK_STATUS",
         found, elapsedMs, usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
-      return Response.json({ok:true,question,answer,found,source:"SOCIAL_WORK_PROFILE",
+      return Response.json({ok:true,question,answer:answerFinal,found,source:"SOCIAL_WORK_PROFILE",
         route:"STRUCTURED_SOCIAL_WORK_STATUS",context:responseContext,elapsed_ms:elapsedMs,
         structured_data:targetWork ? {social_work_id:targetWork.id,active:targetWork.active} : null,
         usage:{input_tokens:0,output_tokens:0,total_tokens:0}});

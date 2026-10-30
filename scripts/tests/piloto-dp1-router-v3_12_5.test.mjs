@@ -75,7 +75,7 @@ test('procedimiento del cliente DP1, sin inventar Provincia ART',()=>{
     ['FEDERACION PATRONAL ART','CAMARA_COLEGIO'],
     ['PROVINCIA ART','DIRECT'],
   ]) assert.equal(resolveDeclaredCircuitPolicy({branchCode:'DP1',socialWorkName:work}).mode, mode, work);
-  assert.equal(resolveDeclaredCircuitPolicy({branchCode:'DP1',socialWorkName:'AMPES ASISTIR'}).until, '20:00');
+  assert.equal(resolveDeclaredCircuitPolicy({branchCode:'DP1',socialWorkName:'AMPES ASISTIR'})?.after, '20:00');
 });
 
 test('circuitos del resto del piloto también permanecen correctos',()=>{

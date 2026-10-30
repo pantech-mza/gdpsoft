@@ -38,6 +38,6 @@ test("Provincia ART: Cámara directa; sucursales piloto respetan reglas",()=>{
   assert.equal(resolveDeclaredCircuitPolicy({branchName:"DP1",socialWorkName:"OSTES"}).mode,"CAMARA_COLEGIO");
   assert.equal(resolveDeclaredCircuitPolicy({branchName:"Libertad",socialWorkName:"FEDERACION PATRONAL ART"}).mode,"DIRECT");
   assert.equal(resolveDeclaredCircuitPolicy({branchName:"San Francisco",socialWorkName:"OSSEG"}).mode,"DIRECT");
-  assert.equal(resolveDeclaredCircuitPolicy({branchName:"DP4",socialWorkName:"AMPES ASISTIR"}).allDay,true);
+  assert.equal(resolveDeclaredCircuitPolicy({branchName:"DP4",socialWorkName:"AMPES ASISTIR"}).after,"20:00"); // Administración 30/10: DP4 la recibe después de las 20 h
   assert.equal(resolveDeclaredCircuitPolicy({branchName:"DP1",socialWorkName:"OSDEPYM"}).mode,"REGULAR_VALIDATOR");
 });
