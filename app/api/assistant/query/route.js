@@ -1,3 +1,4 @@
+import { narrowByCue } from "../../../../lib/assistant/social-work-cue.mjs";
 import OpenAI from "openai";
 import { buildCourtesyAnswer, classifyCourtesy } from "../../../../lib/assistant/courtesy.mjs";
 import { createTrace, describeSearchResults, finalStep } from "../../../../lib/assistant/trace.mjs";
@@ -5264,13 +5265,14 @@ async function detectSocialWorkFromQuestion(
         [],
     });
 
+  // v3.13.138 — si nombra más de una, la frase puede decidir cuál es la obra social («… para la obra social OSPE»).
   const matches =
-    detectSocialWorks({
+    narrowByCue(cleanQuestion, detectSocialWorks({
       text:
         cleanQuestion,
 
       dictionary,
-    });
+    }));
   const unresolvedName = unresolvedExplicitSocialWork({question:cleanQuestion,dictionary,matches});
 
   // v3.13.109 — obra social INACTIVA nombrada por su nombre o por un alias (p. ej. «fuerza aérea» → IOSFA).

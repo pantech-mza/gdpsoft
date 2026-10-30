@@ -414,6 +414,13 @@ export default function AdminBranchValidation() {
                       </div>
                       <div className={`mt-1.5 max-w-[88%] rounded-2xl rounded-bl-sm border px-3.5 py-2.5 ${active ? "border-2 border-[#8f2a85]" : item.alerts.length && !item.review ? "border-red-200 bg-red-50/60" : "border-zinc-200 bg-white"} ${item.followUp ? "bg-zinc-50" : ""}`}>
                         <div className="mb-1 flex flex-wrap gap-1.5">
+                          {(() => {
+                            // v3.13.139 — la conversación tiene una obra social activa (p. ej. UOM), pero esta consulta pudo ser sobre otra (inactiva).
+                            const other = String(item.answer || "").match(/^(.+?) figura como obra social INACTIVA/i)?.[1];
+                            return other && other.trim().toLowerCase() !== String(selected.social_work_name || "").trim().toLowerCase()
+                              ? <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-amber-800">Consulta sobre {other.trim()} (inactiva), no sobre {selected.social_work_name}</span>
+                              : null;
+                          })()}
                           {item.followUp && <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-zinc-500">Seguimiento · no hace falta validar</span>}
                           {item.alerts.map((alert) => <span key={alert} className="rounded-md bg-red-100 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-red-700">⚠ {alert}</span>)}
                           {item.review && <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[9.5px] font-extrabold uppercase text-emerald-700">Revisada</span>}
