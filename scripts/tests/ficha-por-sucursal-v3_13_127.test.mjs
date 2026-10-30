@@ -20,3 +20,12 @@ test('OSEP + oncológicos usa las notas OYTE', () => {
   assert.equal(detectPlanVariant('los oncológicos inyectables de OSEP los recibimos?'), 'OYTE');
   assert.equal(detectPlanVariant('osep cómo se valida'), null);
 });
+import { formatCircuitLine, resolveDeclaredCircuitPolicy } from '../../lib/operations/camara-colegio-policy.mjs';
+test('Provincia ART en Colegio: inactiva en Colegio, solo circuito de Cámara', () => {
+  const policy = resolveDeclaredCircuitPolicy({ branchName: 'DP6', socialWorkName: 'PROVINCIA ART' });
+  assert.equal(policy.mode, 'CAMARA_COLEGIO');
+  assert.equal(formatCircuitLine(policy, { branchLabel: 'DP6', workName: 'Provincia ART' }), 'En DP6, Provincia ART figura inactiva en Colegio, pero podés realizarla por el circuito Cámara–Colegio. En tu sucursal tramitala como circuito de Cámara para evitar rechazos.');
+  assert.equal(branchCircuitInfo('PROVINCIA ART', { name: 'DP6' }).detail, 'Inactiva en Colegio. Tramitala como circuito de Cámara para evitar rechazos.');
+  const osecac = resolveDeclaredCircuitPolicy({ branchName: 'Libertad', socialWorkName: 'OSECAC' });
+  assert.match(formatCircuitLine(osecac, { branchLabel: 'Libertad', workName: 'OSECAC' }), /Cámara–Colegio/);
+});
