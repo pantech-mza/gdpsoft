@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../../../../lib/supabase/admin";
 import { actorFromRequest, adminActor } from "../../../../../lib/server/gdp-actor";
+import { deactivateAllCachedAnswers } from "../../../../../lib/assistant/admin-corrections.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,6 +61,7 @@ export async function POST(request,{params}) {
     social_work_id:ctx.socialWorkId,kind,body,source:"MANUAL",review_status:"APPROVED",
     created_by:ctx.actor.id,updated_by:ctx.actor.id,
   });
+  if (!error) await deactivateAllCachedAnswers(supabaseAdmin,ctx.socialWorkId);
   return error ? json({ok:false,error:"No se pudo guardar la observación"},500) : json({ok:true},201);
 }
 export async function PATCH(request,{params}) {
@@ -72,6 +74,7 @@ export async function PATCH(request,{params}) {
     kind,body,source:"MANUAL",review_status:"APPROVED",updated_at:new Date().toISOString(),updated_by:ctx.actor.id,
   }).eq("id",id).eq("social_work_id",ctx.socialWorkId).select("id").maybeSingle();
   if (error) return json({ok:false,error:"Error actualizando observación"},500);
+  if (data) await deactivateAllCachedAnswers(supabaseAdmin,ctx.socialWorkId);
   return data ? json({ok:true}) : json({ok:false,error:"Observación no encontrada"},404);
 }
 export async function DELETE(request,{params}) {
@@ -82,5 +85,6 @@ export async function DELETE(request,{params}) {
   const {data,error} = await supabaseAdmin.from("social_work_notes").delete()
     .eq("id",id).eq("social_work_id",ctx.socialWorkId).select("id").maybeSingle();
   if (error) return json({ok:false,error:"Error eliminando observación"},500);
+  if (data) await deactivateAllCachedAnswers(supabaseAdmin,ctx.socialWorkId);
   return data ? json({ok:true}) : json({ok:false,error:"Observación no encontrada"},404);
 }
