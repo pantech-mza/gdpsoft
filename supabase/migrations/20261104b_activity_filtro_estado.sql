@@ -19,8 +19,8 @@ filtered AS (
  AND (p_day IS NULL OR (l.created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date=p_day)
  AND (NOT coalesce(p_exclude_internal,false) OR (l.traffic_type<>'ADMIN' AND coalesce(dv.device_name,'') !~* '(^|[^[:alpha:]])(nico|mica|admin)'))
  AND (p_state IS NULL OR p_state='' OR (p_state='respondidas' AND l.found IS NOT FALSE)
-   OR (p_state='fallas' AND l.found IS FALSE AND coalesce(l.route,'') NOT IN ('CLARIFICATION_NEEDED','AMBIGUOUS_SOCIAL_WORK','STRUCTURED_CLARIFICATION','UNKNOWN_EXPLICIT_SOCIAL_WORK','INACTIVE_SOCIAL_WORK'))
-   OR (p_state='aclaraciones' AND l.found IS FALSE AND coalesce(l.route,'') IN ('CLARIFICATION_NEEDED','AMBIGUOUS_SOCIAL_WORK','STRUCTURED_CLARIFICATION','UNKNOWN_EXPLICIT_SOCIAL_WORK','INACTIVE_SOCIAL_WORK')))
+   OR (p_state='fallas' AND l.found IS FALSE AND NOT ((coalesce(l.route,'') IN ('CLARIFICATION_NEEDED','AMBIGUOUS_SOCIAL_WORK','STRUCTURED_CLARIFICATION','UNKNOWN_EXPLICIT_SOCIAL_WORK','INACTIVE_SOCIAL_WORK') OR l.route='STRUCTURED_SOCIAL_WORK_STATUS' OR coalesce(l.answer,'') ~* '^\s*(Necesito que aclares|No encontré una obra social|No pude identificar|Indicame (de qué|el nombre|la obra)|Hay más de una obra social|¿Qué necesit)') OR l.route='STRUCTURED_SOCIAL_WORK_STATUS' OR coalesce(l.answer,'') ~* '^\s*(Necesito que aclares|No encontré una obra social|No pude identificar|Indicame (de qué|el nombre|la obra)|Hay más de una obra social|¿Qué necesit)'))
+   OR (p_state='aclaraciones' AND l.found IS FALSE AND (coalesce(l.route,'') IN ('CLARIFICATION_NEEDED','AMBIGUOUS_SOCIAL_WORK','STRUCTURED_CLARIFICATION','UNKNOWN_EXPLICIT_SOCIAL_WORK','INACTIVE_SOCIAL_WORK') OR l.route='STRUCTURED_SOCIAL_WORK_STATUS' OR coalesce(l.answer,'') ~* '^\s*(Necesito que aclares|No encontré una obra social|No pude identificar|Indicame (de qué|el nombre|la obra)|Hay más de una obra social|¿Qué necesit)')))
 ), page_rows AS (
  SELECT f.id,f.created_at,f.branch_id,f.social_work_id,f.device_id,f.question,f.answer,f.route,f.status,
  f.error_code,f.elapsed_ms,f.found,f.traffic_type,

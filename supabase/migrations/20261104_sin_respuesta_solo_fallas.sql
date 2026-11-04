@@ -23,8 +23,8 @@ filtered AS (
     AND (NOT coalesce(p_exclude_internal,false) OR (l.traffic_type<>'ADMIN' AND coalesce(dv.device_name,'') !~* '(^|[^[:alpha:]])(nico|mica|admin)'))
 ), totals AS (
   SELECT count(*)::int total,
-    count(*) FILTER(WHERE f.found IS FALSE AND coalesce(f.route,'') NOT IN ('CLARIFICATION_NEEDED','AMBIGUOUS_SOCIAL_WORK','STRUCTURED_CLARIFICATION','UNKNOWN_EXPLICIT_SOCIAL_WORK','INACTIVE_SOCIAL_WORK'))::int no_answer,
-    count(*) FILTER(WHERE f.found IS FALSE AND coalesce(f.route,'') IN ('CLARIFICATION_NEEDED','AMBIGUOUS_SOCIAL_WORK','STRUCTURED_CLARIFICATION','UNKNOWN_EXPLICIT_SOCIAL_WORK','INACTIVE_SOCIAL_WORK'))::int clarifications,
+    count(*) FILTER(WHERE f.found IS FALSE AND NOT ((coalesce(f.route,'') IN ('CLARIFICATION_NEEDED','AMBIGUOUS_SOCIAL_WORK','STRUCTURED_CLARIFICATION','UNKNOWN_EXPLICIT_SOCIAL_WORK','INACTIVE_SOCIAL_WORK') OR f.route='STRUCTURED_SOCIAL_WORK_STATUS' OR coalesce(f.answer,'') ~* '^\s*(Necesito que aclares|No encontré una obra social|No pude identificar|Indicame (de qué|el nombre|la obra)|Hay más de una obra social|¿Qué necesit)') OR f.route='STRUCTURED_SOCIAL_WORK_STATUS' OR coalesce(f.answer,'') ~* '^\s*(Necesito que aclares|No encontré una obra social|No pude identificar|Indicame (de qué|el nombre|la obra)|Hay más de una obra social|¿Qué necesit)'))::int no_answer,
+    count(*) FILTER(WHERE f.found IS FALSE AND (coalesce(f.route,'') IN ('CLARIFICATION_NEEDED','AMBIGUOUS_SOCIAL_WORK','STRUCTURED_CLARIFICATION','UNKNOWN_EXPLICIT_SOCIAL_WORK','INACTIVE_SOCIAL_WORK') OR f.route='STRUCTURED_SOCIAL_WORK_STATUS' OR coalesce(f.answer,'') ~* '^\s*(Necesito que aclares|No encontré una obra social|No pude identificar|Indicame (de qué|el nombre|la obra)|Hay más de una obra social|¿Qué necesit)'))::int clarifications,
     count(DISTINCT f.branch_id)::int branches_active,
     count(DISTINCT f.device_id)::int devices_active,
     round(avg(f.elapsed_ms) FILTER (WHERE f.elapsed_ms>=0))::int avg_ms,
