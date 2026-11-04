@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../../../../../lib/supabase/admin';
 import { requireAdminActor, jsonError } from '../../../../../lib/server/gdp-actor';
 import * as XLSX from 'xlsx';
+import { parseActivityFilters, callActivityRpc } from '../../../../../lib/server/activity-filters.mjs';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -23,12 +24,12 @@ export async function GET(request){
   const auth=await requireAdminActor(request);
   if(!auth.actor)return jsonError(auth.error,auth.status);
   const q=new URL(request.url).searchParams;
-  const days=Number(q.get('days')??0),branchId=numericId(q.get('branch_id')),socialId=numericId(q.get('social_work_id')),deviceId=numericId(q.get('device_id'));
+  const days=Number(q.get('days')??0),filters=parseActivityFilters(q);
   const day=String(q.get('day')||''),view=String(q.get('view')||'dashboard');
-  if(![0,1,7,30].includes(days)||[branchId,socialId,deviceId].some(Number.isNaN)||!['dashboard','questions'].includes(view)||day&&!/^\d{4}-\d{2}-\d{2}$/.test(day))return jsonError('Filtros inválidos',400);
+  if(![0,1,7,30].includes(days)||!filters.ok||!['dashboard','questions'].includes(view)||day&&!/^\d{4}-\d{2}-\d{2}$/.test(day))return jsonError('Filtros inválidos',400);
   const question=String(q.get('question')||'').slice(0,180)||null;
-  const args={p_days:days,p_branch_id:branchId,p_social_work_id:socialId,p_device_id:deviceId,p_question:question,p_day:day||null};
-  const {data:first,error:firstError}=await supabaseAdmin.rpc('gdp_assistant_activity_page_v3',{...args,p_page:1,p_page_size:30});
+  const args={p_days:days,p_question:question,p_day:day||null};
+  const {data:first,error:firstError}=await callActivityRpc(supabaseAdmin,'page',filters,{...args,p_page:1,p_page_size:30});
   if(firstError)return jsonError('Error consultando preguntas: '+firstError.message,500);
   const total=Number(first?.total||0);
   const MAX_ROWS=3000;
@@ -38,7 +39,7 @@ export async function GET(request){
   // Cinco RPC simultáneas por tanda evitan sobrecargar la base de datos.
   for(let start=2;start<=Math.ceil(total/30);start+=5){
     const batch=Array.from({length:Math.min(5,Math.ceil(total/30)-start+1)},(_,i)=>start+i);
-    const pages=await Promise.all(batch.map(p=>supabaseAdmin.rpc('gdp_assistant_activity_page_v3',{...args,p_page:p,p_page_size:30})));
+    const pages=await Promise.all(batch.map(p=>callActivityRpc(supabaseAdmin,'page',filters,{...args,p_page:p,p_page_size:30})));
     const problem=pages.find(p=>p.error);
     if(problem)return jsonError('No se pudo completar la exportación; no se generó archivo parcial.',500);
     for(const page of pages)rows.push(...(page.data?.rows||[]));
@@ -50,7 +51,7 @@ export async function GET(request){
     x.found===false?'No':'Sí',x.route,x.status,x.elapsed_ms,x.error_code
   ][i])])));
   if(view==='dashboard'){
-    const {data:d,error}=await supabaseAdmin.rpc('gdp_assistant_activity_dashboard_v3',args);
+    const {data:d,error}=await callActivityRpc(supabaseAdmin,'dashboard',filters,args);
     if(error)return jsonError('No se pudo exportar el tablero: '+error.message,500);
     const totals=d?.totals||{};
     const totalsSheet=Object.entries(totals).map(([indicador,valor])=>({Indicador:indicador,Valor:valor}));
