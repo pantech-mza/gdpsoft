@@ -4,7 +4,7 @@ import { buildCourtesyAnswer, classifyCourtesy } from "../../../../lib/assistant
 import { createTrace, describeSearchResults, finalStep } from "../../../../lib/assistant/trace.mjs";
 import { after } from "next/server";
 import { shadowConfig, shouldShadow, runShadow } from "../../../../lib/assistant/context-engine/shadow.mjs";
-import { liveConfig, shouldGoLive, runLive, syncQueryLog } from "../../../../lib/assistant/context-engine/live.mjs";
+import { liveConfig, shouldGoLive, runLive, syncQueryLog, engineAnswered } from "../../../../lib/assistant/context-engine/live.mjs";
 import { withVademecum } from "../../../../lib/assistant/vademecum-link.mjs";
 import { isGenericFillerAnswer } from "../../../../lib/assistant/answer-guards.mjs";
 import { matchCorrectionSemantically } from "../../../../lib/assistant/correction-semantic.mjs";
@@ -5506,7 +5506,7 @@ export async function POST(request) {
           conversationId: liveConv, currentAnswer: lj.answer_plain || lj.answer, currentRoute: lj.route || lj.source, state: conversationState });
         if (live.used) {
           const eng = live.result;
-          const liveJson = { ...lj, found: eng.status === "OK", answer: eng.answer, answer_plain: eng.answer, source: "CONTEXT_ENGINE", route: "CONTEXT_ENGINE",
+          const liveJson = { ...lj, found: engineAnswered(eng), answer: eng.answer, answer_plain: eng.answer, source: "CONTEXT_ENGINE", route: "CONTEXT_ENGINE",
             engine: { status: eng.status, model: liveCfg.model, sources: (eng.sources || []).slice(0, 4).map((s) => ({ seccion: s.seccion, fecha: s.fecha })) } };
           response = Response.json(liveJson, { status: response.status });
           await syncQueryLog(supabaseAdmin, { branchId: brId, socialWorkId: swId, question: rawQuestion, answer: eng.answer, route: "CONTEXT_ENGINE" });
@@ -8512,9 +8512,9 @@ if (!normativeScope.ok) {
       const engineElapsedMs = Date.now() - startedAt;
       const engineUsage = { input_tokens: eng.tokens_in || 0, output_tokens: eng.tokens_out || 0, total_tokens: (eng.tokens_in || 0) + (eng.tokens_out || 0) };
       await logCurrentQuery({ branchId, socialWorkId, question, answer: eng.answer, source: "CONTEXT_ENGINE", route: "CONTEXT_ENGINE",
-        found: eng.status === "OK", elapsedMs: engineElapsedMs, usage: engineUsage });
+        found: engineAnswered(eng), elapsedMs: engineElapsedMs, usage: engineUsage });
       return Response.json({ ok: true, question, answer: eng.answer, answer_plain: eng.answer, source: "CONTEXT_ENGINE", route: "CONTEXT_ENGINE",
-        found: eng.status === "OK", context: responseContext, elapsed_ms: engineElapsedMs, usage: engineUsage,
+        found: engineAnswered(eng), context: responseContext, elapsed_ms: engineElapsedMs, usage: engineUsage,
         engine: { status: eng.status, model: engineCfg.model, first: true, sources: (eng.sources || []).slice(0, 4).map((x) => ({ seccion: x.seccion, fecha: x.fecha })) } });
     }
   }
