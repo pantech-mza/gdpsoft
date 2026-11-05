@@ -40,6 +40,6 @@ test('Ambas rutas aplican el bloqueo antes de leer la Ficha o cambiar contexto',
  const chat=readFileSync(resolve(root,'app/api/assistant/chat/route.js'),'utf8');
  const query=readFileSync(resolve(root,'app/api/assistant/query/route.js'),'utf8');
  assert.ok(chat.includes('if (detection.unresolvedName)'));
- assert.ok(query.includes('if (detectedSocialWork.unresolvedName && !isSocialWorkStatusQuestion(question))'));
+ assert.ok(query.includes('if (detectedSocialWork.unresolvedName && !(detectedSocialWork.unresolvedKind === \'HEURISTIC\' && socialWorkId) && !isSocialWorkStatusQuestion(question))'));
  assert.ok(query.indexOf('if (detectedSocialWork.unresolvedName')<query.indexOf('const detectedOperationIntent = detectOperationIntent(question)'));
 });

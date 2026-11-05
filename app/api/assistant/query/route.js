@@ -68,7 +68,7 @@ import { makeNormativeTextExtractor } from "../../../../lib/audit/normative-text
 import { isSpreadsheetFile } from "../../../../lib/normatives/spreadsheet-text.mjs";
 import { colegioRestrictionFromNotes, withColegioRestriction, withProvinciaArtColegio, withPolicyLine } from "../../../../lib/assistant/branch-restriction.mjs";
 import { isAffiliateDniQuestion, extractDni, lookupDni, buildDniAnswer } from "../../../../lib/assistant/affiliate-lookup.mjs";
-import { unresolvedExplicitSocialWork, planWithinSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
+import { unresolvedExplicitSocialWork, unresolvedExplicitSocialWorkKind, planWithinSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
 
 import { resolveCommonAuthorizationAmount } from "../../../../lib/assistant/common-authorization-rules.mjs";
 const isAuthorizationAmountQuestionForCommonRule = (question) => /(?:autoriz|\btopes?\b|\blimites?\b|\bimportes?\b|\bprecios?\b|\bmontos?\b|\$\s*\d|\b20\s*000\b|\b80\s*000\b)/i.test(String(question || "").normalize("NFD").replace(/[\u0300-\u036f]/g,""));
@@ -5273,7 +5273,9 @@ async function detectSocialWorkFromQuestion(
 
       dictionary,
     }));
-  const unresolvedName = unresolvedExplicitSocialWork({question:cleanQuestion,dictionary,matches});
+  const unresolvedInfo = unresolvedExplicitSocialWorkKind({question:cleanQuestion,dictionary,matches});
+  const unresolvedName = unresolvedInfo.name;
+  const unresolvedKind = unresolvedInfo.kind;
 
   // v3.13.109 — obra social INACTIVA nombrada por su nombre o por un alias (p. ej. «fuerza aérea» → IOSFA).
   // Solo si las activas no resolvieron la consulta (ninguna coincidencia, o solo por una palabra suelta).
@@ -5306,6 +5308,7 @@ async function detectSocialWorkFromQuestion(
       matches:
         [],
       unresolvedName,
+      unresolvedKind,
       inactive,
     };
   }
@@ -6109,7 +6112,8 @@ if (conversationId) {
       elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
   }
   // Si hay sigla explícita desconocida, bloquear el fallback a la OOSS previa.
-  if (detectedSocialWork.unresolvedName && !isSocialWorkStatusQuestion(question)) {
+  // v3.13.158 — con una obra social ya en la conversación, una palabra suelta que solo se PARECE a un nombre («insulina», «especial») no corta la consulta.
+  if (detectedSocialWork.unresolvedName && !(detectedSocialWork.unresolvedKind === 'HEURISTIC' && socialWorkId) && !isSocialWorkStatusQuestion(question)) {
     const name = detectedSocialWork.unresolvedName;
     // v3.13.30 — «¿Quisiste decir…?»: se ofrece la obra social más parecida.
     let suggestions = [];
