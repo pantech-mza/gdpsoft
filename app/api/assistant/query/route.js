@@ -6111,6 +6111,7 @@ if (conversationId) {
       context:{conversation_id:conversationId,branch_id:branchId,device_id:deviceId,social_work_id:socialWorkId},
       elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
   }
+  trace.add("tiempo", { punto: "deteccion_obra_social", ms: Date.now() - startedAt });
   // Si hay sigla explícita desconocida, bloquear el fallback a la OOSS previa.
   // v3.13.158 — con una obra social ya en la conversación, una palabra suelta que solo se PARECE a un nombre («insulina», «especial») no corta la consulta.
   if (detectedSocialWork.unresolvedName && !(detectedSocialWork.unresolvedKind === 'HEURISTIC' && socialWorkId) && !isSocialWorkStatusQuestion(question)) {
@@ -8500,10 +8501,12 @@ if (!normativeScope.ok) {
   const engineCfg = liveConfig();
   if (engineCfg.enabled && shouldGoLive(engineCfg, { socialWorkId, branchId, route: "SEMANTIC", ok: true, followUp: followUp.isFollowUp })) {
     markEngineTried(engineFirstKey);
+    trace.add("tiempo", { punto: "antes_del_motor", ms: Date.now() - startedAt });
     const engineCircuit = (await getBranchCircuit()).group || null;
     const engineConv = /^[0-9a-f-]{36}$/i.test(String(conversationId || "")) ? conversationId : null;
     const engineRun = await runLive({ supabase: supabaseAdmin, cfg: { ...engineCfg, timeoutMs: Math.min(engineCfg.timeoutMs, 12000) }, question, socialWorkId, branchId, circuit: engineCircuit,
       variant: generalPlanVariant, conversationId: engineConv, currentAnswer: "", currentRoute: "ENGINE_FIRST", state: conversationState });
+    trace.add("tiempo", { punto: "motor_terminado", ms: Date.now() - startedAt, motor_ms: engineRun.result?.latency_ms ?? null });
     if (engineRun.used) {
       const eng = engineRun.result;
       const engineElapsedMs = Date.now() - startedAt;
