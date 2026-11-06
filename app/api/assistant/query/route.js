@@ -8537,7 +8537,7 @@ if (!normativeScope.ok) {
     const engineConv = /^[0-9a-f-]{36}$/i.test(String(conversationId || "")) ? conversationId : null;
     const engineRun = await runLive({ onDraft: liveDraft(), supabase: supabaseAdmin, cfg: { ...engineCfg, timeoutMs: Math.min(engineCfg.timeoutMs, 12000) }, question, socialWorkId, branchId, circuit: engineCircuit,
       variant: generalPlanVariant, conversationId: engineConv, currentAnswer: "", currentRoute: "ENGINE_FIRST", state: conversationState });
-    trace.add("tiempo", { punto: "motor_terminado", ms: Date.now() - startedAt, motor_ms: engineRun.result?.latency_ms ?? null });
+    trace.add("tiempo", { punto: "motor_terminado", ms: Date.now() - startedAt, motor_ms: engineRun.result?.latency_ms ?? null, carga_ms: engineRun.result?.load_ms ?? null, primer_texto_ms: engineRun.result?.ttft_ms ?? null });
     if (engineRun.used) {
       const eng = engineRun.result;
       const engineElapsedMs = Date.now() - startedAt;
