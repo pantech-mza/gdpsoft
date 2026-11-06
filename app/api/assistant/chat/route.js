@@ -1,6 +1,8 @@
 import {
   supabaseAdmin,
 } from "../../../../lib/supabase/admin";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { sseResponse, readSse } from "../../../../lib/assistant/stream-utils.mjs";
 import { isGeneralBranchCircuitQuestion } from "../../../../lib/assistant/branch-circuit-membership.mjs";
 import { isSocialWorkStatusQuestion } from "../../../../lib/assistant/social-work-status.mjs";
 import { unresolvedExplicitSocialWork } from "../../../../lib/assistant/explicit-social-work-protection.mjs";
@@ -726,6 +728,8 @@ function stripFollowUp(
 // LLAMAR AL ROUTER ACTUAL
 // =========================================================
 
+const streamStore = new AsyncLocalStorage();
+
 async function callAssistantQuery({
   request,
   conversationId,
@@ -762,6 +766,9 @@ async function callAssistantQuery({
       cookie;
   }
 
+  // v3.13.164 — con streaming, los borradores del motor se reenvían en vivo y se toma la respuesta definitiva del evento "final".
+  const emitDraft = streamStore.getStore()?.emit || null;
+
   const response =
     await fetch(
       targetUrl,
@@ -776,11 +783,30 @@ async function callAssistantQuery({
           JSON.stringify({
             conversationId,
             question,
+            ...(emitDraft ? { stream: true } : {}),
           }),
       }
     );
 
   let data;
+
+  if (emitDraft && response.body && /text\/event-stream/i.test(response.headers.get("content-type") || "")) {
+    let finalEvent = null;
+    await readSse(response.body, (event, payload) => {
+      if (event === "draft") emitDraft("draft", payload);
+      else if (event === "final") finalEvent = payload;
+    });
+    if (finalEvent?.data) {
+      return {
+        response: new Response(null, { status: finalEvent.status || 200 }),
+        data: finalEvent.data,
+      };
+    }
+    return {
+      response,
+      data: { ok: false, error: "El asistente devolvió una respuesta inválida.", code: "INVALID_ASSISTANT_RESPONSE" },
+    };
+  }
 
   try {
     data =
@@ -808,7 +834,18 @@ async function callAssistantQuery({
 // POST
 // =========================================================
 
-export async function POST(
+export async function POST(request) {
+  let wantsStream = false;
+  try { wantsStream = (await request.clone().json())?.stream === true; } catch { /* lo valida el flujo normal */ }
+  if (!wantsStream) return runChat(request);
+  return sseResponse((emit) => streamStore.run({ emit }, async () => {
+    const response = await runChat(request);
+    let data = null; try { data = await response.clone().json(); } catch { /* no JSON */ }
+    return { status: response.status, data };
+  }));
+}
+
+async function runChat(
   request
 ) {
   try {

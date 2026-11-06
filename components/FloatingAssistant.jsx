@@ -10,6 +10,7 @@ import {
 } from "../lib/assistant/imageRouting";
 
 import { refreshStoredSession } from "../lib/client/session";
+import { readSse } from "../lib/assistant/stream-utils.mjs";
 
 import { interpretPrescriptionContextReply } from "../lib/assistant/recipe-context-clarification.mjs";
 
@@ -99,6 +100,8 @@ export default function FloatingAssistant() {
   // Mantener la conversación en esta pestaña, aislada por usuario+sucursal+dispositivo.
   // No se guardan tokens; la sesión caduca después de 8 horas.
   const [chatRestored, setChatRestored] = useState(false);
+  // v3.13.164 — borrador de la respuesta mientras el motor la escribe (se reemplaza por la definitiva).
+  const [streamDraft, setStreamDraft] = useState("");
   const chatOwnerRef = useRef(null);
   const CHAT_SNAPSHOT_KEY = "gdpsoft_assistant_chat_v1";
   function getChatOwner() {
@@ -670,6 +673,7 @@ export default function FloatingAssistant() {
                 null,
 
               usedTopics,
+              stream: true,
               ...(recipeClarification ? {recipeClarification} : {}),
             };
 
@@ -695,8 +699,25 @@ export default function FloatingAssistant() {
       let data =
         null;
 
-      const rawResponse =
-        await response.text();
+      let httpOk = response.ok;
+      let httpStatus = response.status;
+      let rawResponse;
+
+      if (/text\/event-stream/i.test(response.headers.get("content-type") || "") && response.body) {
+        let finalEvent = null;
+        try {
+          await readSse(response.body, (event, payload) => {
+            if (event === "draft" && typeof payload?.text === "string") setStreamDraft(payload.text);
+            else if (event === "final") finalEvent = payload;
+          });
+        } catch { /* si se corta, se informa abajo */ }
+        setStreamDraft("");
+        httpStatus = finalEvent?.status || 500;
+        httpOk = httpStatus >= 200 && httpStatus < 300;
+        rawResponse = finalEvent?.data ? JSON.stringify(finalEvent.data) : "";
+      } else {
+        rawResponse = await response.text();
+      }
 
       try {
         data =
@@ -710,7 +731,7 @@ export default function FloatingAssistant() {
           "Respuesta NO JSON del servidor:",
           {
             status:
-              response.status,
+              httpStatus,
 
             statusText:
               response.statusText,
@@ -723,12 +744,12 @@ export default function FloatingAssistant() {
         );
 
         throw new Error(
-          `El servidor devolvió una respuesta inválida (${response.status}). Revisá la consola del servidor.`
+          `El servidor devolvió una respuesta inválida (${httpStatus}). Revisá la consola del servidor.`
         );
       }
 
       if (
-        !response.ok ||
+        !httpOk ||
         data?.ok === false
       ) {
         // =====================================================
@@ -844,7 +865,7 @@ export default function FloatingAssistant() {
             endpoint,
 
             status:
-              response.status,
+              httpStatus,
 
             statusText:
               response.statusText,
@@ -866,7 +887,7 @@ export default function FloatingAssistant() {
             (
               data?.code
                 ? `Error del asistente: ${data.code}`
-                : `No pude responder la consulta. HTTP ${response.status}`
+                : `No pude responder la consulta. HTTP ${httpStatus}`
             )
         );
       }
@@ -909,6 +930,7 @@ export default function FloatingAssistant() {
       );
       return false;
     } finally {
+      setStreamDraft("");
       setLoading(
         false
       );
@@ -1634,7 +1656,14 @@ export default function FloatingAssistant() {
                 }
               )}
 
-              {loading && (
+              {loading && streamDraft && (
+                <div className="max-w-[88%] whitespace-pre-wrap rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-sm text-zinc-800 shadow-sm">
+                  {streamDraft}
+                  <span className="ml-0.5 animate-pulse text-zinc-400">▍</span>
+                </div>
+              )}
+
+              {loading && !streamDraft && (
                 <div className="max-w-[88%] rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-sm text-zinc-500 shadow-sm">
 
                   <span className="animate-pulse">

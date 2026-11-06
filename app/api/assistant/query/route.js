@@ -3,6 +3,8 @@ import OpenAI from "openai";
 import { buildCourtesyAnswer, classifyCourtesy } from "../../../../lib/assistant/courtesy.mjs";
 import { createTrace, describeSearchResults, finalStep } from "../../../../lib/assistant/trace.mjs";
 import { after } from "next/server";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { sseResponse } from "../../../../lib/assistant/stream-utils.mjs";
 import { shadowConfig, shouldShadow, runShadow } from "../../../../lib/assistant/context-engine/shadow.mjs";
 import { liveConfig, shouldGoLive, runLive, syncQueryLog, engineAnswered } from "../../../../lib/assistant/context-engine/live.mjs";
 import { withVademecum } from "../../../../lib/assistant/vademecum-link.mjs";
@@ -5429,7 +5431,22 @@ function deferWrite(promise) {
   return safe;
 }
 
+// v3.13.164 — streaming: el borrador del motor se envía en vivo; la respuesta definitiva (ya verificada y armada) llega al final.
+const draftStore = new AsyncLocalStorage();
+const liveDraft = () => { const emit = draftStore.getStore()?.emit; return emit ? (text) => emit("draft", { text }) : null; };
+
 export async function POST(request) {
+  let wantsStream = false;
+  try { wantsStream = (await request.clone().json())?.stream === true; } catch { /* el motor valida el cuerpo */ }
+  if (!wantsStream) return runPost(request);
+  return sseResponse((emit) => draftStore.run({ emit }, async () => {
+    const response = await runPost(request);
+    let data = null; try { data = await response.clone().json(); } catch { /* respuesta no JSON */ }
+    return { status: response.status, data };
+  }));
+}
+
+async function runPost(request) {
   const postStartedAt = Date.now();
   let conversationState = null;
   let rawQuestion = "";
@@ -5512,7 +5529,7 @@ export async function POST(request) {
         const liveCircuit = Number.isInteger(brId) && brId > 0 ? await resolveBranchGroup(supabaseAdmin, brId) : null;
         const liveConv = /^[0-9a-f-]{36}$/i.test(String(wrapperConversationId || "")) ? wrapperConversationId : null;
         const liveVariant = resolvePlanVariant({ question: rawQuestion, state: conversationState, socialWorkId: swId });
-        const live = await runLive({ supabase: supabaseAdmin, cfg: liveCfg, question: rawQuestion, socialWorkId: swId, branchId: brId, circuit: liveCircuit, variant: liveVariant,
+        const live = await runLive({ onDraft: liveDraft(), supabase: supabaseAdmin, cfg: liveCfg, question: rawQuestion, socialWorkId: swId, branchId: brId, circuit: liveCircuit, variant: liveVariant,
           conversationId: liveConv, currentAnswer: lj.answer_plain || lj.answer, currentRoute: lj.route || lj.source, state: conversationState });
         if (live.used) {
           const eng = live.result;
@@ -8518,7 +8535,7 @@ if (!normativeScope.ok) {
     trace.add("tiempo", { punto: "antes_del_motor", ms: Date.now() - startedAt });
     const engineCircuit = (await getBranchCircuit()).group || null;
     const engineConv = /^[0-9a-f-]{36}$/i.test(String(conversationId || "")) ? conversationId : null;
-    const engineRun = await runLive({ supabase: supabaseAdmin, cfg: { ...engineCfg, timeoutMs: Math.min(engineCfg.timeoutMs, 12000) }, question, socialWorkId, branchId, circuit: engineCircuit,
+    const engineRun = await runLive({ onDraft: liveDraft(), supabase: supabaseAdmin, cfg: { ...engineCfg, timeoutMs: Math.min(engineCfg.timeoutMs, 12000) }, question, socialWorkId, branchId, circuit: engineCircuit,
       variant: generalPlanVariant, conversationId: engineConv, currentAnswer: "", currentRoute: "ENGINE_FIRST", state: conversationState });
     trace.add("tiempo", { punto: "motor_terminado", ms: Date.now() - startedAt, motor_ms: engineRun.result?.latency_ms ?? null });
     if (engineRun.used) {
