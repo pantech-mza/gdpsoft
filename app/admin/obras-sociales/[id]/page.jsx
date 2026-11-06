@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import LinkifiedText from "../../../../components/assistant/LinkifiedText";
 import NormativeFileButton from "../../../../components/social-works/NormativeFileButton";
 import NormativeRowMenu from "../../../../components/social-works/NormativeRowMenu";
 
@@ -868,8 +869,9 @@ function FichaCard({
 
       <p className="mt-2 text-base font-semibold leading-6 text-zinc-800">
         {
-          value ??
-          "-"
+          typeof value === "string" && value
+            ? <LinkifiedText text={value} />
+            : (value ?? "-")
         }
       </p>
 

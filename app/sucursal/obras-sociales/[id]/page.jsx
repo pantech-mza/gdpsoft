@@ -8,6 +8,7 @@ import DecisionTreesPanel from "../../../../components/social-works/DecisionTree
 
 
 import Link from "next/link";
+import LinkifiedText from "../../../../components/assistant/LinkifiedText";
 import { branchCircuitInfo } from "../../../../lib/operations/circuit-badge.mjs";
 
 import {
@@ -1927,7 +1928,7 @@ function InfoCard({
 
       <p className="mt-2 break-words text-[12px] font-semibold leading-5 text-zinc-800 sm:text-[14px]">
 
-        {value}
+        {typeof value === "string" ? <LinkifiedText text={value} /> : value}
 
       </p>
 

@@ -1,4 +1,5 @@
 "use client";
+import LinkifiedText from "../assistant/LinkifiedText";
 import { useCallback, useEffect, useState } from "react";
 import { refreshStoredSession } from "../../lib/client/session";
 
@@ -70,9 +71,9 @@ export default function FichaNotesPanel({socialWorkId,editable=false,legacyObser
         {note.review_status === "PENDING"&&<span className="ml-2 rounded-md bg-amber-100 px-1.5 py-0.5 normal-case text-amber-800">Histórica · pendiente de revisión</span>}
       </p>{editable&&<div className="flex gap-3"><button type="button" className="text-xs font-semibold text-[#8f2a85]" onClick={()=>beginEdit(note)}>Editar</button><button type="button" className="text-xs font-semibold text-red-700" disabled={busy} onClick={()=>remove(note)}>Eliminar</button></div>}</div>
       {isProtected(note) ? <div className="space-y-2"><p className="text-xs text-zinc-500">Información restringida. No se envía al asistente IA.</p>
-        {visible[note.id]&&<p className="whitespace-pre-wrap break-words rounded-lg bg-zinc-50 p-3 text-sm text-zinc-800">{visible[note.id]}</p>}
+        {visible[note.id]&&<p className="whitespace-pre-wrap break-words rounded-lg bg-zinc-50 p-3 text-sm text-zinc-800"><LinkifiedText text={visible[note.id]} /></p>}
         <button type="button" onClick={()=>reveal(note)} className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700">{visible[note.id]?"Ocultar acceso":"Mostrar acceso"}</button></div>
-        : <p className="whitespace-pre-wrap break-words text-sm leading-6 text-zinc-800">{note.body}</p>}
+        : <p className="whitespace-pre-wrap break-words text-sm leading-6 text-zinc-800"><LinkifiedText text={note.body} /></p>}
     </article>)}
     {editable&&editor&&<div role="dialog" aria-modal="true" aria-label="Editar observación" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"><div className="w-full max-w-xl space-y-4 rounded-2xl bg-white p-5 shadow-xl">
       <h3 className="font-semibold text-zinc-900">{editor.id?"Editar observación":"Nueva observación"}</h3>
