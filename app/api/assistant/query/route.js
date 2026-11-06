@@ -7,7 +7,7 @@ import { shadowConfig, shouldShadow, runShadow } from "../../../../lib/assistant
 import { liveConfig, shouldGoLive, runLive, syncQueryLog, engineAnswered } from "../../../../lib/assistant/context-engine/live.mjs";
 import { withVademecum } from "../../../../lib/assistant/vademecum-link.mjs";
 import { isGenericFillerAnswer } from "../../../../lib/assistant/answer-guards.mjs";
-import { matchCorrectionSemantically } from "../../../../lib/assistant/correction-semantic.mjs";
+import { matchCorrectionSemantically, prefetchCorrectionEmbeddings } from "../../../../lib/assistant/correction-semantic.mjs";
 
 import {
   resolveOperation,
@@ -5419,6 +5419,16 @@ async function appendMatchingNotes(json, rawQuestion) {
   return { ...json, answer: relevant ? `${json.answer}\n\n${header}\n${text}` : `${header}\n${text}` };
 }
 
+// v3.13.163 — escrituras que no hace falta esperar para responder (registro de la consulta, estado de la conversación).
+const pendingWrites = new Set();
+function deferWrite(promise) {
+  const safe = Promise.resolve(promise).catch((error) => console.warn("escritura diferida:", error?.message));
+  pendingWrites.add(safe);
+  safe.finally(() => pendingWrites.delete(safe));
+  try { after(() => safe); } catch { /* fuera de una solicitud: se resuelve igual */ }
+  return safe;
+}
+
 export async function POST(request) {
   const postStartedAt = Date.now();
   let conversationState = null;
@@ -5454,7 +5464,7 @@ export async function POST(request) {
     try {
       const json = await response.clone().json();
       const next = buildNextState({ prev: conversationState, rawQuestion, json });
-      if (next) await saveConversationState(supabaseAdmin, wrapperConversationId, next);
+      if (next) deferWrite(saveConversationState(supabaseAdmin, wrapperConversationId, next));
     } catch (stateError) {
       console.warn("conversation_state no persistido:", stateError?.message);
     }
@@ -5509,7 +5519,7 @@ export async function POST(request) {
           const liveJson = { ...lj, found: engineAnswered(eng), answer: eng.answer, answer_plain: eng.answer, source: "CONTEXT_ENGINE", route: "CONTEXT_ENGINE",
             engine: { status: eng.status, model: liveCfg.model, sources: (eng.sources || []).slice(0, 4).map((s) => ({ seccion: s.seccion, fecha: s.fecha })) } };
           response = Response.json(liveJson, { status: response.status });
-          await syncQueryLog(supabaseAdmin, { branchId: brId, socialWorkId: swId, question: rawQuestion, answer: eng.answer, route: "CONTEXT_ENGINE" });
+          await syncQueryLog(supabaseAdmin, { branchId: brId, socialWorkId: swId, question: rawQuestion, answer: eng.answer, route: "CONTEXT_ENGINE", found: engineAnswered(eng) });
         }
       }
     }
@@ -5600,7 +5610,7 @@ export async function POST(request) {
     const tSw = Number(tj?.context?.social_work_id), tBr = Number(tj?.context?.branch_id);
     if (tj?.ok === true && Number.isInteger(tSw) && tSw > 0) {
       const totalMs = Date.now() - postStartedAt;
-      after(() => recordTotalElapsed(supabaseAdmin, { branchId: tBr || null, socialWorkId: tSw, question: rawQuestion, elapsedMs: totalMs }));
+      after(async () => { await Promise.allSettled([...pendingWrites]); await recordTotalElapsed(supabaseAdmin, { branchId: tBr || null, socialWorkId: tSw, question: rawQuestion, elapsedMs: totalMs }); });
     }
   } catch { /* medir es opcional */ }
   return response;
@@ -6112,6 +6122,10 @@ if (conversationId) {
       elapsed_ms:elapsedMs,usage:{input_tokens:0,output_tokens:0,total_tokens:0}});
   }
   trace.add("tiempo", { punto: "deteccion_obra_social", ms: Date.now() - startedAt });
+  // v3.13.163 — el matcheo de correcciones necesita embeddings (llamada a OpenAI): se piden ya, en paralelo con el resto de los pasos.
+  if (Number.isInteger(socialWorkId) && socialWorkId > 0 && openai) {
+    loadSocialWorkCorrections(supabaseAdmin, socialWorkId).then((list) => prefetchCorrectionEmbeddings({ client: openai, question, corrections: list })).catch(() => {});
+  }
   // Si hay sigla explícita desconocida, bloquear el fallback a la OOSS previa.
   // v3.13.158 — con una obra social ya en la conversación, una palabra suelta que solo se PARECE a un nombre («insulina», «especial») no corta la consulta.
   if (detectedSocialWork.unresolvedName && !(detectedSocialWork.unresolvedKind === 'HEURISTIC' && socialWorkId) && !isSocialWorkStatusQuestion(question)) {
@@ -8511,8 +8525,9 @@ if (!normativeScope.ok) {
       const eng = engineRun.result;
       const engineElapsedMs = Date.now() - startedAt;
       const engineUsage = { input_tokens: eng.tokens_in || 0, output_tokens: eng.tokens_out || 0, total_tokens: (eng.tokens_in || 0) + (eng.tokens_out || 0) };
-      await logCurrentQuery({ branchId, socialWorkId, question, answer: eng.answer, source: "CONTEXT_ENGINE", route: "CONTEXT_ENGINE",
-        found: engineAnswered(eng), elapsedMs: engineElapsedMs, usage: engineUsage });
+      // v3.13.163 — el registro se guarda DESPUÉS de responder: la sucursal no espera la escritura.
+      deferWrite(logCurrentQuery({ branchId, socialWorkId, question, answer: eng.answer, source: "CONTEXT_ENGINE", route: "CONTEXT_ENGINE",
+        found: engineAnswered(eng), elapsedMs: engineElapsedMs, usage: engineUsage }));
       return Response.json({ ok: true, question, answer: eng.answer, answer_plain: eng.answer, source: "CONTEXT_ENGINE", route: "CONTEXT_ENGINE",
         found: engineAnswered(eng), context: responseContext, elapsed_ms: engineElapsedMs, usage: engineUsage,
         engine: { status: eng.status, model: engineCfg.model, first: true, sources: (eng.sources || []).slice(0, 4).map((x) => ({ seccion: x.seccion, fecha: x.fecha })) } });
